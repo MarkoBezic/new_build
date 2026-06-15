@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 export const CLEARING_R = 62;   // radius of the open meadow (building + parking fit inside)
-const WORLD_R           = 230;  // forest extends to this radius
+const WORLD_R           = 460;  // forest extends to this radius (doubled)
 
 // Four leaf-green tints for visual variety
 const LEAF_PALETTE = [0x2A6820, 0x387828, 0x1C5016, 0x4A9030];
@@ -50,8 +50,12 @@ function buildGround(scene) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  Procedural forest — InstancedMesh for near-zero draw-call cost
 // ─────────────────────────────────────────────────────────────────────────────
+// Exclusion zones — keep trees clear of landmark clearings
+const POND_X = -160, POND_Z =  20, POND_EXCL = 33;
+const CAVE_X =  160, CAVE_Z = -20, CAVE_EXCL = 36;
+
 function buildForest(scene) {
-  const TREE_TARGET = 1200;
+  const TREE_TARGET = 2000;
   const MIN_GAP     = 3.0;   // minimum centre-to-centre distance between trees
 
   // ── 1. Generate positions ────────────────────────────────────────────────
@@ -68,6 +72,12 @@ function buildForest(scene) {
 
     const x = Math.cos(angle) * r;
     const z = Math.sin(angle) * r;
+
+    // Reject if inside landmark clearings
+    const pdx = x - POND_X, pdz = z - POND_Z;
+    if (pdx * pdx + pdz * pdz < POND_EXCL * POND_EXCL) continue;
+    const cdx = x - CAVE_X, cdz = z - CAVE_Z;
+    if (cdx * cdx + cdz * cdz < CAVE_EXCL * CAVE_EXCL) continue;
 
     // Reject if too close to another tree
     let tooClose = false;

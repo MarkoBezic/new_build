@@ -1,29 +1,150 @@
 import * as THREE from 'three';
+import { POND_CENTER, CAVE_CENTER } from './landmarks.js';
 
-// ── Map dimensions & scale ────────────────────────────────────────────────
-const W  = 180, H = 180;
-const CX = W / 2, CY = H / 2;   // canvas centre = world origin (0, 0)
-const PX_PER_UNIT = 1.2;          // 1 world unit → 1.2 px  (shows ±75 units)
+// ── Canvas & scale ────────────────────────────────────────────────────────
+const W  = 280, H = 280;
+const CX = W / 2, CY = H / 2;
+const S  = 0.65;   // px per world unit — shows ±215 units from centre
 
-// World (x, z) → canvas (cx, cy).  +z = south = canvas-down.
-function wm(x, z) {
-  return [CX + x * PX_PER_UNIT, CY + z * PX_PER_UNIT];
+// World (x, z) → canvas pixel
+function px(x) { return CX + x * S; }
+function py(z) { return CY + z * S; }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Pre-render the static world map once to an offscreen canvas
+// ─────────────────────────────────────────────────────────────────────────────
+function bakeMap() {
+  const off = document.createElement('canvas');
+  off.width  = W;
+  off.height = H;
+  const c = off.getContext('2d');
+
+  // Forest background
+  c.fillStyle = '#1A3510';
+  c.fillRect(0, 0, W, H);
+
+  // Subtle grid every 50 world units
+  c.strokeStyle = 'rgba(255,255,255,0.035)';
+  c.lineWidth   = 1;
+  for (let u = -200; u <= 200; u += 50) {
+    c.beginPath(); c.moveTo(px(u), 0);   c.lineTo(px(u), H); c.stroke();
+    c.beginPath(); c.moveTo(0, py(u));   c.lineTo(W, py(u)); c.stroke();
+  }
+
+  // Clearing disc (bright grass)
+  c.fillStyle = '#4D9240';
+  c.beginPath();
+  c.arc(CX, CY, 62 * S, 0, Math.PI * 2);
+  c.fill();
+
+  // Treeline transition ring (slightly darker)
+  c.strokeStyle = '#2D5820';
+  c.lineWidth   = 4;
+  c.beginPath();
+  c.arc(CX, CY, (62 + 5) * S, 0, Math.PI * 2);
+  c.stroke();
+
+  // ── Pond (west) ──────────────────────────────────────────────────────────
+  const ppx = px(POND_CENTER.x), ppy = py(POND_CENTER.z);
+  // Shore ring
+  c.fillStyle = '#2E7D3A';
+  c.beginPath();
+  c.ellipse(ppx, ppy, 22 * S, 14 * S, 0, 0, Math.PI * 2);
+  c.fill();
+  // Water body
+  c.fillStyle = '#1A5276';
+  c.beginPath();
+  c.ellipse(ppx, ppy, 18 * S, 11 * S, 0, 0, Math.PI * 2);
+  c.fill();
+  // Highlight shimmer
+  c.strokeStyle = 'rgba(90,180,220,0.4)';
+  c.lineWidth   = 1.5;
+  c.beginPath();
+  c.ellipse(ppx, ppy, 13 * S, 7 * S, 0, 0, Math.PI * 2);
+  c.stroke();
+
+  // ── Rock formation + cave (east) ─────────────────────────────────────────
+  const cpx = px(CAVE_CENTER.x), cpy = py(CAVE_CENTER.z);
+  // Rocky ground
+  c.fillStyle = '#484038';
+  c.beginPath();
+  c.ellipse(cpx, cpy, 22 * S, 22 * S, 0, 0, Math.PI * 2);
+  c.fill();
+  // Cliff mass
+  c.fillStyle = '#6A6258';
+  c.fillRect(cpx - 4 * S, cpy - 14 * S, 20 * S, 28 * S);
+  // Cave opening (dark mouth faces west)
+  c.fillStyle = '#111008';
+  c.fillRect(cpx - 8 * S, cpy - 6 * S, 10 * S, 12 * S);
+
+  // ── Parking lots ─────────────────────────────────────────────────────────
+  c.fillStyle = '#1E1E22';
+  // North lot
+  c.fillRect(px(-28), py(-52), 56 * S, 36 * S);
+  // South lot
+  c.fillRect(px(-23), py(16),  46 * S, 26 * S);
+
+  // Parking lot lane marks (faint white dashes)
+  c.strokeStyle = 'rgba(255,255,255,0.08)';
+  c.lineWidth   = 0.8;
+  for (let lz = -52 + 18; lz < -16; lz += 18) {
+    c.beginPath(); c.moveTo(px(-28), py(lz)); c.lineTo(px(28), py(lz)); c.stroke();
+  }
+  c.beginPath(); c.moveTo(px(-23), py(16 + 13)); c.lineTo(px(23), py(16 + 13)); c.stroke();
+
+  // ── Building footprint ───────────────────────────────────────────────────
+  c.fillStyle   = '#9A9088';
+  c.strokeStyle = '#C8C0B0';
+  c.lineWidth   = 1.2;
+  c.fillRect(px(-21), py(-14), 42 * S, 28 * S);
+  c.strokeRect(px(-21), py(-14), 42 * S, 28 * S);
+
+  // ── Labels ───────────────────────────────────────────────────────────────
+  c.textAlign    = 'center';
+  c.textBaseline = 'middle';
+
+  // Building
+  c.fillStyle = 'rgba(255,250,240,0.9)';
+  c.font      = 'bold 8px system-ui,sans-serif';
+  c.fillText('OT', CX, CY + 1);
+
+  // Pond label
+  c.fillStyle = 'rgba(160,220,255,0.85)';
+  c.font      = '8px system-ui,sans-serif';
+  c.fillText('POND', ppx, ppy + 16 * S + 5);
+
+  // Cave label
+  c.fillStyle = 'rgba(210,200,185,0.85)';
+  c.font      = '8px system-ui,sans-serif';
+  c.fillText('CAVE', cpx + 5 * S, cpy + 24 * S + 3);
+
+  // ── Map title ─────────────────────────────────────────────────────────────
+  c.fillStyle    = 'rgba(255,255,255,0.38)';
+  c.font         = 'bold 8px system-ui,sans-serif';
+  c.textAlign    = 'left';
+  c.textBaseline = 'top';
+  c.fillText('WORLD MAP', 8, 8);
+
+  // ── Compass rose ──────────────────────────────────────────────────────────
+  const rosX = W - 18, rosY = H - 18, rosR = 10;
+  c.strokeStyle    = 'rgba(255,255,255,0.35)';
+  c.lineWidth      = 1;
+  c.beginPath(); c.moveTo(rosX, rosY - rosR); c.lineTo(rosX, rosY + rosR); c.stroke();
+  c.beginPath(); c.moveTo(rosX - rosR, rosY); c.lineTo(rosX + rosR, rosY); c.stroke();
+  c.fillStyle    = 'rgba(255,255,255,0.6)';
+  c.font         = 'bold 9px system-ui,sans-serif';
+  c.textAlign    = 'center';
+  c.textBaseline = 'alphabetic';
+  c.fillText('N', rosX, rosY - rosR - 2);
+
+  return off;
 }
 
-// ── Landmark data (mirrors world.js / site.js constants) ─────────────────
-const CLEARING_R = 62;
-
-// Parking lots [left-x, top-z, width, depth]  (matches site.js flat() calls)
-const LOTS = [
-  [-28, -52, 56, 36],   // north lot
-  [-23,  16, 46, 26],   // south lot
-];
-
-// Building footprint centred at world (0,0): 42 × 28
-const BW = 42, BD = 28;
-
+// ─────────────────────────────────────────────────────────────────────────────
+//  Public factory
+// ─────────────────────────────────────────────────────────────────────────────
 export function createMinimap(camera) {
-  // ── Canvas setup ─────────────────────────────────────────────────────────
+  // ── Live canvas (displayed on screen) ──────────────────────────────────────
   const canvas = document.createElement('canvas');
   canvas.width  = W;
   canvas.height = H;
@@ -31,9 +152,9 @@ export function createMinimap(camera) {
     position:     'fixed',
     top:          '14px',
     left:         '14px',
-    borderRadius: '50%',
-    border:       '2px solid rgba(255,255,255,0.28)',
-    boxShadow:    '0 2px 12px rgba(0,0,0,0.55)',
+    borderRadius: '8px',
+    border:       '1.5px solid rgba(255,255,255,0.22)',
+    boxShadow:    '0 3px 16px rgba(0,0,0,0.65)',
     display:      'none',
     zIndex:       '15',
     pointerEvents:'none',
@@ -41,7 +162,10 @@ export function createMinimap(camera) {
   document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d');
 
-  // ── M-key toggle ─────────────────────────────────────────────────────────
+  // Bake the static map once
+  const staticMap = bakeMap();
+
+  // ── M-key toggle ────────────────────────────────────────────────────────
   let visible = false;
   window.addEventListener('keydown', e => {
     if (e.code === 'KeyM') {
@@ -50,91 +174,38 @@ export function createMinimap(camera) {
     }
   });
 
-  // ── Reusable vector for getWorldDirection ─────────────────────────────────
   const _dir = new THREE.Vector3();
 
-  // ── Per-frame draw ────────────────────────────────────────────────────────
+  // ── Per-frame update ─────────────────────────────────────────────────────
   function update() {
     if (!visible) return;
 
+    // Blit the pre-baked world map
     ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(staticMap, 0, 0);
 
-    // — Clip everything to a circle —
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(CX, CY, CX, 0, Math.PI * 2);
-    ctx.clip();
-
-    // Forest floor
-    ctx.fillStyle = '#1A3510';
-    ctx.fillRect(0, 0, W, H);
-
-    // Clearing disc
-    ctx.fillStyle = '#4D9240';
-    ctx.beginPath();
-    ctx.arc(CX, CY, CLEARING_R * PX_PER_UNIT, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Parking lots
-    ctx.fillStyle = '#222226';
-    for (const [lx, lz, lw, ld] of LOTS) {
-      const [px, py] = wm(lx, lz);
-      ctx.fillRect(px, py, lw * PX_PER_UNIT, ld * PX_PER_UNIT);
-    }
-
-    // Building footprint
-    ctx.fillStyle = '#9A9088';
-    const [bx, by] = wm(-BW / 2, -BD / 2);
-    ctx.fillRect(bx, by, BW * PX_PER_UNIT, BD * PX_PER_UNIT);
-
-    // Building label
-    ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.font = 'bold 8px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('OT', CX, CY + 1);
-
-    ctx.restore();   // end circle clip
-
-    // — Compass "N" —
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    ctx.font = 'bold 9px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText('N', CX, 5);
-
-    // — Circle border —
-    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(CX, CY, CX - 1, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // — Player arrow —
+    // ── Player arrow ────────────────────────────────────────────────────────
     const wx = camera.position.x;
     const wz = camera.position.z;
     camera.getWorldDirection(_dir);
-    // heading: 0 = north (−Z), increases clockwise
-    const heading = Math.atan2(_dir.x, -_dir.z);
+    const heading = Math.atan2(_dir.x, -_dir.z);   // 0 = north (−Z), cw positive
 
-    let [mx, my] = wm(wx, wz);
+    // Map the player's world position onto the canvas
+    let mx = px(wx);
+    let my = py(wz);
 
-    // Clamp dot to inside the circle so the arrow always stays on the minimap
-    const dx = mx - CX, dy = my - CY;
-    const dist = Math.hypot(dx, dy);
-    const maxR = CX - 9;
-    if (dist > maxR) {
-      mx = CX + (dx / dist) * maxR;
-      my = CY + (dy / dist) * maxR;
-    }
+    // Clamp to inner area so arrow stays inside the map border
+    const margin = 10;
+    mx = Math.max(margin, Math.min(W - margin, mx));
+    my = Math.max(margin, Math.min(H - margin, my));
 
     ctx.save();
     ctx.translate(mx, my);
     ctx.rotate(heading);
 
-    // Chevron arrow
-    ctx.fillStyle   = '#FF3333';
-    ctx.strokeStyle = 'rgba(255,180,180,0.7)';
+    // Chevron arrow (bright red, easy to spot)
+    ctx.fillStyle   = '#FF3030';
+    ctx.strokeStyle = 'rgba(255,180,180,0.75)';
     ctx.lineWidth   = 0.8;
     ctx.beginPath();
     ctx.moveTo( 0, -8);   // tip
@@ -144,6 +215,7 @@ export function createMinimap(camera) {
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
+
     ctx.restore();
   }
 

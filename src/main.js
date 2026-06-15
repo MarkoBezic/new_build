@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { buildWorld }     from './world.js';
-import { buildBuilding }  from './building.js';
-import { buildSite }      from './site.js';
-import { createPlayer }   from './player.js';
-import { createMinimap }  from './minimap.js';
+import { buildWorld }      from './world.js';
+import { buildBuilding }   from './building.js';
+import { buildSite }       from './site.js';
+import { buildLandmarks }  from './landmarks.js';
+import { createPlayer }    from './player.js';
+import { createMinimap }   from './minimap.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Renderer
@@ -22,12 +23,12 @@ document.body.appendChild(renderer.domElement);
 // ─────────────────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x8ABFDE);             // pale blue sky
-scene.fog        = new THREE.FogExp2(0x5A7A48, 0.022);   // dense green forest fog
+scene.fog        = new THREE.FogExp2(0x5A7A48, 0.011);   // lighter fog — larger world
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Camera — spawn deep in the forest, facing the clearing
 // ─────────────────────────────────────────────────────────────────────────────
-const camera = new THREE.PerspectiveCamera(78, window.innerWidth / window.innerHeight, 0.1, 400);
+const camera = new THREE.PerspectiveCamera(78, window.innerWidth / window.innerHeight, 0.1, 750);
 camera.position.set(0, 1.75, -165);   // north side of forest, facing main entrance
 camera.lookAt(0, 1.75, 0);
 
@@ -71,6 +72,9 @@ buildBuilding(scene);
 
 // ── Site (parking, cars, trees, sidewalks) ───────────────────────────────────
 buildSite(scene);
+
+// ── Landmarks (pond west, rock cave east) ────────────────────────────────────
+buildLandmarks(scene);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  FPS player
