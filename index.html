@@ -83,16 +83,17 @@
       }
 
       /* ── Mobile hint switching ───────────────────────────────────── */
-      .mobile-hints  { display: none; }
-      .desktop-hints { display: grid; }
-      .tap-hint      { display: none; }
-      .click-hint-text { display: inline; }
+      /* Use #overlay prefix to beat the #overlay .keys specificity above */
+      #overlay .mobile-hints  { display: none; }
+      #overlay .desktop-hints { display: grid; }
+      .tap-hint               { display: none; }
+      .click-hint-text        { display: inline; }
 
       @media (pointer: coarse) {
-        .mobile-hints       { display: grid; }
-        .desktop-hints      { display: none; }
-        .tap-hint           { display: block; }
-        .click-hint-text    { display: none; }
+        #overlay .mobile-hints  { display: grid; }
+        #overlay .desktop-hints { display: none; }
+        .tap-hint               { display: block; }
+        .click-hint-text        { display: none; }
 
         /* Bottom safe area for notch phones */
         #hud { bottom: max(12px, env(safe-area-inset-bottom)); }
