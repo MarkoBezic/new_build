@@ -205,34 +205,36 @@ function siteTree(scene, x, z, trunkH, canopyW, canopyH) {
 function rnd(lo, hi) { return lo + Math.random() * (hi - lo); }
 
 function buildSiteTrees(scene) {
+  // Each loop uses a randomised step (avg ≈ 2× the old fixed step) so roughly
+  // half the original tree count survives with naturally irregular spacing.
+
   // ── North end of lot ──────────────────────────────────────────────────────
-  for (let x = -26; x <= 26; x += 6.5)
-    siteTree(scene, x + rnd(-1, 1), -51 + rnd(-1, 1), rnd(4.5, 7), rnd(4, 6), rnd(3.5, 5));
+  for (let x = -26; x <= 26; x += rnd(9, 17))
+    siteTree(scene, x + rnd(-1.5, 1.5), -51 + rnd(-1, 1), rnd(4.5, 7), rnd(4, 6), rnd(3.5, 5));
 
   // ── East side of north lot ────────────────────────────────────────────────
-  for (let z = -50; z <= -18; z += 7)
-    siteTree(scene, 30 + rnd(0, 1.5), z + rnd(-1.5, 1.5), rnd(5, 8), rnd(4, 6.5), rnd(3.5, 5));
+  for (let z = -50; z <= -18; z += rnd(10, 17))
+    siteTree(scene, 30 + rnd(0, 1.5), z + rnd(-2, 2), rnd(5, 8), rnd(4, 6.5), rnd(3.5, 5));
 
   // ── West side of north lot ────────────────────────────────────────────────
-  for (let z = -50; z <= -18; z += 7)
-    siteTree(scene, -30 - rnd(0, 1.5), z + rnd(-1.5, 1.5), rnd(5, 8), rnd(4, 6.5), rnd(3.5, 5));
+  for (let z = -50; z <= -18; z += rnd(10, 17))
+    siteTree(scene, -30 - rnd(0, 1.5), z + rnd(-2, 2), rnd(5, 8), rnd(4, 6.5), rnd(3.5, 5));
 
   // ── East flank of building ────────────────────────────────────────────────
-  for (let z = -12; z <= 12; z += 8)
+  for (let z = -12; z <= 12; z += rnd(12, 20))
     siteTree(scene, 25 + rnd(0, 2), z + rnd(-1, 1), rnd(5.5, 8), rnd(4.5, 7), rnd(4, 5.5));
 
   // ── West flank ────────────────────────────────────────────────────────────
-  for (let z = -12; z <= 12; z += 8)
+  for (let z = -12; z <= 12; z += rnd(12, 20))
     siteTree(scene, -25 - rnd(0, 2), z + rnd(-1, 1), rnd(5.5, 8), rnd(4.5, 7), rnd(4, 5.5));
 
   // ── South lot perimeter ───────────────────────────────────────────────────
-  for (let x = -21; x <= 21; x += 6)
-    siteTree(scene, x + rnd(-1, 1), 39 + rnd(-1, 1), rnd(4.5, 7), rnd(4, 6), rnd(3.5, 5));
-  for (let z = 18; z <= 38; z += 7) {
-    siteTree(scene,  24 + rnd(0, 1.5), z + rnd(-1, 1), rnd(5, 7), rnd(4, 5.5), rnd(3.5, 5));
-    siteTree(scene, -24 - rnd(0, 1.5), z + rnd(-1, 1), rnd(5, 7), rnd(4, 5.5), rnd(3.5, 5));
+  for (let x = -21; x <= 21; x += rnd(9, 16))
+    siteTree(scene, x + rnd(-1.5, 1.5), 39 + rnd(-1, 1), rnd(4.5, 7), rnd(4, 6), rnd(3.5, 5));
+  for (let z = 18; z <= 38; z += rnd(10, 18)) {
+    siteTree(scene,  24 + rnd(0, 1.5), z + rnd(-1.5, 1.5), rnd(5, 7), rnd(4, 5.5), rnd(3.5, 5));
+    siteTree(scene, -24 - rnd(0, 1.5), z + rnd(-1.5, 1.5), rnd(5, 7), rnd(4, 5.5), rnd(3.5, 5));
   }
-
 }
 
 // ════════════════════════════════════════════════════════════════════════════
