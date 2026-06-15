@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>New Build</title>
     <style>
       *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
@@ -81,13 +81,29 @@
         pointer-events: none;
         z-index: 10;
       }
+
+      /* ── Mobile hint switching ───────────────────────────────────── */
+      .mobile-hints  { display: none; }
+      .desktop-hints { display: grid; }
+      .tap-hint      { display: none; }
+      .click-hint-text { display: inline; }
+
+      @media (pointer: coarse) {
+        .mobile-hints       { display: grid; }
+        .desktop-hints      { display: none; }
+        .tap-hint           { display: block; }
+        .click-hint-text    { display: none; }
+
+        /* Bottom safe area for notch phones */
+        #hud { bottom: max(12px, env(safe-area-inset-bottom)); }
+      }
     </style>
   </head>
   <body>
     <div id="overlay">
       <h1>Explore</h1>
       <p class="subtitle">Take a look around</p>
-      <div class="keys">
+      <div class="keys desktop-hints">
         <span>W A S D</span><span>Move</span>
         <span>Shift</span><span>Sprint</span>
         <span>Space</span><span>Jump</span>
@@ -95,7 +111,16 @@
         <span>ESC</span><span>Pause</span>
         <span>M</span><span>Map</span>
       </div>
-      <p class="click-hint">Click anywhere to begin</p>
+      <div class="keys mobile-hints">
+        <span>Left thumb</span><span>Move</span>
+        <span>Right thumb</span><span>Look</span>
+        <span>JUMP button</span><span>Jump</span>
+        <span>MAP button</span><span>Map</span>
+      </div>
+      <p class="click-hint">
+        <span class="click-hint-text">Click anywhere to begin</span>
+        <span class="tap-hint">Tap anywhere to begin</span>
+      </p>
     </div>
 
     <div id="crosshair"></div>

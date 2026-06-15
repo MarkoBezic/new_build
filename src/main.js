@@ -3,13 +3,13 @@ import { buildWorld }      from './world.js';
 import { buildBuilding }   from './building.js';
 import { buildSite }       from './site.js';
 import { buildLandmarks }  from './landmarks.js';
-import { createPlayer }    from './player.js';
+import { createPlayer, isMobile } from './player.js';
 import { createMinimap }   from './minimap.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Renderer
 // ─────────────────────────────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled   = true;
@@ -44,8 +44,8 @@ scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xFFF8E0, 2.0);
 sun.position.set(70, 120, 80);
 sun.castShadow              = true;
-sun.shadow.mapSize.width    = 4096;
-sun.shadow.mapSize.height   = 4096;
+sun.shadow.mapSize.width    = isMobile ? 1024 : 4096;
+sun.shadow.mapSize.height   = isMobile ? 1024 : 4096;
 sun.shadow.camera.left      = -95;
 sun.shadow.camera.right     =  95;
 sun.shadow.camera.top       =  95;
@@ -79,22 +79,29 @@ buildLandmarks(scene);
 // ─────────────────────────────────────────────────────────────────────────────
 //  FPS player
 // ─────────────────────────────────────────────────────────────────────────────
-const { controls, update: updatePlayer } = createPlayer(camera, renderer.domElement);
+const { controls, update: updatePlayer, startMobile } = createPlayer(camera, renderer.domElement);
 const minimap = createMinimap(camera);
 
 const overlay   = document.getElementById('overlay');
 const crosshair = document.getElementById('crosshair');
 
-overlay.addEventListener('click', () => controls.lock());
-
-controls.addEventListener('lock', () => {
-  overlay.style.display   = 'none';
-  crosshair.style.display = 'block';
-});
-controls.addEventListener('unlock', () => {
-  overlay.style.display   = 'flex';
-  crosshair.style.display = 'none';
-});
+if (isMobile) {
+  // No pointer lock on mobile — tap overlay to begin
+  overlay.addEventListener('click', () => {
+    overlay.style.display = 'none';
+    startMobile();
+  });
+} else {
+  overlay.addEventListener('click', () => controls.lock());
+  controls.addEventListener('lock', () => {
+    overlay.style.display   = 'none';
+    crosshair.style.display = 'block';
+  });
+  controls.addEventListener('unlock', () => {
+    overlay.style.display   = 'flex';
+    crosshair.style.display = 'none';
+  });
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Render loop
