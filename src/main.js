@@ -3,6 +3,7 @@ import { buildWorld }     from './world.js';
 import { buildBuilding }  from './building.js';
 import { buildSite }      from './site.js';
 import { createPlayer }   from './player.js';
+import { createMinimap }  from './minimap.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Renderer
@@ -75,6 +76,7 @@ buildSite(scene);
 //  FPS player
 // ─────────────────────────────────────────────────────────────────────────────
 const { controls, update: updatePlayer } = createPlayer(camera, renderer.domElement);
+const minimap = createMinimap(camera);
 
 const overlay   = document.getElementById('overlay');
 const crosshair = document.getElementById('crosshair');
@@ -103,6 +105,7 @@ function animate() {
   prevTime  = now;
 
   updatePlayer(dt);
+  minimap.update();
   renderer.render(scene, camera);
 }
 

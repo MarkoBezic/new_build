@@ -221,7 +221,8 @@ function buildSignage(scene) {
   const XE =  BW / 2 + CW + 0.22;
 
   // Large "Open Text" — top parapet strip, left side
-  signPlane(scene, 12, 2.0, makeSignTex('Open Text'), -16, BH + PARA_H * 0.5, ZN, Math.PI);
+  // width=11 + cx=-15.5 → right edge at world x=-21 (building edge), left edge at x=-10 (O clear)
+  signPlane(scene, 11, 2.0, makeSignTex('Open Text'), -15.5, BH + PARA_H * 0.5, ZN, Math.PI);
 
   // Smaller "OPEN TEXT" centred above entrance canopy
   signPlane(scene, 9, 1.4, makeSignTex('OPEN TEXT'), 0, FLOOR_H + 3.2, ZN, Math.PI);
