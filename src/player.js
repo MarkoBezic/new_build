@@ -63,8 +63,10 @@ function createDesktopPlayer(camera, canvas) {
 //  MOBILE  (virtual joystick + touch-look + jump/map buttons)
 // ─────────────────────────────────────────────────────────────────────────────
 function createMobilePlayer(camera, canvas) {
-  // YXZ order gives standard FPS yaw/pitch that works with incremental touch deltas
+  // YXZ order: Y=yaw, X=pitch, Z=roll. Must be set before any rotation changes.
   camera.rotation.order = 'YXZ';
+  // Explicitly zero pitch so the lookAt quaternion can't leave a stale X value.
+  camera.rotation.x = 0;
 
   let vy = 0, grounded = true;
 
@@ -106,35 +108,7 @@ function createMobilePlayer(camera, canvas) {
   joyBase.appendChild(joyKnob);
   document.body.appendChild(joyBase);
 
-  // ── Action buttons ────────────────────────────────────────────────────────────
-  function makeBtn(label, bottom, right, extraStyle = {}) {
-    const btn = document.createElement('div');
-    btn.textContent = label;
-    Object.assign(btn.style, {
-      position: 'fixed', zIndex: '30',
-      bottom: `${bottom}px`, right: `${right}px`,
-      width: '68px', height: '68px',
-      borderRadius: '50%',
-      border: '2px solid rgba(255,255,255,0.28)',
-      background: 'rgba(255,255,255,0.09)',
-      color: 'rgba(255,255,255,0.75)',
-      fontSize: '13px', fontWeight: 'bold', fontFamily: 'system-ui,sans-serif',
-      display: 'none', alignItems: 'center', justifyContent: 'center',
-      userSelect: 'none', webkitUserSelect: 'none',
-      ...extraStyle,
-    });
-    document.body.appendChild(btn);
-    return btn;
-  }
-
-  const jumpBtn = makeBtn('JUMP', 90, 36);
-  const mapBtn  = makeBtn('MAP',  90, 120, { borderRadius: '10px', width: '58px', height: '58px', fontSize: '11px' });
-
-  // Show buttons when game starts
-  function startMobile() {
-    jumpBtn.style.display = 'flex';
-    mapBtn.style.display  = 'flex';
-  }
+  function startMobile() {}
 
   // ── Touch handlers ────────────────────────────────────────────────────────────
   canvas.addEventListener('touchstart', e => {
@@ -152,17 +126,8 @@ function createMobilePlayer(camera, canvas) {
         joyBase.style.display = 'block';
         joyKnob.style.transform = 'translate(-50%,-50%)';
       } else if (!leftSide && lookId === null) {
-        // Check if tapping a button
-        const el = document.elementFromPoint(t.clientX, t.clientY);
-        if (el === jumpBtn || jumpBtn.contains(el)) {
-          if (grounded) { vy = JUMP_VEL; grounded = false; }
-        } else if (el === mapBtn || mapBtn.contains(el)) {
-          window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyM' }));
-        } else {
-          // Start look drag
-          lookId = t.identifier;
-          lookPX = t.clientX; lookPY = t.clientY;
-        }
+        lookId = t.identifier;
+        lookPX = t.clientX; lookPY = t.clientY;
       }
     }
   }, { passive: false });
@@ -182,7 +147,8 @@ function createMobilePlayer(camera, canvas) {
       } else if (t.identifier === lookId) {
         camera.rotation.y -= (t.clientX - lookPX) * LOOK_S;
         camera.rotation.x -= (t.clientY - lookPY) * LOOK_S;
-        camera.rotation.x  = Math.max(-Math.PI * 0.44, Math.min(Math.PI * 0.44, camera.rotation.x));
+        // Clamp to ±75° — well clear of the ±90° gimbal-lock point that causes flipping
+        camera.rotation.x  = Math.max(-Math.PI * 0.417, Math.min(Math.PI * 0.417, camera.rotation.x));
         lookPX = t.clientX; lookPY = t.clientY;
       }
     }
