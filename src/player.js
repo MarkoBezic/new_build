@@ -63,10 +63,10 @@ function createDesktopPlayer(camera, canvas) {
 //  MOBILE  (virtual joystick + touch-look + jump/map buttons)
 // ─────────────────────────────────────────────────────────────────────────────
 function createMobilePlayer(camera, canvas) {
-  // YXZ order: Y=yaw, X=pitch, Z=roll. Must be set before any rotation changes.
-  camera.rotation.order = 'YXZ';
-  // Explicitly zero pitch so the lookAt quaternion can't leave a stale X value.
-  camera.rotation.x = 0;
+  // Re-derive Euler angles in YXZ order from the quaternion set by lookAt.
+  // Setting rotation.order then touching .x directly treats the old XYZ values
+  // as YXZ angles (a different rotation). setFromQuaternion is the safe path.
+  camera.rotation.setFromQuaternion(camera.quaternion, 'YXZ');
 
   let vy = 0, grounded = true;
 
