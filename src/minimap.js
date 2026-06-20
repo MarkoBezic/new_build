@@ -96,8 +96,8 @@ function bakeMap() {
   c.fillStyle   = '#9A9088';
   c.strokeStyle = '#C8C0B0';
   c.lineWidth   = 1.2;
-  c.fillRect(px(-21), py(-14), 42 * S, 28 * S);
-  c.strokeRect(px(-21), py(-14), 42 * S, 28 * S);
+  c.fillRect(px(-21), py(-21), 42 * S, 42 * S);
+  c.strokeRect(px(-21), py(-21), 42 * S, 42 * S);
 
   // ── Labels ───────────────────────────────────────────────────────────────
   c.textAlign    = 'center';
