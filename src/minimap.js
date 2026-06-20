@@ -1,14 +1,26 @@
 import * as THREE from 'three';
-import { CLEARING_R, LANDMARKS } from './world.config.js';
+import { CLEARING_R, WORLD_R, LANDMARKS, OCEAN } from './world.config.js';
 
 // ── Canvas & scale ────────────────────────────────────────────────────────
 const W  = 280, H = 280;
 const CX = W / 2, CY = H / 2;
-const S  = 0.65;   // px per world unit — shows ±215 units from centre
+const S  = 130 / WORLD_R;   // world radius fits with ~10 px margin on each side
 
 // World (x, z) → canvas pixel
 function px(x) { return CX + x * S; }
 function py(z) { return CY + z * S; }
+
+// Returns the two world-boundary points where the diagonal z−x=coastVal crosses
+// the world circle (radius WORLD_R).
+function coastPts(coastVal) {
+  const R    = WORLD_R;
+  const disc = 2 * R * R - coastVal * coastVal;
+  if (disc < 0) return null;
+  const root = Math.sqrt(disc);
+  const xW = (-coastVal - root) / 2;   // western end
+  const xS = (-coastVal + root) / 2;   // southern end
+  return { xW, zW: xW + coastVal, xS, zS: xS + coastVal };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Pre-render the static world map once to an offscreen canvas
@@ -19,104 +31,147 @@ function bakeMap() {
   off.height = H;
   const c = off.getContext('2d');
 
-  // Forest background
-  c.fillStyle = '#1A3510';
+  const R_canvas = WORLD_R * S;   // ≈ 130 px
+
+  // ── Background outside world circle ──────────────────────────────────────
+  c.fillStyle = '#070B05';
   c.fillRect(0, 0, W, H);
 
-  // Subtle grid every 50 world units
-  c.strokeStyle = 'rgba(255,255,255,0.035)';
-  c.lineWidth   = 1;
-  for (let u = -200; u <= 200; u += 50) {
-    c.beginPath(); c.moveTo(px(u), 0);   c.lineTo(px(u), H); c.stroke();
-    c.beginPath(); c.moveTo(0, py(u));   c.lineTo(W, py(u)); c.stroke();
+  // ── Forest — filled world circle ──────────────────────────────────────────
+  c.fillStyle = '#1A3510';
+  c.beginPath();
+  c.arc(CX, CY, R_canvas, 0, Math.PI * 2);
+  c.fill();
+
+  // ── Ocean — SW wedge (polygon + world-boundary arc) ───────────────────────
+  // after rotation.x=-π/2 shape-Y → world -Z, so the actual SW quadrant in
+  // world space (x<0, z>0) appears in the bottom-left of the canvas.
+  const outer = coastPts(OCEAN.coast);
+  if (outer) {
+    // Angles of the coastline endpoints on the world circle (canvas = atan2(z,x))
+    const tS = Math.atan2(outer.zS, outer.xS);   // south point: ≈ 103°
+    const tW = Math.atan2(outer.zW, outer.xW);   // west  point: ≈ 167°
+
+    // Filled ocean wedge: straight shoreline then arc SW along world boundary
+    c.fillStyle = '#1A73A8';
+    c.beginPath();
+    c.moveTo(px(outer.xW), py(outer.zW));
+    c.lineTo(px(outer.xS), py(outer.zS));
+    c.arc(CX, CY, R_canvas, tS, tW, false);   // clockwise 103°→135°→167°
+    c.closePath();
+    c.fill();
   }
 
-  // Clearing disc (bright grass)
+  // ── Beach — sandy parallelogram strip landward of the shore ───────────────
+  const inner = coastPts(OCEAN.coast - OCEAN.beachWidth);
+  if (outer && inner) {
+    c.fillStyle = '#D4BC7A';
+    c.beginPath();
+    c.moveTo(px(outer.xW), py(outer.zW));
+    c.lineTo(px(outer.xS), py(outer.zS));
+    c.lineTo(px(inner.xS), py(inner.zS));
+    c.lineTo(px(inner.xW), py(inner.zW));
+    c.closePath();
+    c.fill();
+  }
+
+  // ── Subtle grid (clipped to world circle) ─────────────────────────────────
+  c.save();
+  c.beginPath();
+  c.arc(CX, CY, R_canvas, 0, Math.PI * 2);
+  c.clip();
+  c.strokeStyle = 'rgba(255,255,255,0.03)';
+  c.lineWidth   = 1;
+  for (let u = -800; u <= 800; u += 200) {
+    c.beginPath(); c.moveTo(px(u), py(-WORLD_R)); c.lineTo(px(u), py(WORLD_R)); c.stroke();
+    c.beginPath(); c.moveTo(px(-WORLD_R), py(u)); c.lineTo(px(WORLD_R), py(u)); c.stroke();
+  }
+  c.restore();
+
+  // ── Clearing disc ─────────────────────────────────────────────────────────
   c.fillStyle = '#4D9240';
   c.beginPath();
-  c.arc(CX, CY, CLEARING_R * S, 0, Math.PI * 2);
+  c.arc(CX, CY, Math.max(4, CLEARING_R * S), 0, Math.PI * 2);
   c.fill();
 
-  // Treeline transition ring (slightly darker)
+  // Treeline edge ring
   c.strokeStyle = '#2D5820';
-  c.lineWidth   = 4;
-  c.beginPath();
-  c.arc(CX, CY, (CLEARING_R + 5) * S, 0, Math.PI * 2);
-  c.stroke();
-
-  // ── Pond (west) ──────────────────────────────────────────────────────────
-  const ppx = px(LANDMARKS.pond.x), ppy = py(LANDMARKS.pond.z);
-  // Shore ring
-  c.fillStyle = '#2E7D3A';
-  c.beginPath();
-  c.ellipse(ppx, ppy, 22 * S, 14 * S, 0, 0, Math.PI * 2);
-  c.fill();
-  // Water body
-  c.fillStyle = '#1A5276';
-  c.beginPath();
-  c.ellipse(ppx, ppy, 18 * S, 11 * S, 0, 0, Math.PI * 2);
-  c.fill();
-  // Highlight shimmer
-  c.strokeStyle = 'rgba(90,180,220,0.4)';
   c.lineWidth   = 1.5;
   c.beginPath();
-  c.ellipse(ppx, ppy, 13 * S, 7 * S, 0, 0, Math.PI * 2);
+  c.arc(CX, CY, Math.max(5, (CLEARING_R + 5) * S), 0, Math.PI * 2);
   c.stroke();
 
-  // ── Rock formation + cave (east) ─────────────────────────────────────────
-  const cpx = px(LANDMARKS.cave.x), cpy = py(LANDMARKS.cave.z);
-  // Rocky ground
-  c.fillStyle = '#484038';
+  // ── Pond (west) ───────────────────────────────────────────────────────────
+  const ppx = px(LANDMARKS.pond.x), ppy = py(LANDMARKS.pond.z);
+  const PR = Math.max(4, 18 * S);   // enforce minimum legible radius
+  c.fillStyle = '#2E7D3A';
   c.beginPath();
-  c.ellipse(cpx, cpy, 22 * S, 22 * S, 0, 0, Math.PI * 2);
+  c.ellipse(ppx, ppy, PR * 1.3, PR * 0.8, 0, 0, Math.PI * 2);
   c.fill();
-  // Cliff mass
-  c.fillStyle = '#6A6258';
-  c.fillRect(cpx - 4 * S, cpy - 14 * S, 20 * S, 28 * S);
-  // Cave opening (dark mouth faces west)
+  c.fillStyle = '#1A5276';
+  c.beginPath();
+  c.ellipse(ppx, ppy, PR, PR * 0.6, 0, 0, Math.PI * 2);
+  c.fill();
+
+  // ── Cave (east) ───────────────────────────────────────────────────────────
+  const cpx = px(LANDMARKS.cave.x), cpy = py(LANDMARKS.cave.z);
+  const CR = Math.max(4, 18 * S);
+  c.fillStyle = '#5A5248';
+  c.beginPath();
+  c.arc(cpx, cpy, CR, 0, Math.PI * 2);
+  c.fill();
   c.fillStyle = '#111008';
-  c.fillRect(cpx - 8 * S, cpy - 6 * S, 10 * S, 12 * S);
+  c.beginPath();
+  c.arc(cpx, cpy, Math.max(2, CR * 0.45), 0, Math.PI * 2);
+  c.fill();
 
-  // ── Parking lots ─────────────────────────────────────────────────────────
+  // ── Parking lots ──────────────────────────────────────────────────────────
   c.fillStyle = '#1E1E22';
-  // North lot
-  c.fillRect(px(-28), py(-52), 56 * S, 36 * S);
-  // South lot
-  c.fillRect(px(-23), py(16),  46 * S, 26 * S);
+  c.fillRect(px(-28), py(-52), Math.max(4, 56 * S), Math.max(2, 36 * S));   // north lot
+  c.fillRect(px(-23), py(16),  Math.max(4, 46 * S), Math.max(2, 26 * S));   // south lot
 
-  // Parking lot lane marks (faint white dashes)
-  c.strokeStyle = 'rgba(255,255,255,0.08)';
-  c.lineWidth   = 0.8;
-  for (let lz = -52 + 18; lz < -16; lz += 18) {
-    c.beginPath(); c.moveTo(px(-28), py(lz)); c.lineTo(px(28), py(lz)); c.stroke();
-  }
-  c.beginPath(); c.moveTo(px(-23), py(16 + 13)); c.lineTo(px(23), py(16 + 13)); c.stroke();
-
-  // ── Building footprint ───────────────────────────────────────────────────
+  // ── Building footprint ────────────────────────────────────────────────────
   c.fillStyle   = '#9A9088';
   c.strokeStyle = '#C8C0B0';
-  c.lineWidth   = 1.2;
-  c.fillRect(px(-21), py(-21), 42 * S, 42 * S);
-  c.strokeRect(px(-21), py(-21), 42 * S, 42 * S);
+  c.lineWidth   = 1;
+  const BPX = Math.max(4, 42 * S);
+  c.fillRect(px(-21), py(-21), BPX, BPX);
+  c.strokeRect(px(-21), py(-21), BPX, BPX);
 
-  // ── Labels ───────────────────────────────────────────────────────────────
+  // ── World boundary ring ───────────────────────────────────────────────────
+  c.strokeStyle = 'rgba(255,255,255,0.20)';
+  c.lineWidth   = 1;
+  c.beginPath();
+  c.arc(CX, CY, R_canvas, 0, Math.PI * 2);
+  c.stroke();
+
+  // ── Labels ────────────────────────────────────────────────────────────────
   c.textAlign    = 'center';
   c.textBaseline = 'middle';
 
   // Building
-  c.fillStyle = 'rgba(255,250,240,0.9)';
-  c.font      = 'bold 8px system-ui,sans-serif';
+  c.fillStyle = 'rgba(255,250,240,0.85)';
+  c.font      = 'bold 7px system-ui,sans-serif';
   c.fillText('OT', CX, CY + 1);
 
   // Pond label
-  c.fillStyle = 'rgba(160,220,255,0.85)';
-  c.font      = '8px system-ui,sans-serif';
-  c.fillText(LANDMARKS.pond.label, ppx, ppy + 16 * S + 5);
+  c.fillStyle = 'rgba(160,220,255,0.80)';
+  c.font      = '7px system-ui,sans-serif';
+  c.fillText(LANDMARKS.pond.label, ppx, ppy + PR + 5);
 
   // Cave label
-  c.fillStyle = 'rgba(210,200,185,0.85)';
-  c.font      = '8px system-ui,sans-serif';
-  c.fillText(LANDMARKS.cave.label, cpx + 5 * S, cpy + 24 * S + 3);
+  c.fillStyle = 'rgba(210,200,185,0.80)';
+  c.font      = '7px system-ui,sans-serif';
+  c.fillText(LANDMARKS.cave.label, cpx, cpy + CR + 5);
+
+  // Ocean label (inside the blue wedge, near its centre of mass)
+  if (outer) {
+    const cx_ocean = px((outer.xW + outer.xS) / 2 * 0.85);
+    const cy_ocean = py((outer.zW + outer.zS) / 2 * 0.85);
+    c.fillStyle = 'rgba(180,220,255,0.60)';
+    c.font      = 'bold 8px system-ui,sans-serif';
+    c.fillText('OCEAN', cx_ocean, cy_ocean);
+  }
 
   // ── Map title ─────────────────────────────────────────────────────────────
   c.fillStyle    = 'rgba(255,255,255,0.38)';
