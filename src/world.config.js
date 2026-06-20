@@ -24,8 +24,8 @@ export const ATMOSPHERE = {
 // coast: the z−x value that defines the shoreline
 // beachWidth: width of the sandy strip on the forest side of the shore
 export const OCEAN = {
-  coast:      900,
-  beachWidth:  80,
+  coast:      1100,   // z−x=coast defines the shoreline; must be > WORLD_R so both
+  beachWidth:   80,   // endpoints stay inside the SW quadrant (x<0, z>0)
   waterColor:  0x1A73A8,
   beachColor:  0xD4BC7A,
 };

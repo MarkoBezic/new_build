@@ -75,30 +75,30 @@ function buildOcean(scene) {
   const R = WORLD_R;
   const { xW, zW, xS, zS } = coastIntersections(coast);
 
-  // Angles of the two coastline endpoints on the world circle
-  const tW = Math.atan2(zW, xW);   // ≈ 181° (barely south of due-west)
-  const tS = Math.atan2(zS, xS);   // ≈  89° (barely east of due-south)
+  // Angles of the two coastline endpoints in world XZ space
+  const tW = Math.atan2(zW, xW);   // ≈ 167° (west point, slightly south)
+  const tS = Math.atan2(zS, xS);   // ≈ 103° (south point, slightly west)
 
-  // Polygon:
-  //   west endpoint → south endpoint  (straight coastline)
-  //   south → west arc through SW corner (world circle boundary)
+  // NOTE: after rotation.x = -π/2, shape-Y maps to world -Z (north).
+  // To land in the SW (world +Z = south), we negate z: use -z for shape-Y.
+  // The resulting CW winding needs DoubleSide to stay visible from above.
   const shape = new THREE.Shape();
-  shape.moveTo(xW, zW);
-  shape.lineTo(xS, zS);
+  shape.moveTo(xW, -zW);    // west coast point
+  shape.lineTo(xS, -zS);    // south coast point (straight coastline edge)
 
-  // Arc from tS (≈89°) counter-clockwise to tW (≈181°), passing through SW (135°)
+  // Arc from south point back to west point going through SW (t increases 103°→167°)
   const STEPS = 32;
   for (let i = 1; i <= STEPS; i++) {
     const t = tS + (tW - tS) * i / STEPS;
-    shape.lineTo(R * Math.cos(t), R * Math.sin(t));
+    shape.lineTo(R * Math.cos(t), -R * Math.sin(t));
   }
 
   const mesh = new THREE.Mesh(
     new THREE.ShapeGeometry(shape),
-    new THREE.MeshLambertMaterial({ color: waterColor }),
+    new THREE.MeshLambertMaterial({ color: waterColor, side: THREE.DoubleSide }),
   );
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = 0.003;
+  mesh.position.y = 0.1;
   mesh.receiveShadow = true;
   scene.add(mesh);
 }
@@ -108,19 +108,19 @@ function buildBeach(scene) {
   const outer = coastIntersections(coast);
   const inner = coastIntersections(coast - beachWidth);
 
-  // Parallelogram between the two parallel coast lines
+  // Parallelogram strip between the two parallel coast lines; negate z for SW placement
   const shape = new THREE.Shape();
-  shape.moveTo(outer.xW, outer.zW);
-  shape.lineTo(outer.xS, outer.zS);
-  shape.lineTo(inner.xS, inner.zS);
-  shape.lineTo(inner.xW, inner.zW);
+  shape.moveTo(outer.xW, -outer.zW);
+  shape.lineTo(outer.xS, -outer.zS);
+  shape.lineTo(inner.xS, -inner.zS);
+  shape.lineTo(inner.xW, -inner.zW);
 
   const mesh = new THREE.Mesh(
     new THREE.ShapeGeometry(shape),
-    new THREE.MeshLambertMaterial({ color: beachColor }),
+    new THREE.MeshLambertMaterial({ color: beachColor, side: THREE.DoubleSide }),
   );
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = 0.005;
+  mesh.position.y = 0.15;
   mesh.receiveShadow = true;
   scene.add(mesh);
 }
