@@ -5,6 +5,8 @@ import { buildSite }       from './site.js';
 import { buildLandmarks }  from './landmarks.js';
 import { createPlayer, isMobile } from './player.js';
 import { createMinimap }   from './minimap.js';
+import { ATMOSPHERE, SPAWN } from './world.config.js';
+import { EntityManager } from './entities.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Renderer
@@ -22,15 +24,15 @@ document.body.appendChild(renderer.domElement);
 //  Scene + atmosphere
 // ─────────────────────────────────────────────────────────────────────────────
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x8ABFDE);             // pale blue sky
-scene.fog        = new THREE.FogExp2(0x5A7A48, 0.011);   // lighter fog — larger world
+scene.background = new THREE.Color(ATMOSPHERE.skyColor);
+scene.fog        = new THREE.FogExp2(ATMOSPHERE.fogColor, ATMOSPHERE.fogDensity);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Camera — spawn deep in the forest, facing the clearing
 // ─────────────────────────────────────────────────────────────────────────────
-const camera = new THREE.PerspectiveCamera(78, window.innerWidth / window.innerHeight, 0.1, 750);
-camera.position.set(0, 1.75, -165);   // north side of forest, facing main entrance
-camera.lookAt(0, 1.75, 0);
+const camera = new THREE.PerspectiveCamera(78, window.innerWidth / window.innerHeight, 0.1, ATMOSPHERE.drawDistance);
+camera.position.set(SPAWN.x, SPAWN.y, SPAWN.z);
+camera.lookAt(0, SPAWN.y, 0);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Lighting
@@ -65,16 +67,11 @@ scene.add(fill);
 // ─────────────────────────────────────────────────────────────────────────────
 //  World geometry
 // ─────────────────────────────────────────────────────────────────────────────
-buildWorld(scene);
-
-// ── Building ─────────────────────────────────────────────────────────────────
-buildBuilding(scene);
-
-// ── Site (parking, cars, trees, sidewalks) ───────────────────────────────────
-buildSite(scene);
-
-// ── Landmarks (pond west, rock cave east) ────────────────────────────────────
-buildLandmarks(scene);
+const entities = new EntityManager(scene);
+entities.add('world',     buildWorld());
+entities.add('building',  buildBuilding());
+entities.add('site',      buildSite());
+entities.add('landmarks', buildLandmarks());
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  FPS player

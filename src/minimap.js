@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { POND_CENTER, CAVE_CENTER } from './landmarks.js';
+import { CLEARING_R, LANDMARKS } from './world.config.js';
 
 // ── Canvas & scale ────────────────────────────────────────────────────────
 const W  = 280, H = 280;
@@ -34,18 +34,18 @@ function bakeMap() {
   // Clearing disc (bright grass)
   c.fillStyle = '#4D9240';
   c.beginPath();
-  c.arc(CX, CY, 62 * S, 0, Math.PI * 2);
+  c.arc(CX, CY, CLEARING_R * S, 0, Math.PI * 2);
   c.fill();
 
   // Treeline transition ring (slightly darker)
   c.strokeStyle = '#2D5820';
   c.lineWidth   = 4;
   c.beginPath();
-  c.arc(CX, CY, (62 + 5) * S, 0, Math.PI * 2);
+  c.arc(CX, CY, (CLEARING_R + 5) * S, 0, Math.PI * 2);
   c.stroke();
 
   // ── Pond (west) ──────────────────────────────────────────────────────────
-  const ppx = px(POND_CENTER.x), ppy = py(POND_CENTER.z);
+  const ppx = px(LANDMARKS.pond.x), ppy = py(LANDMARKS.pond.z);
   // Shore ring
   c.fillStyle = '#2E7D3A';
   c.beginPath();
@@ -64,7 +64,7 @@ function bakeMap() {
   c.stroke();
 
   // ── Rock formation + cave (east) ─────────────────────────────────────────
-  const cpx = px(CAVE_CENTER.x), cpy = py(CAVE_CENTER.z);
+  const cpx = px(LANDMARKS.cave.x), cpy = py(LANDMARKS.cave.z);
   // Rocky ground
   c.fillStyle = '#484038';
   c.beginPath();
@@ -111,12 +111,12 @@ function bakeMap() {
   // Pond label
   c.fillStyle = 'rgba(160,220,255,0.85)';
   c.font      = '8px system-ui,sans-serif';
-  c.fillText('POND', ppx, ppy + 16 * S + 5);
+  c.fillText(LANDMARKS.pond.label, ppx, ppy + 16 * S + 5);
 
   // Cave label
   c.fillStyle = 'rgba(210,200,185,0.85)';
   c.font      = '8px system-ui,sans-serif';
-  c.fillText('CAVE', cpx + 5 * S, cpy + 24 * S + 3);
+  c.fillText(LANDMARKS.cave.label, cpx + 5 * S, cpy + 24 * S + 3);
 
   // ── Map title ─────────────────────────────────────────────────────────────
   c.fillStyle    = 'rgba(255,255,255,0.38)';

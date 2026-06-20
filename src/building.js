@@ -4,7 +4,7 @@ import * as THREE from 'three';
 //  PARAMETERS
 // ════════════════════════════════════════════════════════════════════════════
 export const BW      = 42;
-export const BD      = 28;
+export const BD      = 42;
 export const FLOORS  = 6;
 export const FLOOR_H = 4;
 export const FASCIA  = 1.3;
@@ -13,9 +13,8 @@ export const BH      = FLOORS * FLOOR_H;   // 24
 export const PARA_H  = 2.4;
 export const CW      = 0.28;               // curtain-wall depth
 
-const MULL    = 0.38;
-const NS_BAYS = 9;    // N/S face — full BW = 42
-const EW_BAYS = 6;    // E/W face — full BD = 28
+const MULL = 0.38;
+const BOW  = 3.0;   // how far each bow protrudes outward
 
 // ════════════════════════════════════════════════════════════════════════════
 //  MATERIALS
@@ -46,74 +45,68 @@ function box(parent, w, h, d, mat, cx, cy, cz) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  CURTAIN WALL — flat face  (used for S, E, W + internally for N wings)
-// ════════════════════════════════════════════════════════════════════════════
-function applyFace(scene, orient, coord, outSign, span, numBays) {
-  const isNS   = orient === 'NS';
-  const panelW = (span - MULL * (numBays + 1)) / numBays;
-  const step   = MULL + panelW;
-  const wallOff = coord + outSign * CW * 0.5;
-  const ft      = CW + 0.10;
-
-  for (let f = 0; f < FLOORS; f++) {
-    const base   = f * FLOOR_H;
-    const fascY  = base + FASCIA * 0.5;
-    const glassY = base + FASCIA + GLASS_H * 0.5;
-    const mullY  = base + FLOOR_H * 0.5;
-
-    if (isNS) box(scene, span, FASCIA, ft, MATS.concrete, 0, fascY, coord + outSign * ft * 0.5);
-    else       box(scene, ft, FASCIA, span, MATS.concrete, coord + outSign * ft * 0.5, fascY, 0);
-
-    for (let i = 0; i <= numBays; i++) {
-      const off  = -span * 0.5 + MULL * 0.5 + i * step;
-      const gOff = off + MULL * 0.5 + panelW * 0.5;
-      if (isNS) {
-        box(scene, MULL, FLOOR_H, CW + 0.06, MATS.mullion, off,  mullY, wallOff);
-        if (i < numBays) box(scene, panelW, GLASS_H, CW, MATS.glass, gOff, glassY, wallOff);
-      } else {
-        box(scene, CW + 0.06, FLOOR_H, MULL, MATS.mullion, wallOff, mullY, off);
-        if (i < numBays) box(scene, CW, GLASS_H, panelW, MATS.glass, wallOff, glassY, gOff);
-      }
-    }
-  }
-
-  const pt = CW + 0.12;
-  if (isNS) box(scene, span, PARA_H, pt, MATS.parapet, 0,                    BH + PARA_H * 0.5, coord + outSign * pt * 0.5);
-  else       box(scene, pt, PARA_H, span, MATS.parapet, coord + outSign * pt * 0.5, BH + PARA_H * 0.5, 0);
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-//  NORTH FACE — bow-curved centre + flat wings
-//  Middle 50 % of BW bows outward 3 units; 25 % flat on each side.
+//  FLAT WING HELPERS
+//  The bow on each face is flanked by two flat curtain-wall wings.
 // ════════════════════════════════════════════════════════════════════════════
 
-// Flat NS wing at an x-offset (Group keeps the coordinate maths simple)
-function applyFlatNWing(scene, xCenter, span, numBays) {
+// Wing on an NS face — spans along X, group offset at xCenter.
+// faceZ   : world Z of the face plane (−BD/2 north, +BD/2 south)
+// outSign : −1 (north) or +1 (south)
+function applyFlatNSWing(scene, xCenter, span, numBays, faceZ, outSign) {
   const g = new THREE.Group();
   g.position.set(xCenter, 0, 0);
   scene.add(g);
 
-  const Z0     = -BD / 2;          // world z of the north face plane
   const ft     = CW + 0.10;
   const panelW = (span - MULL * (numBays + 1)) / numBays;
   const step   = MULL + panelW;
 
   for (let f = 0; f < FLOORS; f++) {
     const base = f * FLOOR_H;
-    box(g, span, FASCIA, ft, MATS.concrete, 0, base + FASCIA * 0.5, Z0 - ft * 0.5);
+    box(g, span, FASCIA, ft, MATS.concrete, 0, base + FASCIA * 0.5, faceZ + outSign * ft * 0.5);
     for (let i = 0; i <= numBays; i++) {
       const off  = -span * 0.5 + MULL * 0.5 + i * step;
       const gOff = off + MULL * 0.5 + panelW * 0.5;
-      box(g, MULL,   FLOOR_H, CW + 0.06, MATS.mullion, off,  base + FLOOR_H * 0.5,       Z0 - CW * 0.5);
+      box(g, MULL,   FLOOR_H, CW + 0.06, MATS.mullion, off,  base + FLOOR_H * 0.5,             faceZ + outSign * CW * 0.5);
       if (i < numBays)
-        box(g, panelW, GLASS_H, CW, MATS.glass,   gOff, base + FASCIA + GLASS_H * 0.5, Z0 - CW * 0.5);
+        box(g, panelW, GLASS_H, CW,        MATS.glass,   gOff, base + FASCIA + GLASS_H * 0.5, faceZ + outSign * CW * 0.5);
     }
   }
   const pt = CW + 0.12;
-  box(g, span, PARA_H, pt, MATS.parapet, 0, BH + PARA_H * 0.5, Z0 - pt * 0.5);
+  box(g, span, PARA_H, pt, MATS.parapet, 0, BH + PARA_H * 0.5, faceZ + outSign * pt * 0.5);
 }
 
-// One angled panel of the curved bow; Group's local +Z = outward panel normal
+// Wing on an EW face — spans along Z, group offset at zCenter.
+// faceX   : world X of the face plane (+BW/2 east, −BW/2 west)
+// outSign : +1 (east) or −1 (west)
+function applyFlatEWWing(scene, zCenter, span, numBays, faceX, outSign) {
+  const g = new THREE.Group();
+  g.position.set(0, 0, zCenter);
+  scene.add(g);
+
+  const ft     = CW + 0.10;
+  const panelW = (span - MULL * (numBays + 1)) / numBays;
+  const step   = MULL + panelW;
+
+  for (let f = 0; f < FLOORS; f++) {
+    const base = f * FLOOR_H;
+    box(g, ft, FASCIA, span, MATS.concrete, faceX + outSign * ft * 0.5, base + FASCIA * 0.5, 0);
+    for (let i = 0; i <= numBays; i++) {
+      const off  = -span * 0.5 + MULL * 0.5 + i * step;
+      const gOff = off + MULL * 0.5 + panelW * 0.5;
+      box(g, CW + 0.06, FLOOR_H, MULL,   MATS.mullion, faceX + outSign * CW * 0.5, base + FLOOR_H * 0.5,             off);
+      if (i < numBays)
+        box(g, CW,        GLASS_H, panelW, MATS.glass,   faceX + outSign * CW * 0.5, base + FASCIA + GLASS_H * 0.5, gOff);
+    }
+  }
+  const pt = CW + 0.12;
+  box(g, pt, PARA_H, span, MATS.parapet, faceX + outSign * pt * 0.5, BH + PARA_H * 0.5, 0);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+//  BOW PANEL — one angled facet of the curved section.
+//  The group's local +Z points outward (away from the building).
+// ════════════════════════════════════════════════════════════════════════════
 function applyBowPanel(scene, cx, cz, rotY, chord) {
   const g = new THREE.Group();
   g.position.set(cx, 0, cz);
@@ -125,30 +118,32 @@ function applyBowPanel(scene, cx, cz, rotY, chord) {
 
   for (let f = 0; f < FLOORS; f++) {
     const base = f * FLOOR_H;
-    box(g, chord,  FASCIA,  ft,       MATS.concrete, 0,                 base + FASCIA * 0.5,             ft  * 0.5);
-    box(g, MULL,   FLOOR_H, CW + 0.06, MATS.mullion, -chord * 0.5 + MULL * 0.5, base + FLOOR_H * 0.5, CW * 0.5);
-    box(g, MULL,   FLOOR_H, CW + 0.06, MATS.mullion,  chord * 0.5 - MULL * 0.5, base + FLOOR_H * 0.5, CW * 0.5);
-    box(g, panelW, GLASS_H, CW,        MATS.glass,    0,                 base + FASCIA + GLASS_H * 0.5,  CW  * 0.5);
+    box(g, chord,  FASCIA,  ft,        MATS.concrete, 0,                          base + FASCIA * 0.5,            ft  * 0.5);
+    box(g, MULL,   FLOOR_H, CW + 0.06, MATS.mullion, -chord * 0.5 + MULL * 0.5, base + FLOOR_H * 0.5,            CW  * 0.5);
+    box(g, MULL,   FLOOR_H, CW + 0.06, MATS.mullion,  chord * 0.5 - MULL * 0.5, base + FLOOR_H * 0.5,            CW  * 0.5);
+    box(g, panelW, GLASS_H, CW,        MATS.glass,    0,                          base + FASCIA + GLASS_H * 0.5, CW  * 0.5);
   }
   const pt = CW + 0.12;
   box(g, chord, PARA_H, pt, MATS.parapet, 0, BH + PARA_H * 0.5, pt * 0.5);
 }
 
-function buildNorthCurved(scene) {
-  const FLAT_HALF = BW * 0.25;   // 10.5  — each flat wing
-  const CURVE_X   = BW * 0.25;   // ±10.5 — where curve meets flat
-  const BOW       = 3.0;          // units bow forward at centre
+// ════════════════════════════════════════════════════════════════════════════
+//  CURVED FACE BUILDERS
+// ════════════════════════════════════════════════════════════════════════════
 
-  // Circular arc: radius and z-centre derived from half-span and bow
+// NS face — middle 50 % of BW bows outward by BOW units.
+// north: faceZ = −BD/2, outSign = −1
+// south: faceZ = +BD/2, outSign = +1
+function buildCurvedNSFace(scene, faceZ, outSign) {
+  const FLAT_HALF = BW * 0.25;   // 10.5 — each flat wing
+  const CURVE_X   = BW * 0.25;   // ±10.5 — where curve meets wing
+
   const R  = (CURVE_X * CURVE_X + BOW * BOW) / (2 * BOW);   // ≈ 19.875
-  const ZC = -BD / 2 + R - BOW;                              // ≈  2.875  (inside building)
+  const ZC = faceZ - outSign * (R - BOW);                    // arc centre
 
-  // Flat left wing  (x: −21 → −10.5,  centre x = −15.75)
-  applyFlatNWing(scene, -(BW / 2 - FLAT_HALF / 2), FLAT_HALF, 2);
-  // Flat right wing (x: +10.5 → +21,  centre x = +15.75)
-  applyFlatNWing(scene,  (BW / 2 - FLAT_HALF / 2), FLAT_HALF, 2);
+  applyFlatNSWing(scene, -(BW / 2 - FLAT_HALF / 2), FLAT_HALF, 2, faceZ, outSign);
+  applyFlatNSWing(scene,  (BW / 2 - FLAT_HALF / 2), FLAT_HALF, 2, faceZ, outSign);
 
-  // 5 bow panels spanning −CURVE_X → +CURVE_X
   const N      = 5;
   const tMax   = Math.asin(CURVE_X / R);
   const dTheta = (2 * tMax) / N;
@@ -157,8 +152,35 @@ function buildNorthCurved(scene) {
   for (let i = 0; i < N; i++) {
     const theta = -tMax + dTheta * (i + 0.5);
     const cx    = R * Math.sin(theta);
-    const cz    = ZC - R * Math.cos(theta);
-    const rotY  = Math.PI - theta;          // local +Z = outward at this arc angle
+    const cz    = ZC + outSign * R * Math.cos(theta);
+    const rotY  = Math.atan2(Math.sin(theta), outSign * Math.cos(theta));
+    applyBowPanel(scene, cx, cz, rotY, chord);
+  }
+}
+
+// EW face — middle 50 % of BD bows outward by BOW units.
+// east: faceX = +BW/2, outSign = +1
+// west: faceX = −BW/2, outSign = −1
+function buildCurvedEWFace(scene, faceX, outSign) {
+  const FLAT_HALF = BD * 0.25;   // 7 — each flat wing
+  const CURVE_Z   = BD * 0.25;   // ±7 — where curve meets wing
+
+  const R  = (CURVE_Z * CURVE_Z + BOW * BOW) / (2 * BOW);   // ≈ 9.667
+  const XC = faceX - outSign * (R - BOW);                    // arc centre
+
+  applyFlatEWWing(scene, -(BD / 2 - FLAT_HALF / 2), FLAT_HALF, 2, faceX, outSign);
+  applyFlatEWWing(scene,  (BD / 2 - FLAT_HALF / 2), FLAT_HALF, 2, faceX, outSign);
+
+  const N      = 5;
+  const tMax   = Math.asin(CURVE_Z / R);
+  const dTheta = (2 * tMax) / N;
+  const chord  = 2 * R * Math.sin(dTheta / 2);
+
+  for (let i = 0; i < N; i++) {
+    const theta = -tMax + dTheta * (i + 0.5);
+    const cz    = R * Math.sin(theta);
+    const cx    = XC + outSign * R * Math.cos(theta);
+    const rotY  = Math.atan2(outSign * Math.cos(theta), Math.sin(theta));
     applyBowPanel(scene, cx, cz, rotY, chord);
   }
 }
@@ -170,8 +192,8 @@ function buildEntrance(scene) {
   const EW = 10;
   const Z0 = -BD / 2 - CW - 0.14;
 
-  box(scene, EW + 1.6, FLOOR_H,      0.72, MATS.entry,  0, FLOOR_H * 0.5,       Z0 - 0.36);
-  box(scene, EW - 1,   FLOOR_H - 0.4, 0.42, MATS.glass,  0, (FLOOR_H - 0.4) * 0.5, Z0 - 0.21);
+  box(scene, EW + 1.6, FLOOR_H,       0.72, MATS.entry,  0,             FLOOR_H * 0.5,        Z0 - 0.36);
+  box(scene, EW - 1,   FLOOR_H - 0.4, 0.42, MATS.glass,  0,             (FLOOR_H - 0.4) * 0.5, Z0 - 0.21);
   box(scene, 0.24, FLOOR_H, 0.44, MATS.mullion, -(EW / 2 - 0.12), FLOOR_H * 0.5, Z0 - 0.22);
   box(scene, 0.24, FLOOR_H, 0.44, MATS.mullion,  (EW / 2 - 0.12), FLOOR_H * 0.5, Z0 - 0.22);
   box(scene, 0.18, FLOOR_H, 0.44, MATS.mullion,  0,                FLOOR_H * 0.5, Z0 - 0.22);
@@ -216,19 +238,12 @@ function signPlane(scene, w, h, tex, cx, cy, cz, rotY) {
 }
 
 function buildSignage(scene) {
-  // Camera at x=0 looking south → viewer LEFT = world −X (negative x values)
   const ZN = -BD / 2 - CW - 0.22;
   const XE =  BW / 2 + CW + 0.22;
 
-  // Large "Open Text" — top parapet strip, left side
-  // width=11 + cx=-15.5 → right edge at world x=-21 (building edge), left edge at x=-10 (O clear)
   signPlane(scene, 11, 2.0, makeSignTex('Open Text'), -15.5, BH + PARA_H * 0.5, ZN, Math.PI);
-
-  // Smaller "OPEN TEXT" centred above entrance canopy
-  signPlane(scene, 9, 1.4, makeSignTex('OPEN TEXT'), 0, FLOOR_H + 3.2, ZN, Math.PI);
-
-  // East-face "OpenText"
-  signPlane(scene, 9, 1.5, makeSignTex('OpenText'), XE, 9, 7, -Math.PI / 2);
+  signPlane(scene, 9,  1.4, makeSignTex('OPEN TEXT'),  0,    FLOOR_H + 3.2,     ZN, Math.PI);
+  signPlane(scene, 9,  1.5, makeSignTex('OpenText'),   XE,   9, 7, -Math.PI / 2);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -245,17 +260,19 @@ function buildPlinth(scene) {
 // ════════════════════════════════════════════════════════════════════════════
 //  PUBLIC ENTRY
 // ════════════════════════════════════════════════════════════════════════════
-export function buildBuilding(scene) {
-  // Solid concrete core
-  box(scene, BW, BH, BD, MATS.concrete, 0, BH * 0.5, 0);
+export function buildBuilding() {
+  const group = new THREE.Group();
 
-  buildNorthCurved(scene);                             // North — curved bow centre + flat wings
-  applyFace(scene, 'NS',  BD / 2, +1, BW, NS_BAYS);   // South — full straight face
-  applyFace(scene, 'EW',  BW / 2, +1, BD, EW_BAYS);   // East  — full straight face
-  applyFace(scene, 'EW', -BW / 2, -1, BD, EW_BAYS);   // West  — full straight face
+  box(group, BW, BH, BD, MATS.concrete, 0, BH * 0.5, 0);
 
-  buildEntrance(scene);
-  buildSignage(scene);
-  buildRoof(scene);
-  buildPlinth(scene);
+  buildCurvedNSFace(group, -BD / 2, -1);   // North — bow faces outward (−Z)
+  buildCurvedNSFace(group, +BD / 2, +1);   // South — bow faces outward (+Z)
+  buildCurvedEWFace(group, +BW / 2, +1);   // East  — bow faces outward (+X)
+  buildCurvedEWFace(group, -BW / 2, -1);   // West  — bow faces outward (−X)
+
+  buildEntrance(group);
+  buildSignage(group);
+  buildRoof(group);
+  buildPlinth(group);
+  return group;
 }

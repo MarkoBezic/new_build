@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { BW, BD } from './building.js';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  CONSTANTS
@@ -241,7 +242,7 @@ function buildSiteTrees(scene) {
 //  SIDEWALKS
 // ════════════════════════════════════════════════════════════════════════════
 function buildSidewalks(scene) {
-  const BW = 42, BD = 28, PAD = 2.0;
+  const PAD = 2.0;
   // Narrow concrete strips around building perimeter, between plinth and asphalt
   flat(scene, BW + 6, PAD, SIDEWALK,  0,           0.04, -BD / 2 - 1.6 - PAD / 2);
   flat(scene, BW + 6, PAD, SIDEWALK,  0,           0.04,  BD / 2 + 1.6 + PAD / 2);
@@ -252,10 +253,12 @@ function buildSidewalks(scene) {
 // ════════════════════════════════════════════════════════════════════════════
 //  PUBLIC ENTRY
 // ════════════════════════════════════════════════════════════════════════════
-export function buildSite(scene) {
-  buildAsphalt(scene);
-  buildLines(scene);
-  buildCars(scene);
-  buildSiteTrees(scene);
-  buildSidewalks(scene);
+export function buildSite() {
+  const group = new THREE.Group();
+  buildAsphalt(group);
+  buildLines(group);
+  buildCars(group);
+  buildSiteTrees(group);
+  buildSidewalks(group);
+  return group;
 }

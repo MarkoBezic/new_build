@@ -1,8 +1,5 @@
 import * as THREE from 'three';
-
-// ── Landmark world positions (used by world.js for tree exclusion & minimap) ──
-export const POND_CENTER = { x: -160, z:  20 };   // west
-export const CAVE_CENTER = { x:  160, z: -20 };   // east
+import { LANDMARKS } from './world.config.js';
 
 // ════════════════════════════════════════════════════════════════════════════
 //  HELPER
@@ -29,8 +26,8 @@ function disc(scene, r, color, x, y, z, segs = 32) {
 // ════════════════════════════════════════════════════════════════════════════
 //  POND  (west, x ≈ −160)
 // ════════════════════════════════════════════════════════════════════════════
-function buildPond(scene) {
-  const px = POND_CENTER.x, pz = POND_CENTER.z;
+function buildPond(scene, lm) {
+  const px = lm.x, pz = lm.z;
 
   // Grassy clearing around water
   disc(scene, 32, 0x52A040, px, 0.008, pz);
@@ -78,8 +75,8 @@ function buildPond(scene) {
 //  ROCK FORMATION + CAVE  (east, x ≈ +160)
 //  Cave entrance faces west (−X), toward the clearing.
 // ════════════════════════════════════════════════════════════════════════════
-function buildRockCave(scene) {
-  const cx = CAVE_CENTER.x, cz = CAVE_CENTER.z;
+function buildRockCave(scene, lm) {
+  const cx = lm.x, cz = lm.z;
 
   const rock  = new THREE.MeshLambertMaterial({ color: 0x6A6258 });
   const dark  = new THREE.MeshLambertMaterial({ color: 0x484038 });
@@ -115,9 +112,21 @@ function buildRockCave(scene) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-//  PUBLIC ENTRY
+//  REGISTRY — maps landmark keys to their 3D builder functions.
+//  To add a landmark: add its data to world.config.js, add its builder here.
 // ════════════════════════════════════════════════════════════════════════════
-export function buildLandmarks(scene) {
-  buildPond(scene);
-  buildRockCave(scene);
+const BUILDERS = {
+  pond: buildPond,
+  cave: buildRockCave,
+};
+
+export function buildLandmarks() {
+  const group = new THREE.Group();
+  for (const [key, lm] of Object.entries(LANDMARKS)) {
+    const lmGroup = new THREE.Group();
+    lmGroup.name = key;
+    BUILDERS[key]?.(lmGroup, lm);
+    group.add(lmGroup);
+  }
+  return group;
 }
