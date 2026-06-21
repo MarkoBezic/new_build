@@ -116,7 +116,7 @@ function animate() {
   prevTime  = now;
 
   updatePlayer(dt);
-  geese.update(dt);
+  geese.update(dt, camera.position);
   minimap.update();
   renderer.render(scene, camera);
 }

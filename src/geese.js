@@ -9,6 +9,9 @@ const M_BEAK  = new THREE.MeshLambertMaterial({ color: 0x1E1C18 });
 const M_WING  = new THREE.MeshLambertMaterial({ color: 0x584030 });
 const M_LEG   = new THREE.MeshLambertMaterial({ color: 0x282420 });
 
+const NOTICE_R       = 11;    // units — player within this radius triggers avoidance
+const FLEE_COOLDOWN  = 2.5;   // seconds to keep moving after player backs off
+
 // ─── Roam zones [x0, x1, z0, z1] ─────────────────────────────────────────────
 const ZONES = [
   [-26, 26, -52, -20],   // north parking lot
@@ -137,18 +140,40 @@ function spawnGoose(scene, x, z, flockId) {
   return {
     mesh,
     flockId,
-    state:   Math.random() < 0.35 ? GRAZE : WALK,
-    timer:   rnd(3, 9),
-    phase:   rnd(0, Math.PI * 2),
-    speed:   rnd(0.75, 1.20),
-    targetY: mesh.root.rotation.y,
+    state:     Math.random() < 0.35 ? GRAZE : WALK,
+    timer:     rnd(3, 9),
+    phase:     rnd(0, Math.PI * 2),
+    speed:     rnd(0.75, 1.20),
+    targetY:   mesh.root.rotation.y,
+    fleeTimer: 0,
   };
 }
 
 // ─── Per-frame update for one goose ──────────────────────────────────────────
-function updateGoose(g, dt, flock) {
+function updateGoose(g, dt, flock, playerPos) {
   const { mesh } = g;
   const pos = mesh.root.position;
+
+  // ── Player avoidance (evaluated before state machine) ─────────────────────
+  const ex = pos.x - playerPos.x;
+  const ez = pos.z - playerPos.z;
+  const eDist = Math.sqrt(ex * ex + ez * ez);
+
+  if (eDist < NOTICE_R) {
+    g.fleeTimer = FLEE_COOLDOWN;
+    // Nudge targetY toward the away-from-player angle each frame
+    const awayY = Math.atan2(-ex, -ez);
+    let fd = awayY - g.targetY;
+    while (fd >  Math.PI) fd -= Math.PI * 2;
+    while (fd < -Math.PI) fd += Math.PI * 2;
+    g.targetY += fd * Math.min(5.0 * dt, 1.0);
+    // Interrupt any standing state so goose gets up and walks
+    if (g.state === GRAZE || g.state === IDLE) {
+      g.state = WALK;
+      g.timer = rnd(3, 6);
+    }
+  }
+  if (g.fleeTimer > 0) g.fleeTimer -= dt;
 
   // State timer & transitions
   g.timer -= dt;
@@ -222,14 +247,15 @@ function updateGoose(g, dt, flock) {
     let diff = g.targetY - mesh.root.rotation.y;
     while (diff >  Math.PI) diff -= Math.PI * 2;
     while (diff < -Math.PI) diff += Math.PI * 2;
-    const rate = g.state === TURN ? 3.5 : 1.2;
+    const rate = g.state === TURN ? 3.5 : (g.fleeTimer > 0 ? 2.8 : 1.2);
     mesh.root.rotation.y += diff * Math.min(rate * dt, 1.0);
   }
 
   // State-specific movement & animation
   if (g.state === WALK) {
-    pos.x -= Math.sin(mesh.root.rotation.y) * g.speed * dt;
-    pos.z -= Math.cos(mesh.root.rotation.y) * g.speed * dt;
+    const sp = g.fleeTimer > 0 ? g.speed * 1.25 : g.speed;
+    pos.x -= Math.sin(mesh.root.rotation.y) * sp * dt;
+    pos.z -= Math.cos(mesh.root.rotation.y) * sp * dt;
     g.phase += dt * 3.8;
 
     const swing = Math.sin(g.phase) * 0.38;
@@ -318,10 +344,10 @@ export function createGeese(scene) {
   }
 
   return {
-    update(dt) {
+    update(dt, playerPos) {
       for (const flock of flocks) {
         const companions = flock.length > 1 ? flock : null;
-        for (const g of flock) updateGoose(g, dt, companions);
+        for (const g of flock) updateGoose(g, dt, companions, playerPos);
       }
     },
   };
