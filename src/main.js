@@ -7,6 +7,7 @@ import { createPlayer, isMobile } from './player.js';
 import { createMinimap }   from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
 import { EntityManager } from './entities.js';
+import { createGeese } from './geese.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Renderer
@@ -73,6 +74,8 @@ entities.add('building',  buildBuilding());
 entities.add('site',      buildSite());
 entities.add('landmarks', buildLandmarks());
 
+const geese = createGeese(scene);
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  FPS player
 // ─────────────────────────────────────────────────────────────────────────────
@@ -113,6 +116,7 @@ function animate() {
   prevTime  = now;
 
   updatePlayer(dt);
+  geese.update(dt);
   minimap.update();
   renderer.render(scene, camera);
 }
