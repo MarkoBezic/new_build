@@ -13,7 +13,7 @@ const M_LEG   = new THREE.MeshLambertMaterial({ color: 0x282420 });
 const ZONES = [
   [-26, 26, -52, -20],   // north parking lot
   [-18, 18,  25,  42],   // south parking lot
-  [-12, 12, -54, -62],   // open clearing rim between north lot and forest
+  [-22, 22, -38, -65],   // approach corridor — overlaps north lot + clearing edge
 ];
 
 function inBuilding(x, z) {
@@ -156,8 +156,8 @@ function updateGoose(g, dt, flock) {
     const r = Math.random();
     switch (g.state) {
       case WALK:
-        if      (r < 0.40) { g.state = GRAZE; g.timer = rnd(2.5, 7.5); }
-        else if (r < 0.60) { g.state = IDLE;  g.timer = rnd(1.5, 4.0); }
+        if      (r < 0.40) { g.state = GRAZE; g.timer = rnd(1.2, 3.5); }
+        else if (r < 0.60) { g.state = IDLE;  g.timer = rnd(0.6, 1.8); }
         else {
           g.state   = TURN;
           g.timer   = rnd(0.35, 0.70);
@@ -283,17 +283,17 @@ function updateGoose(g, dt, flock) {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 export function createGeese(scene) {
-  // [flock size, zone index]  — zone 0=north lot, 1=south lot, 2=clearing edge
+  // [flock size, zone index]  — zone 0=north lot, 1=south lot, 2=approach corridor
   const flockDefs = [
     [5, 0], // north lot — main flock
-    [4, 0], // north lot — second flock
-    [1, 0], // north lot — lone wanderer
-    [3, 0], // north lot — trio
+    [3, 0], // north lot — second flock
+    [2, 0], // north lot — pair
+    [3, 2], // approach corridor — trio
+    [2, 2], // approach corridor — pair
+    [2, 2], // approach corridor — pair (lone wanderers)
     [3, 1], // south lot — flock
     [2, 1], // south lot — pair
-    [3, 2], // clearing edge — visible from spawn path
-    [1, 2], // clearing edge — lone
-  ]; // 5+4+1+3+3+2+3+1 = 22 geese
+  ]; // 5+3+2+3+2+2+3+2 = 22 geese
 
   const flocks = [];
 
