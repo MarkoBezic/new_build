@@ -144,8 +144,11 @@ function spawnGoose(scene, x, z, flockId) {
     timer:     rnd(3, 9),
     phase:     rnd(0, Math.PI * 2),
     speed:     rnd(0.75, 1.20),
-    targetY:   mesh.root.rotation.y,
-    fleeTimer: 0,
+    targetY:        mesh.root.rotation.y,
+    fleeTimer:      0,
+    carSteerTimer:  0,   // seconds left in committed car-avoidance steer
+    carSteerDir:    0,   // +1 = steer left, -1 = steer right
+    carSteerBaseY:  0,   // rotation.y when steer was initiated
   };
 }
 
@@ -246,7 +249,7 @@ function updateGoose(g, dt, flock, allGeese, playerPos, obstacles) {
   if (obstacles.length > 0) {
     const ry = mesh.root.rotation.y;
 
-    // Hard push-out: escape if already overlapping a car
+    // Hard push-out: always escape if inside a car
     for (const obs of obstacles) {
       const dx = pos.x - obs.x;
       const dz = pos.z - obs.z;
@@ -258,34 +261,45 @@ function updateGoose(g, dt, flock, allGeese, playerPos, obstacles) {
       }
     }
 
-    // Lookahead: steer around the nearest obstacle in path
-    steerLoop: for (let look = 1.5; look <= 4.5; look += 1.5) {
-      const ax = pos.x - Math.sin(ry) * look;
-      const az = pos.z - Math.cos(ry) * look;
-      for (const obs of obstacles) {
-        if (Math.abs(ax - obs.x) < obs.hw + 1.0 && Math.abs(az - obs.z) < obs.hd + 1.0) {
-          // Determine which side the obstacle is on (project onto goose-right axis)
-          const obsRight = (obs.x - pos.x) * Math.cos(ry) + (obs.z - pos.z) * (-Math.sin(ry));
-          const sa = 0.55 + (4.5 - look) * 0.08; // closer → sharper steer
-          g.targetY = ry + (obsRight > 0 ? sa : -sa);
-          if (g.state === GRAZE || g.state === IDLE) { g.state = WALK; g.timer = rnd(2, 5); }
-          break steerLoop;
+    if (g.carSteerTimer > 0) {
+      // Hold committed direction — absolute target prevents per-frame flip-flopping
+      g.carSteerTimer -= dt;
+      g.targetY = g.carSteerBaseY + g.carSteerDir * 1.1;
+      if (g.state === GRAZE || g.state === IDLE) { g.state = WALK; g.timer = rnd(2, 5); }
+    } else {
+      // No active commitment — scan ahead for obstacles
+      steerLoop: for (let look = 1.5; look <= 4.5; look += 1.5) {
+        const ax = pos.x - Math.sin(ry) * look;
+        const az = pos.z - Math.cos(ry) * look;
+        for (const obs of obstacles) {
+          if (Math.abs(ax - obs.x) < obs.hw + 1.0 && Math.abs(az - obs.z) < obs.hd + 1.0) {
+            // Project obstacle center onto the goose-right axis to pick a side
+            const obsRight = (obs.x - pos.x) * Math.cos(ry) + (obs.z - pos.z) * (-Math.sin(ry));
+            g.carSteerDir   = obsRight > 0 ? 1 : -1;
+            g.carSteerBaseY = ry;
+            g.carSteerTimer = 2.0;
+            g.targetY       = ry + g.carSteerDir * 1.1;
+            if (g.state === GRAZE || g.state === IDLE) { g.state = WALK; g.timer = rnd(2, 5); }
+            break steerLoop;
+          }
         }
       }
     }
   }
 
-  // ── Goose-goose separation ────────────────────────────────────────────────
-  for (const other of allGeese) {
-    if (other === g) continue;
-    const sx = pos.x - other.mesh.root.position.x;
-    const sz = pos.z - other.mesh.root.position.z;
-    const d2 = sx * sx + sz * sz;
-    if (d2 < 1.21 && d2 > 0.001) { // within 1.1 units
-      const d  = Math.sqrt(d2);
-      const push = (1.1 - d) / d * 3.0 * dt;
-      pos.x += sx * push;
-      pos.z += sz * push;
+  // ── Goose-goose separation (disabled during active car avoidance to prevent oscillation)
+  if (g.carSteerTimer <= 0) {
+    for (const other of allGeese) {
+      if (other === g) continue;
+      const sx = pos.x - other.mesh.root.position.x;
+      const sz = pos.z - other.mesh.root.position.z;
+      const d2 = sx * sx + sz * sz;
+      if (d2 < 1.21 && d2 > 0.001) {
+        const d    = Math.sqrt(d2);
+        const push = (1.1 - d) / d * 2.0 * dt;
+        pos.x += sx * push;
+        pos.z += sz * push;
+      }
     }
   }
 
