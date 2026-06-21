@@ -150,7 +150,7 @@ function spawnGoose(scene, x, z, flockId) {
 }
 
 // ─── Per-frame update for one goose ──────────────────────────────────────────
-function updateGoose(g, dt, flock, playerPos) {
+function updateGoose(g, dt, flock, allGeese, playerPos, obstacles) {
   const { mesh } = g;
   const pos = mesh.root.position;
 
@@ -242,6 +242,53 @@ function updateGoose(g, dt, flock, playerPos) {
     }
   }
 
+  // ── Car obstacle avoidance ────────────────────────────────────────────────
+  if (obstacles.length > 0) {
+    const ry = mesh.root.rotation.y;
+
+    // Hard push-out: escape if already overlapping a car
+    for (const obs of obstacles) {
+      const dx = pos.x - obs.x;
+      const dz = pos.z - obs.z;
+      const ox = (obs.hw + 0.05) - Math.abs(dx);
+      const oz = (obs.hd + 0.05) - Math.abs(dz);
+      if (ox > 0 && oz > 0) {
+        if (ox < oz) pos.x += Math.sign(dx) * ox;
+        else          pos.z += Math.sign(dz) * oz;
+      }
+    }
+
+    // Lookahead: steer around the nearest obstacle in path
+    steerLoop: for (let look = 1.5; look <= 4.5; look += 1.5) {
+      const ax = pos.x - Math.sin(ry) * look;
+      const az = pos.z - Math.cos(ry) * look;
+      for (const obs of obstacles) {
+        if (Math.abs(ax - obs.x) < obs.hw + 1.0 && Math.abs(az - obs.z) < obs.hd + 1.0) {
+          // Determine which side the obstacle is on (project onto goose-right axis)
+          const obsRight = (obs.x - pos.x) * Math.cos(ry) + (obs.z - pos.z) * (-Math.sin(ry));
+          const sa = 0.55 + (4.5 - look) * 0.08; // closer → sharper steer
+          g.targetY = ry + (obsRight > 0 ? sa : -sa);
+          if (g.state === GRAZE || g.state === IDLE) { g.state = WALK; g.timer = rnd(2, 5); }
+          break steerLoop;
+        }
+      }
+    }
+  }
+
+  // ── Goose-goose separation ────────────────────────────────────────────────
+  for (const other of allGeese) {
+    if (other === g) continue;
+    const sx = pos.x - other.mesh.root.position.x;
+    const sz = pos.z - other.mesh.root.position.z;
+    const d2 = sx * sx + sz * sz;
+    if (d2 < 1.21 && d2 > 0.001) { // within 1.1 units
+      const d  = Math.sqrt(d2);
+      const push = (1.1 - d) / d * 3.0 * dt;
+      pos.x += sx * push;
+      pos.z += sz * push;
+    }
+  }
+
   // Smooth rotation toward targetY
   {
     let diff = g.targetY - mesh.root.rotation.y;
@@ -308,7 +355,7 @@ function updateGoose(g, dt, flock, playerPos) {
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
-export function createGeese(scene) {
+export function createGeese(scene, obstacles = []) {
   // [flock size, zone index]  — zone 0=north lot, 1=south lot, 2=approach corridor
   const flockDefs = [
     [5, 0], // north lot — main flock
@@ -343,11 +390,13 @@ export function createGeese(scene) {
     if (flock.length > 0) flocks.push(flock);
   }
 
+  const allGeese = flocks.flat();
+
   return {
     update(dt, playerPos) {
       for (const flock of flocks) {
         const companions = flock.length > 1 ? flock : null;
-        for (const g of flock) updateGoose(g, dt, companions, playerPos);
+        for (const g of flock) updateGoose(g, dt, companions, allGeese, playerPos, obstacles);
       }
     },
   };

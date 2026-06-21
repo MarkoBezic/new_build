@@ -166,7 +166,7 @@ function pickup(color) {
  * rotY     = 0 → faces north, Math.PI → faces south.
  * fill     = fraction of stalls occupied (0–1).
  */
-function carRow(scene, zCenter, startX, count, rotY, fill = 0.72) {
+function carRow(scene, zCenter, startX, count, rotY, obstacles, fill = 0.72) {
   for (let i = 0; i < count; i++) {
     if (Math.random() > fill) continue;
     const x     = startX + STALL_W * (i + 0.5);
@@ -176,20 +176,22 @@ function carRow(scene, zCenter, startX, count, rotY, fill = 0.72) {
     car.position.set(x, 0, zCenter);
     car.rotation.y = rotY + (Math.random() - 0.5) * 0.04; // tiny jitter
     scene.add(car);
+    // Record axis-aligned bounding box for goose avoidance (with small buffer)
+    obstacles.push({ x, z: zCenter, hw: isTruck ? 1.45 : 1.30, hd: isTruck ? 2.70 : 2.40 });
   }
 }
 
-function buildCars(scene) {
+function buildCars(scene, obstacles) {
   // Row A: nose → south (building side), rotY = Math.PI
-  carRow(scene, -20, -28, 16, Math.PI);
+  carRow(scene, -20, -28, 16, Math.PI, obstacles);
   // Row B: nose → north (forest side), rotY = 0
-  carRow(scene, -33, -28, 16, 0);
+  carRow(scene, -33, -28, 16, 0,       obstacles);
   // Row C: nose → south, rotY = Math.PI
-  carRow(scene, -46, -28, 16, Math.PI);
+  carRow(scene, -46, -28, 16, Math.PI, obstacles);
   // Row D south: nose → north, rotY = 0
-  carRow(scene, 19, -21, 12, 0);
+  carRow(scene,  19, -21, 12, 0,       obstacles);
   // Row E south: nose → south, rotY = Math.PI
-  carRow(scene, 32, -21, 12, Math.PI);
+  carRow(scene,  32, -21, 12, Math.PI, obstacles);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -255,10 +257,11 @@ function buildSidewalks(scene) {
 // ════════════════════════════════════════════════════════════════════════════
 export function buildSite() {
   const group = new THREE.Group();
+  const carObstacles = [];
   buildAsphalt(group);
   buildLines(group);
-  buildCars(group);
+  buildCars(group, carObstacles);
   buildSiteTrees(group);
   buildSidewalks(group);
-  return group;
+  return { group, carObstacles };
 }

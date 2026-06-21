@@ -69,12 +69,13 @@ scene.add(fill);
 //  World geometry
 // ─────────────────────────────────────────────────────────────────────────────
 const entities = new EntityManager(scene);
-entities.add('world',     buildWorld());
-entities.add('building',  buildBuilding());
-entities.add('site',      buildSite());
+entities.add('world',    buildWorld());
+entities.add('building', buildBuilding());
+const { group: siteGroup, carObstacles } = buildSite();
+entities.add('site',     siteGroup);
 entities.add('landmarks', buildLandmarks());
 
-const geese = createGeese(scene);
+const geese = createGeese(scene, carObstacles);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  FPS player
