@@ -129,6 +129,8 @@ function bakeMap() {
   c.fillStyle = '#1E1E22';
   c.fillRect(px(-28), py(-59), Math.max(4, 56 * S), Math.max(2, 43 * S));   // north lot
   c.fillRect(px(-23), py(16),  Math.max(4, 46 * S), Math.max(2, 31 * S));   // south lot
+  c.fillRect(px(21),  py(-18), Math.max(2, 16 * S), Math.max(2, 36 * S));   // east side lot
+  c.fillRect(px(-37), py(-18), Math.max(2, 16 * S), Math.max(2, 36 * S));   // west side lot
 
   // ── Building footprint ────────────────────────────────────────────────────
   c.fillStyle   = '#9A9088';

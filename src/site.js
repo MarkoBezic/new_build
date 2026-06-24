@@ -58,10 +58,10 @@ function buildAsphalt(scene) {
   flat(scene, 56, 43, ASPHALT, 0,   0.02, -37.5);
   // South secondary lot  (46 × 31, z: +16 → +47)
   flat(scene, 46, 31, ASPHALT, 0,   0.02,  31.5);
-  // East drive strip
-  flat(scene, 10, 30, ASPHALT, 26,  0.02,  0);
-  // West drive strip
-  flat(scene, 10, 30, ASPHALT, -26, 0.02,  0);
+  // East side lot (drive aisle + stall pad: x 21→37, z −18→+18)
+  flat(scene, 16, 36, ASPHALT,  29, 0.02,  0);
+  // West side lot
+  flat(scene, 16, 36, ASPHALT, -29, 0.02,  0);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -88,6 +88,27 @@ function parkingRow(scene, zFront, zBack, startX, count) {
   }
 }
 
+/**
+ * Draw stall lines for one side row (cars perpendicular to building face).
+ * xFront / xBack = world-X of the aisle edge and far edge of the stalls.
+ * startZ         = world-Z of the first stall edge.
+ * count          = number of stalls.
+ */
+function sideStallLines(scene, xFront, xBack, startZ, count) {
+  const totalD = count * STALL_W;
+  const midZ   = startZ + totalD / 2;
+  const midX   = (xFront + xBack) / 2;
+  const depth  = Math.abs(xBack - xFront);
+
+  // Stop lines run N–S (along Z)
+  flat(scene, 0.13, totalD + 0.14, LINE_MAT, xFront, 0.05, midZ);
+  flat(scene, 0.13, totalD + 0.14, LINE_MAT, xBack,  0.05, midZ);
+
+  // Stall dividers run E–W (along X)
+  for (let i = 0; i <= count; i++)
+    flat(scene, depth, 0.13, LINE_MAT, midX, 0.05, startZ + i * STALL_W);
+}
+
 function buildLines(scene) {
   const SX_N = -28;  // start-X for north lot (16 stalls × 3.5 = 56, centred)
   const SX_S = -21;  // start-X for south lot (12 stalls × 3.5 = 42, centred)
@@ -100,6 +121,12 @@ function buildLines(scene) {
   // South — 2 rows (innermost row removed; outer row added)
   parkingRow(scene, 29, 35, SX_S, 12);    // Row E
   parkingRow(scene, 41, 47, SX_S, 12);    // Row F  (expansion)
+
+  // East & West side rows — 10 stalls × 3.5 = 35 units, centred on Z
+  const SIDE_N  = 10;
+  const SZ_SIDE = -(SIDE_N * STALL_W) / 2;   // −17.5
+  sideStallLines(scene,  31,  37, SZ_SIDE, SIDE_N);   // East
+  sideStallLines(scene, -31, -37, SZ_SIDE, SIDE_N);   // West
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -181,6 +208,27 @@ function carRow(scene, zCenter, startX, count, rotY, obstacles, fill = 0.72) {
   }
 }
 
+/**
+ * Populate one side row with cars facing along the X axis (perpendicular to building).
+ * xCenter = world-X centre of the stall depth.
+ * startZ  = world-Z of the first stall edge.
+ * rotY    = −π/2 nose→west (east lot), +π/2 nose→east (west lot).
+ */
+function sideCarRow(scene, xCenter, startZ, count, rotY, obstacles, fill = 0.72) {
+  for (let i = 0; i < count; i++) {
+    if (Math.random() > fill) continue;
+    const z     = startZ + STALL_W * (i + 0.5);
+    const color = CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)];
+    const isTruck = Math.random() < 0.28;
+    const car   = isTruck ? pickup(color) : sedan(color);
+    car.position.set(xCenter, 0, z);
+    car.rotation.y = rotY + (Math.random() - 0.5) * 0.04;
+    scene.add(car);
+    // Car is rotated 90°: length now along X (hw), width along Z (hd)
+    obstacles.push({ x: xCenter, z, hw: isTruck ? 2.70 : 2.40, hd: isTruck ? 1.45 : 1.30 });
+  }
+}
+
 function buildCars(scene, obstacles) {
   // Row B: nose → north (forest side), rotY = 0
   carRow(scene, -33, -28, 16, 0,       obstacles);
@@ -192,6 +240,12 @@ function buildCars(scene, obstacles) {
   carRow(scene,  32, -21, 12, Math.PI, obstacles);
   // Row F south: nose → north (expansion), rotY = 0
   carRow(scene,  44, -21, 12, 0,       obstacles);
+
+  // East side: nose → west (toward building), rotY = −π/2
+  const SZ_SIDE = -(10 * STALL_W) / 2;   // −17.5
+  sideCarRow(scene,  34, SZ_SIDE, 10, -Math.PI / 2, obstacles);
+  // West side: nose → east (toward building), rotY = +π/2
+  sideCarRow(scene, -34, SZ_SIDE, 10,  Math.PI / 2, obstacles);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -217,19 +271,19 @@ function buildSiteTrees(scene) {
 
   // ── East side of north lot ────────────────────────────────────────────────
   for (let z = -59; z <= -25; z += rnd(10, 17))
-    siteTree(scene, 30 + rnd(0, 1.5), z + rnd(-2, 2), rnd(5, 8), rnd(4, 6.5), rnd(3.5, 5));
+    siteTree(scene, 39 + rnd(0, 1.5), z + rnd(-2, 2), rnd(5, 8), rnd(4, 6.5), rnd(3.5, 5));
 
   // ── West side of north lot ────────────────────────────────────────────────
   for (let z = -59; z <= -25; z += rnd(10, 17))
-    siteTree(scene, -30 - rnd(0, 1.5), z + rnd(-2, 2), rnd(5, 8), rnd(4, 6.5), rnd(3.5, 5));
+    siteTree(scene, -39 - rnd(0, 1.5), z + rnd(-2, 2), rnd(5, 8), rnd(4, 6.5), rnd(3.5, 5));
 
-  // ── East flank of building ────────────────────────────────────────────────
-  for (let z = -12; z <= 12; z += rnd(12, 20))
-    siteTree(scene, 25 + rnd(0, 2), z + rnd(-1, 1), rnd(5.5, 8), rnd(4.5, 7), rnd(4, 5.5));
+  // ── East flank of building (outside side lot at x=37) ─────────────────────
+  for (let z = -20; z <= 20; z += rnd(12, 20))
+    siteTree(scene, 39 + rnd(0, 2), z + rnd(-1, 1), rnd(5.5, 8), rnd(4.5, 7), rnd(4, 5.5));
 
   // ── West flank ────────────────────────────────────────────────────────────
-  for (let z = -12; z <= 12; z += rnd(12, 20))
-    siteTree(scene, -25 - rnd(0, 2), z + rnd(-1, 1), rnd(5.5, 8), rnd(4.5, 7), rnd(4, 5.5));
+  for (let z = -20; z <= 20; z += rnd(12, 20))
+    siteTree(scene, -39 - rnd(0, 2), z + rnd(-1, 1), rnd(5.5, 8), rnd(4.5, 7), rnd(4, 5.5));
 
   // ── South lot perimeter ───────────────────────────────────────────────────
   for (let x = -21; x <= 21; x += rnd(9, 16))
