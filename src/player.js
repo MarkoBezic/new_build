@@ -28,10 +28,11 @@ function createDesktopPlayer(camera, canvas) {
   window.addEventListener('keydown', e => {
     keys.add(e.code);
     if (e.code === 'Space' && grounded) { vy = JUMP_VEL; grounded = false; }
-    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code))
+    if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code))
       e.preventDefault();
   });
   window.addEventListener('keyup', e => keys.delete(e.code));
+  controls.addEventListener('unlock', () => keys.clear());
 
   function update(dt) {
     if (!controls.isLocked) return;
