@@ -88,10 +88,10 @@ function buildGoose() {
   const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.115, 8, 6), M_DARK);
   headGroup.add(headMesh);
 
-  // White cheek/chin patch
+  // White cheek/chin patch (front of head, under beak — the classic chin strap)
   const chinMesh = new THREE.Mesh(new THREE.SphereGeometry(0.082, 8, 5), M_WHITE);
   chinMesh.scale.set(1.15, 0.62, 0.78);
-  chinMesh.position.set(0, -0.032, 0.076);
+  chinMesh.position.set(0, -0.032, -0.076);
   headGroup.add(chinMesh);
 
   // Beak — flat dark box

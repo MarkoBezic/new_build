@@ -22,7 +22,7 @@ const CAR_COLORS = [
 // ════════════════════════════════════════════════════════════════════════════
 //  MATERIALS
 // ════════════════════════════════════════════════════════════════════════════
-const ASPHALT   = new THREE.MeshLambertMaterial({ color: 0x1C1C20 });
+const ASPHALT   = new THREE.MeshLambertMaterial({ color: 0x505058 });
 const LINE_MAT  = new THREE.MeshBasicMaterial ({ color: 0xECECEC });
 const SIDEWALK  = new THREE.MeshLambertMaterial({ color: 0xA8A09A });
 const TRUNK_MAT = new THREE.MeshLambertMaterial({ color: 0x5A3618 });
