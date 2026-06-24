@@ -2,8 +2,8 @@ import * as THREE from 'three';
 
 // ── Materials ─────────────────────────────────────────────────────────────────
 const SKIN  = new THREE.MeshLambertMaterial({ color: 0xD4956A });
-const HAIR  = new THREE.MeshLambertMaterial({ color: 0x2C1A0C });
-const BEARD = new THREE.MeshLambertMaterial({ color: 0xB03A18 });
+const HAIR  = new THREE.MeshLambertMaterial({ color: 0x3A2210 });
+const BEARD = new THREE.MeshLambertMaterial({ color: 0xBF4020 });
 const SHIRT = new THREE.MeshLambertMaterial({ color: 0x252525 });
 const PANTS = new THREE.MeshLambertMaterial({ color: 0x4B5E28 });
 const SHOE  = new THREE.MeshLambertMaterial({ color: 0x0E0E0E });
@@ -26,63 +26,79 @@ function s(p, r, mat, x, y, z, sx = 1, sy = 1, sz = 1) {
 }
 
 // ── Character mesh ────────────────────────────────────────────────────────────
-// Total height ≈ 1.75 world units.  Front of character faces −Z (Three.js default).
+// Clay / chibi proportions: head ≈ 1/3 of total height (~1.85 units).
+// Front of character faces −Z (Three.js default).
+//
+// Vertical stack (bottom → top):
+//   sole   0.00 – 0.02
+//   shoe   0.02 – 0.07
+//   legs   0.07 – 0.59   (centre 0.33)
+//   torso  0.59 – 1.07   (centre 0.83)
+//   neck   1.07 – 1.19   (centre 1.13)
+//   head   centre 1.52   (r 0.30 × sy 1.10 → top ≈ 1.85)
 function buildCharacter() {
   const root = new THREE.Group();
 
   // ── Shoes ─────────────────────────────────────────────────────────────────
   for (const sx of [-1, 1]) {
-    b(root, 0.16,  0.062, 0.27, SHOE, sx * 0.09, 0.038, 0.005);
-    b(root, 0.16,  0.024, 0.27, SOLE, sx * 0.09, 0.012, 0.005);
+    b(root, 0.175, 0.068, 0.30, SHOE, sx * 0.095, 0.044, 0.010);   // upper
+    b(root, 0.175, 0.022, 0.30, SOLE, sx * 0.095, 0.011, 0.010);   // white sole
+    b(root, 0.080, 0.048, 0.04, SOLE, sx * 0.095, 0.044, -0.140);  // white toe cap
   }
 
-  // ── Legs ──────────────────────────────────────────────────────────────────
-  b(root, 0.155, 0.58, 0.175, PANTS, -0.09, 0.39, 0);
-  b(root, 0.155, 0.58, 0.175, PANTS,  0.09, 0.39, 0);
+  // ── Legs (pants) ──────────────────────────────────────────────────────────
+  b(root, 0.165, 0.52, 0.185, PANTS, -0.095, 0.33, 0);
+  b(root, 0.165, 0.52, 0.185, PANTS,  0.095, 0.33, 0);
 
   // ── Torso ─────────────────────────────────────────────────────────────────
-  b(root, 0.43, 0.56, 0.24, SHIRT, 0, 0.98, 0);
-  b(root, 0.10, 0.08, 0.025, SHIRT, -0.115, 1.07, -0.12);  // chest pocket
+  b(root, 0.46, 0.48, 0.26, SHIRT, 0, 0.83, 0);
+  // Chest pocket (character's left breast)
+  b(root, 0.105, 0.085, 0.026, SHIRT, -0.12, 0.93, -0.13);
+  // Shirt collar — two small angled tabs at neckline
+  b(root, 0.08, 0.06, 0.028, SHIRT, -0.04, 1.10, -0.115);
+  b(root, 0.08, 0.06, 0.028, SHIRT,  0.04, 1.10, -0.115);
 
-  // ── Left arm (stationary) ─────────────────────────────────────────────────
+  // ── Arms (pivot at shoulder top) ──────────────────────────────────────────
   const leftArm = new THREE.Group();
-  leftArm.position.set(-0.265, 1.09, 0);
+  leftArm.position.set(-0.285, 1.06, 0);
   root.add(leftArm);
-  b(leftArm, 0.125, 0.46, 0.125, SHIRT, 0, -0.23, 0);
-  s(leftArm, 0.062, SKIN, 0, -0.50, 0);
+  b(leftArm, 0.135, 0.44, 0.135, SHIRT, 0, -0.22, 0);
+  s(leftArm, 0.066, SKIN, 0, -0.47, 0);
 
-  // ── Right arm (animated for wave, pivot at shoulder) ──────────────────────
-  const rightArm = new THREE.Group();
-  rightArm.position.set(0.265, 1.09, 0);
+  const rightArm = new THREE.Group();   // animated for wave
+  rightArm.position.set(0.285, 1.06, 0);
   root.add(rightArm);
-  b(rightArm, 0.125, 0.46, 0.125, SHIRT, 0, -0.23, 0);
-  s(rightArm, 0.062, SKIN, 0, -0.50, 0);
+  b(rightArm, 0.135, 0.44, 0.135, SHIRT, 0, -0.22, 0);
+  s(rightArm, 0.066, SKIN, 0, -0.47, 0);
 
   // ── Neck ──────────────────────────────────────────────────────────────────
-  b(root, 0.105, 0.12, 0.105, SKIN, 0, 1.33, 0);
+  b(root, 0.115, 0.13, 0.115, SKIN, 0, 1.13, 0);
 
-  // ── Head ──────────────────────────────────────────────────────────────────
-  s(root, 0.190, SKIN, 0, 1.525, 0, 1.0, 1.1, 0.94);
+  // ── Head — deliberately oversized for clay/chibi look ────────────────────
+  s(root, 0.30, SKIN, 0, 1.52, 0, 1.0, 1.10, 0.91);
 
-  // ── Hair ──────────────────────────────────────────────────────────────────
-  s(root, 0.185, HAIR,  0,     1.565,  0.01, 1.02, 0.70, 0.96);  // top
-  s(root, 0.115, HAIR, -0.15,  1.530,  0.05, 1.0,  0.86, 1.0);   // left
-  s(root, 0.115, HAIR,  0.15,  1.530,  0.05, 1.0,  0.86, 1.0);   // right
-  s(root, 0.135, HAIR,  0,     1.510,  0.12, 1.02, 0.90, 0.80);  // back
+  // ── Hair — side-swept (parted left, more volume on left side) ────────────
+  s(root, 0.29, HAIR,  -0.03, 1.70,  0.01, 1.06, 0.62, 0.94);  // flat top mass
+  s(root, 0.16, HAIR,  -0.24, 1.53,  0.06, 1.0,  0.82, 0.96);  // left side (fuller)
+  s(root, 0.13, HAIR,   0.24, 1.53,  0.06, 0.90, 0.78, 0.92);  // right side (thinner)
+  s(root, 0.20, HAIR,   0,    1.49,  0.15, 1.02, 0.88, 0.76);  // back
+  s(root, 0.10, HAIR,   0.07, 1.77, -0.10, 1.15, 0.60, 0.82);  // front swoop detail
 
-  // ── Beard ─────────────────────────────────────────────────────────────────
-  s(root, 0.125, BEARD,  0,     1.435, -0.095, 1.12, 0.84, 0.90); // chin
-  s(root, 0.078, BEARD, -0.11,  1.470, -0.095, 1.0,  0.86, 0.88); // left cheek
-  s(root, 0.078, BEARD,  0.11,  1.470, -0.095, 1.0,  0.86, 0.88); // right cheek
-  s(root, 0.058, BEARD,  0,     1.528, -0.148, 1.1,  0.65, 0.75); // moustache
+  // ── Beard — full auburn, covering lower two-thirds of face ────────────────
+  s(root, 0.195, BEARD,  0,     1.34, -0.16, 1.20, 0.92, 0.88);  // chin mass
+  s(root, 0.145, BEARD, -0.18,  1.43, -0.15, 1.0,  0.88, 0.86);  // left cheek
+  s(root, 0.145, BEARD,  0.18,  1.43, -0.15, 1.0,  0.88, 0.86);  // right cheek
+  s(root, 0.090, BEARD,  0,     1.53, -0.235, 1.28, 0.60, 0.70); // moustache
+  // Under-chin fill to close the bottom of the beard
+  s(root, 0.12,  BEARD,  0,     1.29, -0.06, 1.15, 0.70, 1.0);
 
   // ── Eyes ──────────────────────────────────────────────────────────────────
-  s(root, 0.032, EYE, -0.068, 1.560, -0.176);
-  s(root, 0.032, EYE,  0.068, 1.560, -0.176);
+  s(root, 0.038, EYE, -0.10, 1.57, -0.255);
+  s(root, 0.038, EYE,  0.10, 1.57, -0.255);
 
-  // ── Eyebrows ──────────────────────────────────────────────────────────────
-  b(root, 0.068, 0.016, 0.012, HAIR, -0.068, 1.615, -0.178);
-  b(root, 0.068, 0.016, 0.012, HAIR,  0.068, 1.615, -0.178);
+  // ── Eyebrows (thick, dark) ────────────────────────────────────────────────
+  b(root, 0.085, 0.022, 0.016, HAIR, -0.10, 1.655, -0.258);
+  b(root, 0.085, 0.022, 0.016, HAIR,  0.10, 1.655, -0.258);
 
   root.traverse(m => {
     if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; }
