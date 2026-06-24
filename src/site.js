@@ -54,10 +54,10 @@ function box(parent, w, h, d, mat, x, y, z) {
 //  ASPHALT PADS
 // ════════════════════════════════════════════════════════════════════════════
 function buildAsphalt(scene) {
-  // North main lot  (56 × 36, z: -16 → -52)
-  flat(scene, 56, 36, ASPHALT, 0,   0.02, -34);
-  // South secondary lot  (46 × 26, z: +16 → +42)
-  flat(scene, 46, 26, ASPHALT, 0,   0.02,  29);
+  // North main lot  (56 × 43, z: -16 → -59)
+  flat(scene, 56, 43, ASPHALT, 0,   0.02, -37.5);
+  // South secondary lot  (46 × 31, z: +16 → +47)
+  flat(scene, 46, 31, ASPHALT, 0,   0.02,  31.5);
   // East drive strip
   flat(scene, 10, 30, ASPHALT, 26,  0.02,  0);
   // West drive strip
@@ -92,14 +92,14 @@ function buildLines(scene) {
   const SX_N = -28;  // start-X for north lot (16 stalls × 3.5 = 56, centred)
   const SX_S = -21;  // start-X for south lot (12 stalls × 3.5 = 42, centred)
 
-  // North — 3 rows
-  parkingRow(scene, -17, -23, SX_N, 16);   // Row A  (nose → building)
+  // North — 3 rows (innermost row removed; outer row added)
   parkingRow(scene, -30, -36, SX_N, 16);   // Row B  (nose → forest)
   parkingRow(scene, -43, -49, SX_N, 16);   // Row C  (nose → building)
+  parkingRow(scene, -53, -59, SX_N, 16);   // Row D  (nose → forest, expansion)
 
-  // South — 2 rows
-  parkingRow(scene, 16, 22, SX_S, 12);    // Row D
+  // South — 2 rows (innermost row removed; outer row added)
   parkingRow(scene, 29, 35, SX_S, 12);    // Row E
+  parkingRow(scene, 41, 47, SX_S, 12);    // Row F  (expansion)
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -182,16 +182,16 @@ function carRow(scene, zCenter, startX, count, rotY, obstacles, fill = 0.72) {
 }
 
 function buildCars(scene, obstacles) {
-  // Row A: nose → south (building side), rotY = Math.PI
-  carRow(scene, -20, -28, 16, Math.PI, obstacles);
   // Row B: nose → north (forest side), rotY = 0
   carRow(scene, -33, -28, 16, 0,       obstacles);
   // Row C: nose → south, rotY = Math.PI
   carRow(scene, -46, -28, 16, Math.PI, obstacles);
-  // Row D south: nose → north, rotY = 0
-  carRow(scene,  19, -21, 12, 0,       obstacles);
+  // Row D: nose → north (expansion), rotY = 0
+  carRow(scene, -56, -28, 16, 0,       obstacles);
   // Row E south: nose → south, rotY = Math.PI
   carRow(scene,  32, -21, 12, Math.PI, obstacles);
+  // Row F south: nose → north (expansion), rotY = 0
+  carRow(scene,  44, -21, 12, 0,       obstacles);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -213,14 +213,14 @@ function buildSiteTrees(scene) {
 
   // ── North end of lot ──────────────────────────────────────────────────────
   for (let x = -26; x <= 26; x += rnd(9, 17))
-    siteTree(scene, x + rnd(-1.5, 1.5), -51 + rnd(-1, 1), rnd(4.5, 7), rnd(4, 6), rnd(3.5, 5));
+    siteTree(scene, x + rnd(-1.5, 1.5), -59 + rnd(-1, 1), rnd(4.5, 7), rnd(4, 6), rnd(3.5, 5));
 
   // ── East side of north lot ────────────────────────────────────────────────
-  for (let z = -50; z <= -18; z += rnd(10, 17))
+  for (let z = -59; z <= -25; z += rnd(10, 17))
     siteTree(scene, 30 + rnd(0, 1.5), z + rnd(-2, 2), rnd(5, 8), rnd(4, 6.5), rnd(3.5, 5));
 
   // ── West side of north lot ────────────────────────────────────────────────
-  for (let z = -50; z <= -18; z += rnd(10, 17))
+  for (let z = -59; z <= -25; z += rnd(10, 17))
     siteTree(scene, -30 - rnd(0, 1.5), z + rnd(-2, 2), rnd(5, 8), rnd(4, 6.5), rnd(3.5, 5));
 
   // ── East flank of building ────────────────────────────────────────────────
@@ -233,8 +233,8 @@ function buildSiteTrees(scene) {
 
   // ── South lot perimeter ───────────────────────────────────────────────────
   for (let x = -21; x <= 21; x += rnd(9, 16))
-    siteTree(scene, x + rnd(-1.5, 1.5), 39 + rnd(-1, 1), rnd(4.5, 7), rnd(4, 6), rnd(3.5, 5));
-  for (let z = 18; z <= 38; z += rnd(10, 18)) {
+    siteTree(scene, x + rnd(-1.5, 1.5), 47 + rnd(-1, 1), rnd(4.5, 7), rnd(4, 6), rnd(3.5, 5));
+  for (let z = 25; z <= 47; z += rnd(10, 18)) {
     siteTree(scene,  24 + rnd(0, 1.5), z + rnd(-1.5, 1.5), rnd(5, 7), rnd(4, 5.5), rnd(3.5, 5));
     siteTree(scene, -24 - rnd(0, 1.5), z + rnd(-1.5, 1.5), rnd(5, 7), rnd(4, 5.5), rnd(3.5, 5));
   }

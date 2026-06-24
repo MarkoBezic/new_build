@@ -14,8 +14,8 @@ const FLEE_COOLDOWN  = 2.5;   // seconds to keep moving after player backs off
 
 // ─── Roam zones [x0, x1, z0, z1] ─────────────────────────────────────────────
 const ZONES = [
-  [-26, 26, -52, -20],   // north parking lot
-  [-18, 18,  25,  42],   // south parking lot
+  [-26, 26, -59, -27],   // north parking lot (expanded)
+  [-18, 18,  27,  47],   // south parking lot (expanded)
   [-22, 22, -38, -65],   // approach corridor — overlaps north lot + clearing edge
 ];
 
