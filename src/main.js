@@ -8,6 +8,7 @@ import { createMinimap }   from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
 import { EntityManager } from './entities.js';
 import { createGeese } from './geese.js';
+import { createNPC }   from './npc.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Renderer
@@ -76,6 +77,7 @@ entities.add('site',     siteGroup);
 entities.add('landmarks', buildLandmarks());
 
 const geese = createGeese(scene, carObstacles);
+const npc   = createNPC(scene);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  FPS player
@@ -118,6 +120,7 @@ function animate() {
 
   updatePlayer(dt);
   geese.update(dt, camera.position);
+  npc.update(dt, camera.position);
   minimap.update();
   renderer.render(scene, camera);
 }
