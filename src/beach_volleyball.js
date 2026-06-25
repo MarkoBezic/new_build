@@ -1,24 +1,33 @@
 import * as THREE from 'three';
 
-// Official beach volleyball: 16 × 8 m playing area
-const COURT_L  = 16;
-const COURT_W  = 8;
-const NET_H    = 2.43;   // net top (men's)
-const POST_H   = 2.55;   // posts extend above net
-const POST_OUT = 1.0;    // posts 1 m outside each sideline
+// Standard beach volleyball: 16 × 8 m playing area
+const COURT_L   = 16;
+const COURT_W   = 8;
+const NET_H     = 2.43;
+const POST_H    = 2.55;
+const POST_OUT  = 1.0;    // posts 1 m outside each sideline
 
-// Portal B is at world (-480, 0, 575) on the diagonal beach strip (z−x=1055).
-// The shoreline runs along (1,0,1)/√2, so 2 court-lengths (32 m) in that
-// direction gives each axis component: 32 / √2 = 16√2.
-const STEP = COURT_L * Math.SQRT2;   // 32/√2 per axis ≈ 22.6
-const CX   = -480 + STEP;            // ≈ -457.4
-const CZ   =  575 + STEP;            // ≈  597.6
-const ROT_Y = -Math.PI / 4;          // long axis parallel to shoreline
+// 2 court-lengths (32 m) along the shoreline (1,0,1)/√2 from portal B (-480, 0, 575)
+const STEP  = COURT_L * Math.SQRT2;   // component per axis ≈ 22.6
+const CX    = -480 + STEP;
+const CZ    =  575 + STEP;
+const ROT_Y = -Math.PI / 4;           // long axis parallel to the shore
+
+const SAND_COLOR   = 0xEDD9A3;   // light cream sand inside the boards
+const BOARD_COLOR  = 0xF2F2F2;   // white retaining boards
+const POST_COLOR   = 0x2C5FC4;   // blue posts (matches reference image)
+const NET_DARK     = 0x2A2A2A;
+const NET_WHITE    = 0xEEEEEE;
+
+const BW = 0.15;   // board thickness (m)
+const BH = 0.22;   // board height (m)
+
+// ── helpers ──────────────────────────────────────────────────────────────────
 
 function flatPlane(parent, w, d, color, y) {
   const mat = new THREE.MeshLambertMaterial({ color });
   mat.polygonOffset      = true;
-  mat.polygonOffsetFactor = -1;
+  mat.polygonOffsetFactor = -2;
   mat.polygonOffsetUnits  = -4;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
   m.rotation.x    = -Math.PI / 2;
@@ -38,34 +47,55 @@ function box(parent, w, h, d, color, x, y, z, cast = true) {
   parent.add(m);
 }
 
+function cyl(parent, r, h, color, x, y, z) {
+  const m = new THREE.Mesh(
+    new THREE.CylinderGeometry(r, r, h, 12),
+    new THREE.MeshLambertMaterial({ color }),
+  );
+  m.position.set(x, y, z);
+  m.castShadow    = true;
+  m.receiveShadow = false;
+  parent.add(m);
+}
+
+// ── export ────────────────────────────────────────────────────────────────────
+
 export function buildBeachVolleyballCourt() {
   const g = new THREE.Group();
   g.position.set(CX, 0, CZ);
   g.rotation.y = ROT_Y;
 
-  // Sand base with free zone (beach is at y=0.15; polygonOffset floats this on top)
-  flatPlane(g, COURT_L + 6, COURT_W + 6, 0xDCC87A, 0.155);
+  const GY = 0.155;           // ground y (beach is at 0.15; polygonOffset brings this above it)
+  const BY = GY + BH / 2;    // board centre y
 
-  // White boundary and center lines
-  const LY = 0.16;
-  const LW = 0.05;
-  box(g, COURT_L, 0.01, LW, 0xFFFFFF,  0,            LY,  COURT_W / 2);  // far sideline
-  box(g, COURT_L, 0.01, LW, 0xFFFFFF,  0,            LY, -COURT_W / 2);  // near sideline
-  box(g, LW, 0.01, COURT_W, 0xFFFFFF, -COURT_L / 2,  LY,  0);            // left end line
-  box(g, LW, 0.01, COURT_W, 0xFFFFFF,  COURT_L / 2,  LY,  0);            // right end line
-  box(g, LW, 0.01, COURT_W, 0xFFFFFF,  0,            LY,  0);             // center line
+  const HL = COURT_L / 2;    // 8
+  const HW = COURT_W / 2;    // 4
 
-  // Net posts (1 m outside each sideline, on the center x=0)
-  const POZ = COURT_W / 2 + POST_OUT;   // ±5 m
-  box(g, 0.10, POST_H, 0.10, 0xC0C0C0, 0, POST_H / 2,  POZ);
-  box(g, 0.10, POST_H, 0.10, 0xC0C0C0, 0, POST_H / 2, -POZ);
+  // ── Sand surface (inside the boards) ────────────────────────────────────
+  flatPlane(g, COURT_L, COURT_W, SAND_COLOR, GY);
 
-  // Net: dark mesh body + white top band
-  const NET_SPAN = 2 * POZ;          // 10 m between posts
+  // ── Retaining boards ─────────────────────────────────────────────────────
+  // Long sides (run the court length, sit just outside the sidelines)
+  box(g, COURT_L,             BH, BW, BOARD_COLOR,  0,           BY,  HW + BW / 2);
+  box(g, COURT_L,             BH, BW, BOARD_COLOR,  0,           BY, -(HW + BW / 2));
+  // Short ends (span full outer width so corners are filled)
+  box(g, BW, BH, COURT_W + 2 * BW, BOARD_COLOR,  HL + BW / 2, BY, 0);
+  box(g, BW, BH, COURT_W + 2 * BW, BOARD_COLOR, -(HL + BW / 2), BY, 0);
+
+  // ── Centre line (sand-tone tape / rope) ──────────────────────────────────
+  box(g, 0.04, 0.01, COURT_W, 0xC8A84A, 0, GY + 0.006, 0, false);
+
+  // ── Net posts — blue cylinders outside the boards ────────────────────────
+  const POZ = HW + POST_OUT;   // ±5
+  cyl(g, 0.05, POST_H, POST_COLOR, 0, GY + POST_H / 2,  POZ);
+  cyl(g, 0.05, POST_H, POST_COLOR, 0, GY + POST_H / 2, -POZ);
+
+  // ── Net — dark mesh body + white top band ────────────────────────────────
+  const NET_SPAN = 2 * POZ;    // 10 m
   const NET_BAND = 0.08;
-  const NET_BODY = NET_H - NET_BAND;  // 2.35 m
-  box(g, 0.02, NET_BODY, NET_SPAN, 0x2A2A2A, 0, NET_BODY / 2,          0, false);
-  box(g, 0.04, NET_BAND, NET_SPAN, 0xEEEEEE, 0, NET_H - NET_BAND / 2,  0, false);
+  const NET_BODY = NET_H - NET_BAND;   // 2.35 m
+  box(g, 0.02, NET_BODY, NET_SPAN, NET_DARK,  0, NET_BODY / 2,          0, false);
+  box(g, 0.04, NET_BAND, NET_SPAN, NET_WHITE, 0, NET_H - NET_BAND / 2,  0, false);
 
   return g;
 }
