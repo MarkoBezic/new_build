@@ -8,7 +8,8 @@ import { createMinimap }   from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
 import { EntityManager } from './entities.js';
 import { createGeese } from './geese.js';
-import { createNPC }   from './npc.js';
+import { createNPC }     from './npc.js';
+import { createPortals } from './portal.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
 import { OutlinePass }    from 'three/addons/postprocessing/OutlinePass.js';
@@ -85,8 +86,9 @@ const { group: siteGroup, carObstacles } = buildSite();
 entities.add('site',     siteGroup);
 entities.add('landmarks', buildLandmarks());
 
-const geese = createGeese(scene, carObstacles);
+const geese   = createGeese(scene, carObstacles);
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
+const portals = createPortals(scene, camera);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Post-processing (composer needs scene + camera + npcRoot)
@@ -152,6 +154,7 @@ function animate() {
   updatePlayer(dt);
   geese.update(dt, camera.position);
   npcUpdate(dt, camera.position);
+  portals.update(dt);
   minimap.update();
   composer.render();
 }
