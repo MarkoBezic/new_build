@@ -10,6 +10,7 @@ import { EntityManager } from './entities.js';
 import { createGeese } from './geese.js';
 import { createNPC }     from './npc.js';
 import { createPortals } from './portal.js';
+import { buildBeachVolleyballCourt } from './beach_volleyball.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
 import { OutlinePass }    from 'three/addons/postprocessing/OutlinePass.js';
@@ -85,6 +86,7 @@ entities.add('building', buildBuilding());
 const { group: siteGroup, carObstacles } = buildSite();
 entities.add('site',     siteGroup);
 entities.add('landmarks', buildLandmarks());
+entities.add('beachCourt', buildBeachVolleyballCourt());
 
 const geese   = createGeese(scene, carObstacles);
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
