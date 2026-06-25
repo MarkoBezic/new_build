@@ -142,6 +142,7 @@ const LEAVING  = 4;
 const DONE     = 5;
 
 const TRIGGER_DIST   = 14;
+const RESET_DIST     = 18;  // hysteresis: reset when player moves this far away
 const TURN_SPEED     = 2.2;
 
 // Wave arc: rotation.z = 2.79 puts the hand at ear height (y≈1.52) outside the
@@ -189,6 +190,14 @@ export function createNPC(scene) {
     const dx   = playerPos.x - root.position.x;
     const dz   = playerPos.z - root.position.z;
     const dist = Math.hypot(dx, dz);
+
+    // Reset when player leaves — next approach starts the full sequence again
+    if (state !== IDLE && dist > RESET_DIST) {
+      state               = IDLE;
+      timer               = 0;
+      rightArm.rotation.z = 0;
+      root.rotation.y     = Math.PI;
+    }
 
     if (state === IDLE) {
       if (dist < TRIGGER_DIST && playerPos.z > -20) {
