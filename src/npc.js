@@ -152,7 +152,7 @@ const WAVE_HIGH    = 2.79;
 const WAVE_LOW     = 2.00;
 const WAVE_CENTER  = (WAVE_HIGH + WAVE_LOW) / 2;   // 2.395
 const WAVE_AMPL    = (WAVE_HIGH - WAVE_LOW) / 2;   // 0.395
-const WAVE_FREQ    = 2.43;                          // rad/s (1.8 × 1.35)
+const WAVE_FREQ    = 3.28;                          // rad/s (1.8 × 1.35 × 1.35)
 
 const WAVE_RAISE   = 0.55;
 const WAVE_HOLD    = 5.0;    // original 3.0 + 2.0 extra seconds
