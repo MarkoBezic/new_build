@@ -170,16 +170,24 @@ const DONE     = 5;
 const TRIGGER_DIST   = 14;
 const TURN_SPEED     = 2.2;
 
-const WAVE_RAISE     = 0.55;   // seconds to lift arm straight up
-const WAVE_HOLD      = 3.0;    // seconds of back-and-forth waving
-const WAVE_LOWER     = 0.55;   // seconds to bring arm back down
-const WAVE_DURATION  = WAVE_RAISE + WAVE_HOLD + WAVE_LOWER;
+// Wave arc: rotation.z = 2.79 puts the hand at ear height (y≈1.52) outside the
+// head sphere; 2.00 puts the hand just above horizontal. Capping at 2.79 keeps
+// the arm clear of the head at all times.
+const WAVE_HIGH    = 2.79;
+const WAVE_LOW     = 2.00;
+const WAVE_CENTER  = (WAVE_HIGH + WAVE_LOW) / 2;   // 2.395
+const WAVE_AMPL    = (WAVE_HIGH - WAVE_LOW) / 2;   // 0.395
+const WAVE_FREQ    = 1.8;                           // rad/s — slow sweep
 
-const GREET_DURATION = 4.0;    // seconds to hold gaze after waving
+const WAVE_RAISE   = 0.55;
+const WAVE_HOLD    = 5.0;    // original 3.0 + 2.0 extra seconds
+const WAVE_LOWER   = 0.55;
+const WAVE_DURATION = WAVE_RAISE + WAVE_HOLD + WAVE_LOWER;
 
-// Angle arm reaches at the exact end of the wave hold, so the lower
-// phase starts from the right position (no jump).
-const WAVE_END_ANGLE = Math.PI + 0.28 * Math.sin(WAVE_HOLD * 2.2);
+const GREET_DURATION = 4.0;
+
+// Capture the exact angle at end of wave hold so the lower phase starts cleanly.
+const WAVE_END_ANGLE = WAVE_CENTER + WAVE_AMPL * Math.sin(WAVE_HOLD * WAVE_FREQ);
 
 // Smooth-step ease: zero first- and second-derivative at t=0 and t=1
 function ease(t) { return t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t); }
@@ -230,16 +238,16 @@ export function createNPC(scene) {
       timer += dt;
 
       if (timer < WAVE_RAISE) {
-        // Phase 1 — raise arm smoothly to straight up (rotation.z = π)
-        rightArm.rotation.z = Math.PI * ease(timer / WAVE_RAISE);
+        // Phase 1 — raise arm to centre of wave arc (ear↔above-horizontal)
+        rightArm.rotation.z = WAVE_CENTER * ease(timer / WAVE_RAISE);
 
       } else if (timer < WAVE_RAISE + WAVE_HOLD) {
-        // Phase 2 — slow side-to-side wave while arm is vertical
+        // Phase 2 — slow wave between ear height and just above horizontal
         const wt = timer - WAVE_RAISE;
-        rightArm.rotation.z = Math.PI + 0.28 * Math.sin(wt * 2.2);
+        rightArm.rotation.z = WAVE_CENTER + WAVE_AMPL * Math.sin(wt * WAVE_FREQ);
 
       } else if (timer < WAVE_DURATION) {
-        // Phase 3 — lower arm back down, starting from wherever the wave ended
+        // Phase 3 — lower arm, starting from wherever the wave ended
         const t = (timer - WAVE_RAISE - WAVE_HOLD) / WAVE_LOWER;
         rightArm.rotation.z = THREE.MathUtils.lerp(WAVE_END_ANGLE, 0, ease(t));
 
