@@ -10,7 +10,6 @@ const SCLERA  = mat(0xF4EFE6, 0.45);
 const IRIS    = mat(0x8B6B3D, 0.22);
 const PUPIL   = mat(0x060404, 0.10);
 const HAIR    = mat(0x3A2210, 0.92);
-const BEARD   = mat(0xBF4020, 0.88);
 const SHIRT   = mat(0x1E1E1E, 0.95, { sheen: 0.08, sheenColor: new THREE.Color(0x333333), sheenRoughness: 0.92 });
 const PANTS   = mat(0x4B5E28, 0.90);
 const SHOE    = mat(0x0E0E0E, 0.75);
@@ -137,20 +136,6 @@ function buildCharacter() {
   s(root, 0.072, HAIR, -0.278, 1.440,  0.020, 0.70, 1.22, 0.60);  // sideburn L
   s(root, 0.072, HAIR,  0.278, 1.440,  0.020, 0.70, 1.22, 0.60);  // sideburn R
 
-  // ── Beard — dense auburn coverage across jaw and cheeks ───────────────────
-  s(root, 0.208, BEARD,  0.000, 1.325, -0.148, 1.26, 0.96, 0.92);  // chin main
-  s(root, 0.168, BEARD, -0.192, 1.428, -0.138, 1.06, 0.94, 0.90);  // cheek L
-  s(root, 0.128, BEARD, -0.225, 1.530, -0.118, 1.02, 0.80, 0.82);  // cheek L upper
-  s(root, 0.098, BEARD, -0.242, 1.400, -0.075, 0.85, 1.12, 0.72);  // jaw L
-  s(root, 0.168, BEARD,  0.192, 1.428, -0.138, 1.06, 0.94, 0.90);  // cheek R
-  s(root, 0.128, BEARD,  0.225, 1.530, -0.118, 1.02, 0.80, 0.82);  // cheek R upper
-  s(root, 0.098, BEARD,  0.242, 1.400, -0.075, 0.85, 1.12, 0.72);  // jaw R
-  s(root, 0.098, BEARD,  0.000, 1.528, -0.238, 1.38, 0.60, 0.74);  // moustache centre
-  s(root, 0.065, BEARD, -0.078, 1.520, -0.230, 1.00, 0.65, 0.75);  // moustache L
-  s(root, 0.065, BEARD,  0.078, 1.520, -0.230, 1.00, 0.65, 0.75);  // moustache R
-  s(root, 0.138, BEARD,  0.000, 1.278, -0.048, 1.22, 0.74, 1.04);  // under chin
-  s(root, 0.112, BEARD, -0.122, 1.298, -0.140, 1.00, 0.86, 0.87);  // lower cheek L
-  s(root, 0.112, BEARD,  0.122, 1.298, -0.140, 1.00, 0.86, 0.87);  // lower cheek R
 
   root.traverse(m => {
     if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; }
@@ -177,7 +162,7 @@ const WAVE_HIGH    = 2.79;
 const WAVE_LOW     = 2.00;
 const WAVE_CENTER  = (WAVE_HIGH + WAVE_LOW) / 2;   // 2.395
 const WAVE_AMPL    = (WAVE_HIGH - WAVE_LOW) / 2;   // 0.395
-const WAVE_FREQ    = 1.8;                           // rad/s — slow sweep
+const WAVE_FREQ    = 2.43;                          // rad/s (1.8 × 1.35)
 
 const WAVE_RAISE   = 0.55;
 const WAVE_HOLD    = 5.0;    // original 3.0 + 2.0 extra seconds
