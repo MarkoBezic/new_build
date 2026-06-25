@@ -12,7 +12,7 @@ const PUPIL   = mat(0x060404, 0.10);
 const HAIR    = mat(0x3A2210, 0.92);
 const SHIRT   = mat(0x1E1E1E, 0.95, { sheen: 0.08, sheenColor: new THREE.Color(0x333333), sheenRoughness: 0.92 });
 const PANTS   = mat(0x4B5E28, 0.90);
-const SHOE    = mat(0x6B3A2A, 0.80);
+const SHOE    = mat(0x7D4E2A, 0.78);
 const SOLE    = mat(0xEEEEEE, 0.82);
 const LACE    = mat(0xFFFFFF, 0.90);
 const EYEBROW = mat(0x2A1A0A, 0.92);
@@ -178,7 +178,7 @@ function angleDiff(from, to) {
 export function createNPC(scene) {
   const { root, rightArm } = buildCharacter();
 
-  root.position.set(0, 0, -8);
+  root.position.set(0, 0.014, -8);  // sole clears ground plane (z-fight fix)
   root.rotation.y = Math.PI;
   scene.add(root);
 
