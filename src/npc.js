@@ -1,14 +1,19 @@
 import * as THREE from 'three';
 
+// ── Toon gradient map — 4 discrete shading bands ──────────────────────────────
+const _grad = new Uint8Array([20, 115, 200, 240]);
+const gradientMap = new THREE.DataTexture(_grad, 4, 1, THREE.RedFormat);
+gradientMap.needsUpdate = true;
+
 // ── Materials ─────────────────────────────────────────────────────────────────
-const SKIN  = new THREE.MeshLambertMaterial({ color: 0xD4956A });
-const HAIR  = new THREE.MeshLambertMaterial({ color: 0x3A2210 });
-const BEARD = new THREE.MeshLambertMaterial({ color: 0xBF4020 });
-const SHIRT = new THREE.MeshLambertMaterial({ color: 0x252525 });
-const PANTS = new THREE.MeshLambertMaterial({ color: 0x4B5E28 });
-const SHOE  = new THREE.MeshLambertMaterial({ color: 0x0E0E0E });
-const SOLE  = new THREE.MeshLambertMaterial({ color: 0xEEEEEE });
-const EYE   = new THREE.MeshLambertMaterial({ color: 0x1E1008 });
+const SKIN  = new THREE.MeshToonMaterial({ color: 0xD4956A, gradientMap });
+const HAIR  = new THREE.MeshToonMaterial({ color: 0x3A2210, gradientMap });
+const BEARD = new THREE.MeshToonMaterial({ color: 0xBF4020, gradientMap });
+const SHIRT = new THREE.MeshToonMaterial({ color: 0x252525, gradientMap });
+const PANTS = new THREE.MeshToonMaterial({ color: 0x4B5E28, gradientMap });
+const SHOE  = new THREE.MeshToonMaterial({ color: 0x0E0E0E, gradientMap });
+const SOLE  = new THREE.MeshToonMaterial({ color: 0xEEEEEE, gradientMap });
+const EYE   = new THREE.MeshToonMaterial({ color: 0x1E1008, gradientMap });
 
 function b(p, w, h, d, mat, x, y, z) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -20,6 +25,13 @@ function b(p, w, h, d, mat, x, y, z) {
 function s(p, r, mat, x, y, z, sx = 1, sy = 1, sz = 1) {
   const m = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat);
   m.scale.set(sx, sy, sz);
+  m.position.set(x, y, z);
+  p.add(m);
+  return m;
+}
+
+function c(p, r, h, mat, x, y, z) {
+  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, h, 4, 8), mat);
   m.position.set(x, y, z);
   p.add(m);
   return m;
@@ -47,8 +59,8 @@ function buildCharacter() {
   }
 
   // ── Legs (pants) ──────────────────────────────────────────────────────────
-  b(root, 0.165, 0.52, 0.185, PANTS, -0.095, 0.33, 0);
-  b(root, 0.165, 0.52, 0.185, PANTS,  0.095, 0.33, 0);
+  c(root, 0.075, 0.37, PANTS, -0.095, 0.33, 0);
+  c(root, 0.075, 0.37, PANTS,  0.095, 0.33, 0);
 
   // ── Torso ─────────────────────────────────────────────────────────────────
   b(root, 0.46, 0.48, 0.26, SHIRT, 0, 0.83, 0);
@@ -62,17 +74,17 @@ function buildCharacter() {
   const leftArm = new THREE.Group();
   leftArm.position.set(-0.285, 1.06, 0);
   root.add(leftArm);
-  b(leftArm, 0.135, 0.44, 0.135, SHIRT, 0, -0.22, 0);
+  c(leftArm, 0.060, 0.32, SHIRT, 0, -0.22, 0);
   s(leftArm, 0.066, SKIN, 0, -0.47, 0);
 
   const rightArm = new THREE.Group();   // animated for wave
   rightArm.position.set(0.285, 1.06, 0);
   root.add(rightArm);
-  b(rightArm, 0.135, 0.44, 0.135, SHIRT, 0, -0.22, 0);
+  c(rightArm, 0.060, 0.32, SHIRT, 0, -0.22, 0);
   s(rightArm, 0.066, SKIN, 0, -0.47, 0);
 
   // ── Neck ──────────────────────────────────────────────────────────────────
-  b(root, 0.115, 0.13, 0.115, SKIN, 0, 1.13, 0);
+  c(root, 0.050, 0.04, SKIN, 0, 1.13, 0);
 
   // ── Head — deliberately oversized for clay/chibi look ────────────────────
   s(root, 0.30, SKIN, 0, 1.52, 0, 1.0, 1.10, 0.91);
@@ -192,5 +204,5 @@ export function createNPC(scene) {
     }
   }
 
-  return { update };
+  return { update, root };
 }

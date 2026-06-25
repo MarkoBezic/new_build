@@ -9,6 +9,10 @@ import { ATMOSPHERE, SPAWN } from './world.config.js';
 import { EntityManager } from './entities.js';
 import { createGeese } from './geese.js';
 import { createNPC }   from './npc.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
+import { OutlinePass }    from 'three/addons/postprocessing/OutlinePass.js';
+import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Renderer
@@ -77,7 +81,29 @@ entities.add('site',     siteGroup);
 entities.add('landmarks', buildLandmarks());
 
 const geese = createGeese(scene, carObstacles);
-const npc   = createNPC(scene);
+const { update: npcUpdate, root: npcRoot } = createNPC(scene);
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Post-processing (composer needs scene + camera + npcRoot)
+// ─────────────────────────────────────────────────────────────────────────────
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+
+// OutlinePass — desktop only, outlines only the NPC group
+if (!isMobile) {
+  const outlinePass = new OutlinePass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    scene, camera
+  );
+  outlinePass.visibleEdgeColor.set(0x111111);
+  outlinePass.hiddenEdgeColor.set(0x111111);
+  outlinePass.edgeStrength  = 4.0;
+  outlinePass.edgeThickness = 1.5;
+  outlinePass.edgeGlow      = 0.0;
+  outlinePass.selectedObjects = [npcRoot];
+  composer.addPass(outlinePass);
+}
+composer.addPass(new OutputPass());
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  FPS player
@@ -120,9 +146,9 @@ function animate() {
 
   updatePlayer(dt);
   geese.update(dt, camera.position);
-  npc.update(dt, camera.position);
+  npcUpdate(dt, camera.position);
   minimap.update();
-  renderer.render(scene, camera);
+  composer.render();
 }
 
 animate();
@@ -131,7 +157,9 @@ animate();
 //  Resize
 // ─────────────────────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  const w = window.innerWidth, h = window.innerHeight;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(w, h);
+  composer.setSize(w, h);
 });
