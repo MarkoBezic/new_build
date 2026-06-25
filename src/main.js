@@ -70,6 +70,11 @@ const fill = new THREE.DirectionalLight(0xCCDDFF, 0.4);
 fill.position.set(-60, 50, -60);
 scene.add(fill);
 
+// Lobby fill — warms the NPC inside the building
+const lobbyLight = new THREE.PointLight(0xFFF8F0, 2.5, 22);
+lobbyLight.position.set(0, 5, -8);
+scene.add(lobbyLight);
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  World geometry
 // ─────────────────────────────────────────────────────────────────────────────

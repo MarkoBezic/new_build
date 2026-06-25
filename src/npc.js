@@ -1,20 +1,24 @@
 import * as THREE from 'three';
 
-// ── Toon gradient map — 4 discrete shading bands ──────────────────────────────
-const _grad = new Uint8Array([20, 115, 200, 240]);
-const gradientMap = new THREE.DataTexture(_grad, 4, 1, THREE.RedFormat);
-gradientMap.needsUpdate = true;
+// ── Material factory — MeshPhysicalMaterial for smooth matte clay ─────────────
+function mat(color, roughness = 0.88, opts = {}) {
+  return new THREE.MeshPhysicalMaterial({ color, roughness, metalness: 0, ...opts });
+}
 
-// ── Materials ─────────────────────────────────────────────────────────────────
-const SKIN  = new THREE.MeshToonMaterial({ color: 0xD4956A, gradientMap });
-const HAIR  = new THREE.MeshToonMaterial({ color: 0x3A2210, gradientMap });
-const BEARD = new THREE.MeshToonMaterial({ color: 0xBF4020, gradientMap });
-const SHIRT = new THREE.MeshToonMaterial({ color: 0x252525, gradientMap });
-const PANTS = new THREE.MeshToonMaterial({ color: 0x4B5E28, gradientMap });
-const SHOE  = new THREE.MeshToonMaterial({ color: 0x0E0E0E, gradientMap });
-const SOLE  = new THREE.MeshToonMaterial({ color: 0xEEEEEE, gradientMap });
-const EYE   = new THREE.MeshToonMaterial({ color: 0x1E1008, gradientMap });
+const SKIN    = mat(0xD4956A, 0.85, { sheen: 0.12, sheenColor: new THREE.Color(0xE8B09A), sheenRoughness: 0.85 });
+const SCLERA  = mat(0xF4EFE6, 0.45);
+const IRIS    = mat(0x8B6B3D, 0.22);
+const PUPIL   = mat(0x060404, 0.10);
+const HAIR    = mat(0x3A2210, 0.92);
+const BEARD   = mat(0xBF4020, 0.88);
+const SHIRT   = mat(0x1E1E1E, 0.95, { sheen: 0.08, sheenColor: new THREE.Color(0x333333), sheenRoughness: 0.92 });
+const PANTS   = mat(0x4B5E28, 0.90);
+const SHOE    = mat(0x0E0E0E, 0.75);
+const SOLE    = mat(0xEEEEEE, 0.82);
+const LACE    = mat(0xFFFFFF, 0.90);
+const EYEBROW = mat(0x2A1A0A, 0.92);
 
+// ── Geometry helpers ──────────────────────────────────────────────────────────
 function b(p, w, h, d, mat, x, y, z) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.position.set(x, y, z);
@@ -23,7 +27,7 @@ function b(p, w, h, d, mat, x, y, z) {
 }
 
 function s(p, r, mat, x, y, z, sx = 1, sy = 1, sz = 1) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), mat);
+  const m = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), mat);
   m.scale.set(sx, sy, sz);
   m.position.set(x, y, z);
   p.add(m);
@@ -31,86 +35,122 @@ function s(p, r, mat, x, y, z, sx = 1, sy = 1, sz = 1) {
 }
 
 function c(p, r, h, mat, x, y, z) {
-  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, h, 4, 8), mat);
+  const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, h, 5, 10), mat);
   m.position.set(x, y, z);
   p.add(m);
   return m;
 }
 
 // ── Character mesh ────────────────────────────────────────────────────────────
-// Clay / chibi proportions: head ≈ 1/3 of total height (~1.85 units).
-// Front of character faces −Z (Three.js default).
-//
 // Vertical stack (bottom → top):
 //   sole   0.00 – 0.02
-//   shoe   0.02 – 0.07
-//   legs   0.07 – 0.59   (centre 0.33)
-//   torso  0.59 – 1.07   (centre 0.83)
-//   neck   1.07 – 1.19   (centre 1.13)
-//   head   centre 1.52   (r 0.30 × sy 1.10 → top ≈ 1.85)
+//   shoe   0.02 – 0.12
+//   legs   0.12 – 0.59  (centre 0.33)
+//   torso  0.59 – 1.07  (centre 0.83)
+//   neck   1.07 – 1.20  (centre 1.13)
+//   head   centre 1.52  (r 0.30 × sy 1.10 → top ≈ 1.85)
 function buildCharacter() {
   const root = new THREE.Group();
 
-  // ── Shoes ─────────────────────────────────────────────────────────────────
+  // ── Shoes (Converse low-top) ───────────────────────────────────────────────
   for (const sx of [-1, 1]) {
-    b(root, 0.175, 0.068, 0.30, SHOE, sx * 0.095, 0.044, 0.010);   // upper
-    b(root, 0.175, 0.022, 0.30, SOLE, sx * 0.095, 0.011, 0.010);   // white sole
-    b(root, 0.080, 0.048, 0.04, SOLE, sx * 0.095, 0.044, -0.140);  // white toe cap
+    b(root, 0.175, 0.072, 0.320, SHOE, sx * 0.095,  0.046,  0.006);  // upper
+    b(root, 0.188, 0.024, 0.330, SOLE, sx * 0.095,  0.012,  0.006);  // rubber sole
+    b(root, 0.188, 0.062, 0.052, SOLE, sx * 0.095,  0.043, -0.155);  // toe cap
+    b(root, 0.100, 0.008, 0.145, LACE, sx * 0.095,  0.089, -0.038);  // lace strip
   }
 
-  // ── Legs (pants) ──────────────────────────────────────────────────────────
-  c(root, 0.075, 0.37, PANTS, -0.095, 0.33, 0);
-  c(root, 0.075, 0.37, PANTS,  0.095, 0.33, 0);
+  // ── Legs ──────────────────────────────────────────────────────────────────
+  c(root, 0.082, 0.36, PANTS, -0.095, 0.33, 0);
+  c(root, 0.082, 0.36, PANTS,  0.095, 0.33, 0);
+  b(root, 0.120, 0.090, 0.165, PANTS, 0, 0.577, 0);  // crotch bridge
 
   // ── Torso ─────────────────────────────────────────────────────────────────
   b(root, 0.46, 0.48, 0.26, SHIRT, 0, 0.83, 0);
-  // Chest pocket (character's left breast)
-  b(root, 0.105, 0.085, 0.026, SHIRT, -0.12, 0.93, -0.13);
-  // Shirt collar — two small angled tabs at neckline
-  b(root, 0.08, 0.06, 0.028, SHIRT, -0.04, 1.10, -0.115);
-  b(root, 0.08, 0.06, 0.028, SHIRT,  0.04, 1.10, -0.115);
+  // Side rounding — softens the box silhouette
+  s(root, 0.155, SHIRT, -0.228, 0.760, 0, 1.0, 1.55, 0.82);
+  s(root, 0.155, SHIRT,  0.228, 0.760, 0, 1.0, 1.55, 0.82);
+  s(root, 0.130, SHIRT, -0.228, 1.010, 0, 1.0, 1.40, 0.80);
+  s(root, 0.130, SHIRT,  0.228, 1.010, 0, 1.0, 1.40, 0.80);
+  // Shirt details
+  b(root, 0.105, 0.085, 0.026, SHIRT, -0.120, 0.930, -0.131);  // chest pocket
+  b(root, 0.024, 0.360, 0.028, SHIRT,  0.000, 0.820, -0.133);  // button placket
+  b(root, 0.080, 0.060, 0.028, SHIRT, -0.040, 1.100, -0.116);  // collar L
+  b(root, 0.080, 0.060, 0.028, SHIRT,  0.040, 1.100, -0.116);  // collar R
 
-  // ── Arms (pivot at shoulder top) ──────────────────────────────────────────
+  // ── Arms — rolled sleeves expose forearms ─────────────────────────────────
   const leftArm = new THREE.Group();
   leftArm.position.set(-0.285, 1.06, 0);
   root.add(leftArm);
-  c(leftArm, 0.060, 0.32, SHIRT, 0, -0.22, 0);
-  s(leftArm, 0.066, SKIN, 0, -0.47, 0);
+  c(leftArm, 0.062, 0.21, SHIRT, 0, -0.120, 0);           // upper sleeve
+  b(leftArm, 0.145, 0.030, 0.145, SHIRT, 0, -0.268, 0);   // rolled cuff
+  c(leftArm, 0.052, 0.10, SKIN,  0, -0.380, 0);            // forearm
+  s(leftArm, 0.066, SKIN, 0, -0.492, 0);                   // hand
+  s(root, 0.076, SHIRT, -0.285, 1.065, 0);                 // shoulder cap
 
-  const rightArm = new THREE.Group();   // animated for wave
+  const rightArm = new THREE.Group();                       // animated for wave
   rightArm.position.set(0.285, 1.06, 0);
   root.add(rightArm);
-  c(rightArm, 0.060, 0.32, SHIRT, 0, -0.22, 0);
-  s(rightArm, 0.066, SKIN, 0, -0.47, 0);
+  c(rightArm, 0.062, 0.21, SHIRT, 0, -0.120, 0);          // upper sleeve
+  b(rightArm, 0.145, 0.030, 0.145, SHIRT, 0, -0.268, 0);  // rolled cuff
+  c(rightArm, 0.052, 0.10, SKIN,  0, -0.380, 0);           // forearm
+  s(rightArm, 0.066, SKIN, 0, -0.492, 0);                  // hand
+  s(root, 0.076, SHIRT, 0.285, 1.065, 0);                  // shoulder cap
 
   // ── Neck ──────────────────────────────────────────────────────────────────
-  c(root, 0.050, 0.04, SKIN, 0, 1.13, 0);
+  c(root, 0.052, 0.06, SKIN, 0, 1.140, 0);
 
-  // ── Head — deliberately oversized for clay/chibi look ────────────────────
-  s(root, 0.30, SKIN, 0, 1.52, 0, 1.0, 1.10, 0.91);
+  // ── Head ──────────────────────────────────────────────────────────────────
+  s(root, 0.30, SKIN, 0, 1.52, 0, 1.0, 1.10, 0.92);
 
-  // ── Hair — side-swept (parted left, more volume on left side) ────────────
-  s(root, 0.29, HAIR,  -0.03, 1.70,  0.01, 1.06, 0.62, 0.94);  // flat top mass
-  s(root, 0.16, HAIR,  -0.24, 1.53,  0.06, 1.0,  0.82, 0.96);  // left side (fuller)
-  s(root, 0.13, HAIR,   0.24, 1.53,  0.06, 0.90, 0.78, 0.92);  // right side (thinner)
-  s(root, 0.20, HAIR,   0,    1.49,  0.15, 1.02, 0.88, 0.76);  // back
-  s(root, 0.10, HAIR,   0.07, 1.77, -0.10, 1.15, 0.60, 0.82);  // front swoop detail
+  // ── Ears ──────────────────────────────────────────────────────────────────
+  s(root, 0.055, SKIN, -0.296, 1.520,  0.018, 0.74, 1.06, 0.50);
+  s(root, 0.055, SKIN,  0.296, 1.520,  0.018, 0.74, 1.06, 0.50);
 
-  // ── Beard — full auburn, covering lower two-thirds of face ────────────────
-  s(root, 0.195, BEARD,  0,     1.34, -0.16, 1.20, 0.92, 0.88);  // chin mass
-  s(root, 0.145, BEARD, -0.18,  1.43, -0.15, 1.0,  0.88, 0.86);  // left cheek
-  s(root, 0.145, BEARD,  0.18,  1.43, -0.15, 1.0,  0.88, 0.86);  // right cheek
-  s(root, 0.090, BEARD,  0,     1.53, -0.235, 1.28, 0.60, 0.70); // moustache
-  // Under-chin fill to close the bottom of the beard
-  s(root, 0.12,  BEARD,  0,     1.29, -0.06, 1.15, 0.70, 1.0);
+  // ── Nose + nostrils ───────────────────────────────────────────────────────
+  s(root, 0.052, SKIN,  0.000, 1.474, -0.265, 0.82, 0.68, 1.12);
+  s(root, 0.026, SKIN, -0.032, 1.458, -0.274, 1.15, 0.72, 0.90);
+  s(root, 0.026, SKIN,  0.032, 1.458, -0.274, 1.15, 0.72, 0.90);
 
-  // ── Eyes ──────────────────────────────────────────────────────────────────
-  s(root, 0.038, EYE, -0.10, 1.57, -0.255);
-  s(root, 0.038, EYE,  0.10, 1.57, -0.255);
+  // ── Eyes — sclera + iris + pupil ──────────────────────────────────────────
+  for (const ex of [-0.105, 0.105]) {
+    s(root, 0.055, SCLERA, ex, 1.575, -0.252, 1.0, 0.88, 0.78);  // white
+    s(root, 0.040, IRIS,   ex, 1.575, -0.268, 1.0, 0.88, 0.65);  // iris
+    s(root, 0.024, PUPIL,  ex, 1.575, -0.278, 1.0, 0.88, 0.60);  // pupil
+  }
 
-  // ── Eyebrows (thick, dark) ────────────────────────────────────────────────
-  b(root, 0.085, 0.022, 0.016, HAIR, -0.10, 1.655, -0.258);
-  b(root, 0.085, 0.022, 0.016, HAIR,  0.10, 1.655, -0.258);
+  // ── Eyebrows ──────────────────────────────────────────────────────────────
+  b(root, 0.092, 0.020, 0.018, EYEBROW, -0.105, 1.658, -0.256);
+  b(root, 0.092, 0.020, 0.018, EYEBROW,  0.105, 1.658, -0.256);
+
+  // ── Hair — side-swept, parted left ────────────────────────────────────────
+  s(root, 0.298, HAIR, -0.030, 1.710,  0.010, 1.07, 0.60, 0.94);  // top mass
+  s(root, 0.178, HAIR, -0.250, 1.540,  0.055, 1.00, 0.85, 0.90);  // left main
+  s(root, 0.132, HAIR, -0.270, 1.625,  0.020, 0.92, 0.75, 0.85);  // left upper
+  s(root, 0.100, HAIR, -0.280, 1.700, -0.020, 0.85, 0.65, 0.80);  // left top
+  s(root, 0.140, HAIR,  0.242, 1.540,  0.055, 0.95, 0.82, 0.88);  // right main
+  s(root, 0.110, HAIR,  0.260, 1.625,  0.020, 0.88, 0.70, 0.82);  // right upper
+  s(root, 0.215, HAIR,  0.000, 1.500,  0.150, 1.02, 0.90, 0.78);  // back
+  s(root, 0.155, HAIR,  0.000, 1.618,  0.120, 0.98, 0.76, 0.72);  // back upper
+  s(root, 0.108, HAIR,  0.082, 1.782, -0.100, 1.10, 0.58, 0.82);  // front swoop
+  s(root, 0.086, HAIR, -0.058, 1.800, -0.060, 0.95, 0.55, 0.78);  // front fill
+  s(root, 0.072, HAIR, -0.278, 1.440,  0.020, 0.70, 1.22, 0.60);  // sideburn L
+  s(root, 0.072, HAIR,  0.278, 1.440,  0.020, 0.70, 1.22, 0.60);  // sideburn R
+
+  // ── Beard — dense auburn coverage across jaw and cheeks ───────────────────
+  s(root, 0.208, BEARD,  0.000, 1.325, -0.148, 1.26, 0.96, 0.92);  // chin main
+  s(root, 0.168, BEARD, -0.192, 1.428, -0.138, 1.06, 0.94, 0.90);  // cheek L
+  s(root, 0.128, BEARD, -0.225, 1.530, -0.118, 1.02, 0.80, 0.82);  // cheek L upper
+  s(root, 0.098, BEARD, -0.242, 1.400, -0.075, 0.85, 1.12, 0.72);  // jaw L
+  s(root, 0.168, BEARD,  0.192, 1.428, -0.138, 1.06, 0.94, 0.90);  // cheek R
+  s(root, 0.128, BEARD,  0.225, 1.530, -0.118, 1.02, 0.80, 0.82);  // cheek R upper
+  s(root, 0.098, BEARD,  0.242, 1.400, -0.075, 0.85, 1.12, 0.72);  // jaw R
+  s(root, 0.098, BEARD,  0.000, 1.528, -0.238, 1.38, 0.60, 0.74);  // moustache centre
+  s(root, 0.065, BEARD, -0.078, 1.520, -0.230, 1.00, 0.65, 0.75);  // moustache L
+  s(root, 0.065, BEARD,  0.078, 1.520, -0.230, 1.00, 0.65, 0.75);  // moustache R
+  s(root, 0.138, BEARD,  0.000, 1.278, -0.048, 1.22, 0.74, 1.04);  // under chin
+  s(root, 0.112, BEARD, -0.122, 1.298, -0.140, 1.00, 0.86, 0.87);  // lower cheek L
+  s(root, 0.112, BEARD,  0.122, 1.298, -0.140, 1.00, 0.86, 0.87);  // lower cheek R
 
   root.traverse(m => {
     if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; }
@@ -121,14 +161,14 @@ function buildCharacter() {
 
 // ── State machine ─────────────────────────────────────────────────────────────
 const IDLE    = 0;
-const TURNING = 1;   // rotating to face player
-const WAVING  = 2;   // arm wave
-const LEAVING = 3;   // rotating 75° away
+const TURNING = 1;
+const WAVING  = 2;
+const LEAVING = 3;
 const DONE    = 4;
 
-const TRIGGER_DIST  = 14;   // units — greet when player is this close
-const WAVE_DURATION = 3.2;  // seconds
-const TURN_SPEED    = 2.2;  // rad / s
+const TRIGGER_DIST  = 14;
+const WAVE_DURATION = 3.2;
+const TURN_SPEED    = 2.2;
 
 function angleDiff(from, to) {
   let d = to - from;
@@ -140,7 +180,6 @@ function angleDiff(from, to) {
 export function createNPC(scene) {
   const { root, rightArm } = buildCharacter();
 
-  // Placed in the lobby, initially facing into the building (south = +Z)
   root.position.set(0, 0, -8);
   root.rotation.y = Math.PI;
   scene.add(root);
@@ -155,18 +194,13 @@ export function createNPC(scene) {
     const dz   = playerPos.z - root.position.z;
     const dist = Math.hypot(dx, dz);
 
-    // ── IDLE: wait for player to enter the building ──────────────────────────
     if (state === IDLE) {
-      // z > −20 confirms the player is through the north entrance
       if (dist < TRIGGER_DIST && playerPos.z > -20) {
         faceAngle  = Math.atan2(-dx, -dz);
-        // Turn 75° to character's own right after waving
         leaveAngle = faceAngle - (75 * Math.PI / 180);
         state = TURNING;
         timer = 0;
       }
-
-    // ── TURNING: rotate smoothly to face player ───────────────────────────────
     } else if (state === TURNING) {
       const diff = angleDiff(root.rotation.y, faceAngle);
       if (Math.abs(diff) < 0.04) {
@@ -176,23 +210,16 @@ export function createNPC(scene) {
       } else {
         root.rotation.y += Math.sign(diff) * Math.min(Math.abs(diff), TURN_SPEED * dt);
       }
-
-    // ── WAVING: arm raises then oscillates, fades down at the end ────────────
     } else if (state === WAVING) {
       timer += dt;
       const rampUp   = Math.min(timer / 0.45, 1.0);
       const rampDown = Math.max(0, 1.0 - Math.max(timer - (WAVE_DURATION - 0.5), 0) / 0.5);
-      const envelope = rampUp * rampDown;
-      // rotation.z negative = clockwise from front = arm lifts outward to the right
-      rightArm.rotation.z = -(Math.PI * 0.50 + 0.22 * Math.sin(timer * 5.0)) * envelope;
-
+      rightArm.rotation.z = -(Math.PI * 0.50 + 0.22 * Math.sin(timer * 5.0)) * rampUp * rampDown;
       if (timer >= WAVE_DURATION) {
         rightArm.rotation.z = 0;
         state = LEAVING;
         timer = 0;
       }
-
-    // ── LEAVING: rotate 75° away and stop ────────────────────────────────────
     } else if (state === LEAVING) {
       const diff = angleDiff(root.rotation.y, leaveAngle);
       if (Math.abs(diff) < 0.04) {
