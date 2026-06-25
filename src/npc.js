@@ -12,9 +12,8 @@ const PUPIL   = mat(0x060404, 0.10);
 const HAIR    = mat(0x3A2210, 0.92);
 const SHIRT   = mat(0x1E1E1E, 0.95, { sheen: 0.08, sheenColor: new THREE.Color(0x333333), sheenRoughness: 0.92 });
 const PANTS   = mat(0x4B5E28, 0.90);
-const SHOE    = mat(0x7D4E2A, 0.78, { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
-const SOLE    = mat(0xEEEEEE, 0.82, { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
-const LACE    = mat(0xFFFFFF, 0.90, { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
+const BOOT    = mat(0xCC2200, 0.72, { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
+const SOLE    = mat(0x1A1A1A, 0.85, { polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -4 });
 const EYEBROW = mat(0x2A1A0A, 0.92);
 
 // ── Geometry helpers ──────────────────────────────────────────────────────────
@@ -51,12 +50,11 @@ function c(p, r, h, mat, x, y, z) {
 function buildCharacter() {
   const root = new THREE.Group();
 
-  // ── Shoes (Converse low-top) ───────────────────────────────────────────────
+  // ── Boots (mid-calf red) ──────────────────────────────────────────────────
   for (const sx of [-1, 1]) {
-    b(root, 0.175, 0.072, 0.320, SHOE, sx * 0.095,  0.046,  0.006);  // upper
-    b(root, 0.188, 0.024, 0.330, SOLE, sx * 0.095,  0.012,  0.006);  // rubber sole
-    b(root, 0.188, 0.062, 0.052, SOLE, sx * 0.095,  0.043, -0.155);  // toe cap
-    b(root, 0.100, 0.008, 0.145, LACE, sx * 0.095,  0.089, -0.038);  // lace strip
+    b(root, 0.185, 0.260, 0.295, BOOT, sx * 0.095,  0.140,  0.006);  // shaft
+    b(root, 0.195, 0.024, 0.330, SOLE, sx * 0.095,  0.012,  0.006);  // rubber sole
+    b(root, 0.195, 0.060, 0.050, SOLE, sx * 0.095,  0.040, -0.158);  // toe cap
   }
 
   // ── Legs ──────────────────────────────────────────────────────────────────
