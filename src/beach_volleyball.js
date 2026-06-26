@@ -90,12 +90,41 @@ export function buildBeachVolleyballCourt() {
   cyl(g, 0.05, POST_H, POST_COLOR, 0, GY + POST_H / 2,  POZ);
   cyl(g, 0.05, POST_H, POST_COLOR, 0, GY + POST_H / 2, -POZ);
 
-  // ── Net — dark mesh body + white top band ────────────────────────────────
+  // ── Net — canvas-texture mesh + white top band + bottom cable ───────────
   const NET_SPAN = 2 * POZ;    // 10 m
   const NET_BAND = 0.08;
   const NET_BODY = NET_H - NET_BAND;   // 2.35 m
-  box(g, 0.02, NET_BODY, NET_SPAN, NET_DARK,  0, NET_BODY / 2,          0, false);
-  box(g, 0.04, NET_BAND, NET_SPAN, NET_WHITE, 0, NET_H - NET_BAND / 2,  0, false);
+
+  // Build a grid texture: dark strings on transparent background
+  const W = 512, H = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width  = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(50,50,50,0.92)';
+  ctx.lineWidth   = 3;
+  const cellW = 28, cellH = 28;
+  for (let x = 0; x <= W; x += cellW) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y <= H; y += cellH) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+
+  const netMesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(NET_SPAN, NET_BODY),
+    new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.15, side: THREE.DoubleSide }),
+  );
+  netMesh.rotation.y = Math.PI / 2;
+  netMesh.position.set(0, NET_BODY / 2, 0);
+  g.add(netMesh);
+
+  // White top band
+  box(g, 0.04, NET_BAND, NET_SPAN, NET_WHITE, 0, NET_H - NET_BAND / 2, 0, false);
+  // Bottom tension cable
+  box(g, 0.02, 0.02, NET_SPAN, 0x888888, 0, 0.05, 0, false);
 
   return g;
 }
