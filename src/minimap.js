@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CLEARING_R, WORLD_R, LANDMARKS, OCEAN } from './world.config.js';
+import { CLEARING_R, WORLD_R, LANDMARKS, OCEAN, SPAWN } from './world.config.js';
 
 // ── Canvas & scale ────────────────────────────────────────────────────────
 const W  = 280, H = 280;
@@ -100,6 +100,31 @@ function bakeMap() {
   c.beginPath();
   c.arc(CX, CY, Math.max(5, (CLEARING_R + 5) * S), 0, Math.PI * 2);
   c.stroke();
+
+  // ── Spawn point ───────────────────────────────────────────────────────────
+  const spx = px(SPAWN.x), spy = py(SPAWN.z);
+  // Soft glow ring
+  c.strokeStyle = 'rgba(190,255,130,0.50)';
+  c.lineWidth   = 2.5;
+  c.beginPath();
+  c.arc(spx, spy, 9, 0, Math.PI * 2);
+  c.stroke();
+  // Light-green fill — noticeably lighter than the forest (#1A3510) or clearing (#4D9240)
+  c.fillStyle = '#8FD158';
+  c.beginPath();
+  c.arc(spx, spy, 5, 0, Math.PI * 2);
+  c.fill();
+  // Bright centre pinpoint
+  c.fillStyle = '#D4FF90';
+  c.beginPath();
+  c.arc(spx, spy, 2, 0, Math.PI * 2);
+  c.fill();
+  // Label
+  c.fillStyle    = 'rgba(210,255,155,0.80)';
+  c.font         = '6.5px system-ui,sans-serif';
+  c.textAlign    = 'center';
+  c.textBaseline = 'top';
+  c.fillText('START', spx, spy + 11);
 
   // ── Pond (west) ───────────────────────────────────────────────────────────
   const ppx = px(LANDMARKS.pond.x), ppy = py(LANDMARKS.pond.z);
@@ -222,10 +247,10 @@ export function createMinimap(camera, getRemotes = () => []) {
   // Bake the static map once
   const staticMap = bakeMap();
 
-  // ── M-key toggle ────────────────────────────────────────────────────────
+  // ── M-key toggle (only while pointer-locked so it doesn't fire on overlay) ─
   let visible = false;
   window.addEventListener('keydown', e => {
-    if (e.code === 'KeyM') {
+    if (e.code === 'KeyM' && document.pointerLockElement) {
       visible = !visible;
       canvas.style.display = visible ? 'block' : 'none';
     }
@@ -286,17 +311,26 @@ export function createMinimap(camera, getRemotes = () => []) {
       ctx.arc(rmx, rmy, 5, 0, Math.PI * 2);
       ctx.fillStyle = css;
       ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)';
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // Name tag below the dot
-      if (r.name) {
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.font = '7px system-ui,sans-serif';
-        ctx.textAlign = 'center';
+      // Name tag — dark pill background so it's legible over any terrain
+      const label = (r.name || '').slice(0, 14);
+      if (label) {
+        ctx.font = 'bold 8px system-ui,sans-serif';
+        const tw  = ctx.measureText(label).width;
+        const pad = 3;
+        const bx  = rmx - tw / 2 - pad;
+        const by  = rmy + 8;
+        const bw  = tw + pad * 2;
+        const bh  = 12;
+        ctx.fillStyle = 'rgba(0,0,0,0.72)';
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign    = 'center';
         ctx.textBaseline = 'top';
-        ctx.fillText(r.name.slice(0, 10), rmx, rmy + 7);
+        ctx.fillText(label, rmx, by + 2);
       }
     }
   }
