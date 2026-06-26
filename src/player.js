@@ -102,7 +102,7 @@ function createDesktopPlayer(scene, camera, canvas) {
 
   // ── Mouse look ──────────────────────────────────────────────────────────────
   document.addEventListener('mousemove', e => {
-    if (!controls.isLocked) return;
+    if (!document.pointerLockElement) return;
     yaw   -= e.movementX * MOUSE_S;
     pitch -= e.movementY * MOUSE_S;
     pitch  = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitch));
@@ -114,7 +114,7 @@ function createDesktopPlayer(scene, camera, canvas) {
 
     if (e.code === 'Space' && grounded) { vy = JUMP_VEL; grounded = false; }
 
-    if (e.code === 'KeyV' && controls.isLocked) {
+    if (e.code === 'KeyV' && document.pointerLockElement) {
       thirdPerson = !thirdPerson;
       avatar.visible = thirdPerson;
       if (thirdPerson) {
@@ -135,7 +135,7 @@ function createDesktopPlayer(scene, camera, canvas) {
 
   // ── Per-frame update ────────────────────────────────────────────────────────
   function update(dt) {
-    if (!controls.isLocked) return;
+    if (!document.pointerLockElement) return;
 
     const speed = keys.has('ShiftLeft') || keys.has('ShiftRight') ? SPRINT_SPEED : WALK_SPEED;
     let mx = 0, mz = 0;

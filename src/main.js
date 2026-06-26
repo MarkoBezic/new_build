@@ -103,6 +103,30 @@ spawnDisc.position.set(SPAWN.x, 0.01, SPAWN.z);
 spawnRing.position.set(SPAWN.x, 0.01, SPAWN.z);
 scene.add(spawnDisc, spawnRing);
 
+// ── Compass labels around spawn circle ─────────────────────────────────────
+function makeCompassSprite(letter) {
+  const isN = letter === 'N';
+  const size = isN ? 96 : 72;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const cx = c.getContext('2d');
+  cx.font = `bold ${isN ? 60 : 44}px Arial, sans-serif`;
+  cx.fillStyle = isN ? '#D4FF90' : '#9ED462';
+  cx.textAlign = 'center';
+  cx.textBaseline = 'middle';
+  cx.fillText(letter, size / 2, size / 2);
+  const tex = new THREE.CanvasTexture(c);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  sp.scale.set(isN ? 2.2 : 1.5, isN ? 2.2 : 1.5, 1);
+  return sp;
+}
+const _CR = 13;  // just outside the 10.5 outer ring
+[['N', 0, -_CR], ['S', 0, _CR], ['E', _CR, 0], ['W', -_CR, 0]].forEach(([letter, dx, dz]) => {
+  const sp = makeCompassSprite(letter);
+  sp.position.set(SPAWN.x + dx, 1.0, SPAWN.z + dz);
+  scene.add(sp);
+});
+
 const geese      = createGeese(scene, carObstacles);
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
 const portals    = createPortals(scene, camera);

@@ -213,11 +213,11 @@ function bakeMap() {
   c.lineWidth      = 1;
   c.beginPath(); c.moveTo(rosX, rosY - rosR); c.lineTo(rosX, rosY + rosR); c.stroke();
   c.beginPath(); c.moveTo(rosX - rosR, rosY); c.lineTo(rosX + rosR, rosY); c.stroke();
-  c.fillStyle    = 'rgba(255,255,255,0.6)';
-  c.font         = 'bold 9px system-ui,sans-serif';
+  c.fillStyle    = '#D4FF90';
+  c.font         = 'bold 11px system-ui,sans-serif';
   c.textAlign    = 'center';
   c.textBaseline = 'alphabetic';
-  c.fillText('N', rosX, rosY - rosR - 2);
+  c.fillText('N', rosX, rosY - rosR - 3);
 
   return off;
 }
@@ -237,7 +237,8 @@ export function createMinimap(camera, getRemotes = () => []) {
     borderRadius: '8px',
     border:       '1.5px solid rgba(255,255,255,0.22)',
     boxShadow:    '0 3px 16px rgba(0,0,0,0.65)',
-    display:      'none',
+    opacity:      '0',
+    transition:   'opacity 0.12s',
     zIndex:       '15',
     pointerEvents:'none',
   });
@@ -252,14 +253,14 @@ export function createMinimap(camera, getRemotes = () => []) {
   window.addEventListener('keydown', e => {
     if (e.code === 'KeyM') {
       visible = !visible;
-      canvas.style.display = visible ? 'block' : 'none';
+      canvas.style.opacity = visible ? '1' : '0';
     }
   });
   // Auto-hide when exiting pointer lock (ESC / pause) so map doesn't linger
   document.addEventListener('pointerlockchange', () => {
     if (!document.pointerLockElement && visible) {
       visible = false;
-      canvas.style.display = 'none';
+      canvas.style.opacity = '0';
     }
   });
 
