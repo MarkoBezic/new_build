@@ -90,6 +90,19 @@ entities.add('site',     siteGroup);
 entities.add('landmarks', buildLandmarks());
 entities.add('beachCourt', buildBeachVolleyballCourt());
 
+// ── Spawn ground marker ─────────────────────────────────────────────────────
+const _spawnMat = (color, opacity, ring) => new THREE.MeshBasicMaterial({
+  color, transparent: true, opacity, depthWrite: false,
+  side: ring ? THREE.DoubleSide : THREE.FrontSide,
+  polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+});
+const spawnDisc = new THREE.Mesh(new THREE.CircleGeometry(8, 48),  _spawnMat(0x8FD158, 0.38, false));
+const spawnRing = new THREE.Mesh(new THREE.RingGeometry(9, 10.5, 48), _spawnMat(0xC2F075, 0.70, true));
+spawnDisc.rotation.x = spawnRing.rotation.x = -Math.PI / 2;
+spawnDisc.position.set(SPAWN.x, 0.01, SPAWN.z);
+spawnRing.position.set(SPAWN.x, 0.01, SPAWN.z);
+scene.add(spawnDisc, spawnRing);
+
 const geese      = createGeese(scene, carObstacles);
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
 const portals    = createPortals(scene, camera);

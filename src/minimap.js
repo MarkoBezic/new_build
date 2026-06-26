@@ -247,12 +247,19 @@ export function createMinimap(camera, getRemotes = () => []) {
   // Bake the static map once
   const staticMap = bakeMap();
 
-  // ── M-key toggle (only while pointer-locked so it doesn't fire on overlay) ─
+  // ── M-key toggle ────────────────────────────────────────────────────────────
   let visible = false;
   window.addEventListener('keydown', e => {
-    if (e.code === 'KeyM' && document.pointerLockElement) {
+    if (e.code === 'KeyM') {
       visible = !visible;
       canvas.style.display = visible ? 'block' : 'none';
+    }
+  });
+  // Auto-hide when exiting pointer lock (ESC / pause) so map doesn't linger
+  document.addEventListener('pointerlockchange', () => {
+    if (!document.pointerLockElement && visible) {
+      visible = false;
+      canvas.style.display = 'none';
     }
   });
 
