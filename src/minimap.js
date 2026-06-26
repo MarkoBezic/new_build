@@ -234,6 +234,8 @@ export function createMinimap(camera, getRemotes = () => []) {
     position:     'fixed',
     top:          '14px',
     left:         '14px',
+    width:        `${W}px`,
+    height:       `${H}px`,
     borderRadius: '8px',
     border:       '1.5px solid rgba(255,255,255,0.22)',
     boxShadow:    '0 3px 16px rgba(0,0,0,0.65)',
