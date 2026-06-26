@@ -20,6 +20,35 @@ export function createPlayer(scene, camera, canvas) {
     : createDesktopPlayer(scene, camera, canvas);
 }
 
+function makeNameLabel(name) {
+  if (!name) return null;
+  const canvas = document.createElement('canvas');
+  canvas.width = 256; canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  const r = 10, w = 256, h = 64;
+  ctx.moveTo(r,0); ctx.lineTo(w-r,0); ctx.quadraticCurveTo(w,0,w,r);
+  ctx.lineTo(w,h-r); ctx.quadraticCurveTo(w,h,w-r,h);
+  ctx.lineTo(r,h);   ctx.quadraticCurveTo(0,h,0,h-r);
+  ctx.lineTo(0,r);   ctx.quadraticCurveTo(0,0,r,0);
+  ctx.closePath(); ctx.fill();
+
+  ctx.font = 'bold 28px Arial, sans-serif';
+  ctx.fillStyle = 'white';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(name.slice(0, 16), 128, 34);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(1.4, 0.35, 1);
+  sprite.position.y = 2.1;
+  return sprite;
+}
+
 function makeAvatarMesh(color) {
   const g = new THREE.Group();
   const R = 0.22, L = 0.85;
@@ -157,8 +186,18 @@ function createDesktopPlayer(scene, camera, canvas) {
     }
   }
 
-  function setColor(color) {
+  let nameSprite = null;
+
+  function setColor(color, name) {
     if (avatar.children[0]) avatar.children[0].material.color.setHex(color);
+    if (nameSprite) {
+      avatar.remove(nameSprite);
+      nameSprite.material.map.dispose();
+      nameSprite.material.dispose();
+      nameSprite = null;
+    }
+    nameSprite = makeNameLabel(name);
+    if (nameSprite) avatar.add(nameSprite);
   }
 
   return { controls, update, startMobile: () => {}, setColor, playerPosition };

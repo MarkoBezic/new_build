@@ -152,10 +152,10 @@ if (isMobile) {
   });
 }
 
-showAvatarPicker(overlay, (color) => {
-  setColor(color);
+showAvatarPicker(overlay, (color, name) => {
+  setColor(color, name);
   avatarReady = true;                // set before anything that could throw
-  try { multiplayer = createMultiplayer(scene, camera, color); }
+  try { multiplayer = createMultiplayer(scene, camera, color, name); }
   catch (e) { console.warn('Multiplayer unavailable:', e); }
   if (!isMobile) renderer.domElement.requestPointerLock();
 });

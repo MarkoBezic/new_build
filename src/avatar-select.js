@@ -20,8 +20,25 @@ const CSS = `
     display: grid;
     grid-template-columns: repeat(4, 72px);
     gap: 10px;
-    margin-bottom: 1.8em;
+    margin-bottom: 1.4em;
   }
+  #av-name-input {
+    background: rgba(255,255,255,.08);
+    border: 1.5px solid rgba(255,255,255,.2);
+    border-radius: 8px;
+    color: #fff;
+    font-family: inherit;
+    font-size: .85rem;
+    letter-spacing: .05em;
+    padding: 9px 14px;
+    width: 200px;
+    text-align: center;
+    outline: none;
+    margin-bottom: 1.4em;
+    transition: border-color .15s;
+  }
+  #av-name-input::placeholder { opacity: .35; }
+  #av-name-input:focus { border-color: rgba(255,255,255,.5); }
   .av-card {
     width: 72px; padding: 12px 0 10px;
     border-radius: 12px;
@@ -90,11 +107,22 @@ export function showAvatarPicker(overlay, onConfirm) {
     <p id="av-title">Choose Your Look</p>
     <p id="av-sub">Pick a colour, then enter the world</p>
     <div id="av-grid">${cardsHTML}</div>
+    <input id="av-name-input" type="text" maxlength="16"
+           placeholder="Your name (optional)"
+           autocomplete="off" spellcheck="false">
     <button id="av-enter">Enter World</button>
   `;
 
   let selectedColor = null;
-  const enterBtn = overlay.querySelector('#av-enter');
+  const enterBtn   = overlay.querySelector('#av-enter');
+  const nameInput  = overlay.querySelector('#av-name-input');
+
+  // Prevent in-game keys from firing while typing
+  nameInput.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter' && selectedColor) confirm();
+  });
+  nameInput.addEventListener('click', e => e.stopPropagation());
 
   overlay.querySelectorAll('.av-card').forEach(card => {
     card.addEventListener('click', e => {
@@ -106,11 +134,14 @@ export function showAvatarPicker(overlay, onConfirm) {
     });
   });
 
+  function confirm() {
+    overlay.innerHTML = exploreHTML;
+    onConfirm(selectedColor, nameInput.value.trim());
+  }
+
   enterBtn.addEventListener('click', e => {
     e.stopPropagation();
     if (!selectedColor) return;
-    // Restore the EXPLORE screen so ESC/pause shows it normally from here on
-    overlay.innerHTML = exploreHTML;
-    onConfirm(selectedColor);
+    confirm();
   });
 }
