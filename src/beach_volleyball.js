@@ -114,11 +114,11 @@ export function buildBeachVolleyballCourt() {
   const texture = new THREE.CanvasTexture(canvas);
 
   const netMesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(NET_SPAN, NET_BODY),
+    new THREE.PlaneGeometry(NET_SPAN, NET_BODY / 2),
     new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.15, side: THREE.DoubleSide }),
   );
   netMesh.rotation.y = Math.PI / 2;
-  netMesh.position.set(0, NET_BODY / 2, 0);
+  netMesh.position.set(0, NET_BODY * 3 / 4, 0);  // centre of the top half
   g.add(netMesh);
 
   // White top band
