@@ -12,6 +12,7 @@ import { createNPC }     from './npc.js';
 import { createPortals } from './portal.js';
 import { buildBeachVolleyballCourt } from './beach_volleyball.js';
 import { createMultiplayer } from './multiplayer.js';
+import { showAvatarPicker } from './avatar-select.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
 import { OutlinePass }    from 'three/addons/postprocessing/OutlinePass.js';
@@ -92,7 +93,7 @@ entities.add('beachCourt', buildBeachVolleyballCourt());
 const geese      = createGeese(scene, carObstacles);
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
 const portals    = createPortals(scene, camera);
-const multiplayer = createMultiplayer(scene, camera);
+let multiplayer = { update() {} };   // replaced after avatar selection
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Post-processing (composer needs scene + camera + npcRoot)
@@ -125,23 +126,27 @@ const minimap = createMinimap(camera);
 const overlay   = document.getElementById('overlay');
 const crosshair = document.getElementById('crosshair');
 
-if (isMobile) {
-  // No pointer lock on mobile — tap overlay to begin
-  overlay.addEventListener('click', () => {
+// Avatar picker runs first; pointer-lock / mobile-start wired inside the callback
+// so that "Enter World" is the one user gesture that starts everything.
+showAvatarPicker(overlay, (color) => {
+  multiplayer = createMultiplayer(scene, camera, color);
+
+  if (isMobile) {
     overlay.style.display = 'none';
     startMobile();
-  });
-} else {
-  overlay.addEventListener('click', () => controls.lock());
-  controls.addEventListener('lock', () => {
-    overlay.style.display   = 'none';
-    crosshair.style.display = 'block';
-  });
-  controls.addEventListener('unlock', () => {
-    overlay.style.display   = 'flex';
-    crosshair.style.display = 'none';
-  });
-}
+  } else {
+    controls.addEventListener('lock', () => {
+      overlay.style.display   = 'none';
+      crosshair.style.display = 'block';
+    });
+    controls.addEventListener('unlock', () => {
+      overlay.style.display   = 'flex';
+      crosshair.style.display = 'none';
+    });
+    overlay.addEventListener('click', () => controls.lock());
+    controls.lock();   // called synchronously from the button click — valid user gesture
+  }
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Render loop

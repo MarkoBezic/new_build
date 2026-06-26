@@ -4,15 +4,6 @@ import * as Ably from 'ably';
 const SEND_INTERVAL = 0.05;   // seconds — broadcast at ~20 fps
 const CHANNEL_NAME  = 'world';
 
-const PALETTE = [
-  0xE63946, 0x457B9D, 0xE9C46A, 0x2A9D8F,
-  0xF4A261, 0x6A4C93, 0x43AA8B, 0xF8961E,
-];
-
-function randomColor() {
-  return PALETTE[Math.floor(Math.random() * PALETTE.length)];
-}
-
 function makeAvatar(color) {
   const g    = new THREE.Group();
   const R    = 0.22;
@@ -36,9 +27,8 @@ function makeAvatar(color) {
   return g;
 }
 
-export function createMultiplayer(scene, camera) {
-  const myId    = Math.random().toString(36).slice(2, 10);
-  const myColor = randomColor();
+export function createMultiplayer(scene, camera, myColor) {
+  const myId = Math.random().toString(36).slice(2, 10);
   const remotes = new Map();   // clientId → { mesh, tx, tz, try }
   let   sendTimer = 0;
 
