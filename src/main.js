@@ -126,26 +126,36 @@ const minimap = createMinimap(camera);
 const overlay   = document.getElementById('overlay');
 const crosshair = document.getElementById('crosshair');
 
-// Avatar picker runs first; pointer-lock / mobile-start wired inside the callback
-// so that "Enter World" is the one user gesture that starts everything.
-showAvatarPicker(overlay, (color) => {
-  multiplayer = createMultiplayer(scene, camera, color);
+// Set up pointer-lock and overlay-click listeners now, guarded by a flag so
+// they don't fire during avatar selection. onConfirm just sets the flag and
+// attempts an immediate lock (direct user-gesture chain from "Enter World").
+let avatarReady = false;
 
-  if (isMobile) {
+if (isMobile) {
+  overlay.addEventListener('click', () => {
+    if (!avatarReady) return;
     overlay.style.display = 'none';
     startMobile();
-  } else {
-    controls.addEventListener('lock', () => {
-      overlay.style.display   = 'none';
-      crosshair.style.display = 'block';
-    });
-    controls.addEventListener('unlock', () => {
-      overlay.style.display   = 'flex';
-      crosshair.style.display = 'none';
-    });
-    overlay.addEventListener('click', () => controls.lock());
-    controls.lock();   // called synchronously from the button click — valid user gesture
-  }
+  });
+} else {
+  controls.addEventListener('lock', () => {
+    overlay.style.display   = 'none';
+    crosshair.style.display = 'block';
+  });
+  controls.addEventListener('unlock', () => {
+    overlay.style.display   = 'flex';
+    crosshair.style.display = 'none';
+  });
+  overlay.addEventListener('click', () => {
+    if (!avatarReady) return;
+    controls.lock();
+  });
+}
+
+showAvatarPicker(overlay, (color) => {
+  multiplayer = createMultiplayer(scene, camera, color);
+  avatarReady = true;
+  if (!isMobile) controls.lock();   // attempt immediate entry from the button-click gesture
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
