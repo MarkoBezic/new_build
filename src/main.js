@@ -148,7 +148,7 @@ if (isMobile) {
   });
   overlay.addEventListener('click', () => {
     if (!avatarReady) return;
-    controls.lock();
+    renderer.domElement.requestPointerLock();
   });
 }
 
@@ -156,7 +156,7 @@ showAvatarPicker(overlay, (color) => {
   avatarReady = true;                // set before anything that could throw
   try { multiplayer = createMultiplayer(scene, camera, color); }
   catch (e) { console.warn('Multiplayer unavailable:', e); }
-  if (!isMobile) controls.lock();   // attempt immediate entry from the button-click gesture
+  if (!isMobile) renderer.domElement.requestPointerLock();
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
