@@ -120,7 +120,7 @@ composer.addPass(new OutputPass());
 // ─────────────────────────────────────────────────────────────────────────────
 //  FPS player
 // ─────────────────────────────────────────────────────────────────────────────
-const { controls, update: updatePlayer, startMobile } = createPlayer(camera, renderer.domElement);
+const { controls, update: updatePlayer, startMobile, setColor, playerPosition } = createPlayer(scene, camera, renderer.domElement);
 const minimap = createMinimap(camera);
 
 const overlay   = document.getElementById('overlay');
@@ -153,6 +153,7 @@ if (isMobile) {
 }
 
 showAvatarPicker(overlay, (color) => {
+  setColor(color);
   avatarReady = true;                // set before anything that could throw
   try { multiplayer = createMultiplayer(scene, camera, color); }
   catch (e) { console.warn('Multiplayer unavailable:', e); }
@@ -172,8 +173,8 @@ function animate() {
   prevTime  = now;
 
   updatePlayer(dt);
-  geese.update(dt, camera.position);
-  npcUpdate(dt, camera.position);
+  geese.update(dt, playerPosition);
+  npcUpdate(dt, playerPosition);
   portals.update(dt);
   multiplayer.update(dt);
   minimap.update();
