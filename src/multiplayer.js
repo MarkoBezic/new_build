@@ -28,12 +28,18 @@ function makeAvatar(color) {
 }
 
 export function createMultiplayer(scene, camera, myColor) {
+  const key = import.meta.env.VITE_ABLY_KEY;
+  if (!key || key === 'your_ably_api_key_here') {
+    console.warn('Multiplayer disabled — VITE_ABLY_KEY not set');
+    return { update() {} };
+  }
+
   const myId = Math.random().toString(36).slice(2, 10);
   const remotes = new Map();   // clientId → { mesh, tx, tz, try }
   let   sendTimer = 0;
 
   const client  = new Ably.Realtime({
-    key:      import.meta.env.VITE_ABLY_KEY,
+    key:      key,
     clientId: myId,
   });
   const channel = client.channels.get(CHANNEL_NAME);

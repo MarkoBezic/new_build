@@ -153,8 +153,9 @@ if (isMobile) {
 }
 
 showAvatarPicker(overlay, (color) => {
-  multiplayer = createMultiplayer(scene, camera, color);
-  avatarReady = true;
+  avatarReady = true;                // set before anything that could throw
+  try { multiplayer = createMultiplayer(scene, camera, color); }
+  catch (e) { console.warn('Multiplayer unavailable:', e); }
   if (!isMobile) controls.lock();   // attempt immediate entry from the button-click gesture
 });
 
