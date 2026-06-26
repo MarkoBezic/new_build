@@ -11,6 +11,7 @@ import { createGeese } from './geese.js';
 import { createNPC }     from './npc.js';
 import { createPortals } from './portal.js';
 import { buildBeachVolleyballCourt } from './beach_volleyball.js';
+import { createMultiplayer } from './multiplayer.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
 import { OutlinePass }    from 'three/addons/postprocessing/OutlinePass.js';
@@ -88,9 +89,10 @@ entities.add('site',     siteGroup);
 entities.add('landmarks', buildLandmarks());
 entities.add('beachCourt', buildBeachVolleyballCourt());
 
-const geese   = createGeese(scene, carObstacles);
+const geese      = createGeese(scene, carObstacles);
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
-const portals = createPortals(scene, camera);
+const portals    = createPortals(scene, camera);
+const multiplayer = createMultiplayer(scene, camera);
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Post-processing (composer needs scene + camera + npcRoot)
@@ -157,6 +159,7 @@ function animate() {
   geese.update(dt, camera.position);
   npcUpdate(dt, camera.position);
   portals.update(dt);
+  multiplayer.update(dt);
   minimap.update();
   composer.render();
 }
