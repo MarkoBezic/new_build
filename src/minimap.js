@@ -200,7 +200,7 @@ function bakeMap() {
 // ─────────────────────────────────────────────────────────────────────────────
 //  Public factory
 // ─────────────────────────────────────────────────────────────────────────────
-export function createMinimap(camera) {
+export function createMinimap(camera, getRemotes = () => []) {
   // ── Live canvas (displayed on screen) ──────────────────────────────────────
   const canvas = document.createElement('canvas');
   canvas.width  = W;
@@ -274,6 +274,31 @@ export function createMinimap(camera) {
     ctx.stroke();
 
     ctx.restore();
+
+    // ── Remote players ───────────────────────────────────────────────────────
+    for (const r of getRemotes()) {
+      const rmx = Math.max(margin, Math.min(W - margin, px(r.x)));
+      const rmy = Math.max(margin, Math.min(H - margin, py(r.z)));
+      const css = '#' + (r.color >>> 0).toString(16).padStart(6, '0');
+
+      // Coloured dot with white border
+      ctx.beginPath();
+      ctx.arc(rmx, rmy, 5, 0, Math.PI * 2);
+      ctx.fillStyle = css;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Name tag below the dot
+      if (r.name) {
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.font = '7px system-ui,sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText(r.name.slice(0, 10), rmx, rmy + 7);
+      }
+    }
   }
 
   return { update };

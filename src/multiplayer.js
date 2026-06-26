@@ -118,7 +118,7 @@ export function createMultiplayer(scene, camera, myColor, myName) {
     mesh.position.set(x, 0, z);
     mesh.rotation.y = ry;
     scene.add(mesh);
-    remotes.set(id, { mesh, tx: x, tz: z, try: ry });
+    remotes.set(id, { mesh, color, name, tx: x, tz: z, try: ry });
   }
 
   function removeRemote(id) {
@@ -126,6 +126,14 @@ export function createMultiplayer(scene, camera, myColor, myName) {
     if (!r) return;
     scene.remove(r.mesh);
     remotes.delete(id);
+  }
+
+  function getRemotes() {
+    const out = [];
+    for (const r of remotes.values()) {
+      out.push({ x: r.mesh.position.x, z: r.mesh.position.z, color: r.color, name: r.name });
+    }
+    return out;
   }
 
   // ── Per-frame update ──────────────────────────────────────────────────────
@@ -153,5 +161,5 @@ export function createMultiplayer(scene, camera, myColor, myName) {
     }
   }
 
-  return { update };
+  return { update, getRemotes };
 }

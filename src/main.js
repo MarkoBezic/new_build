@@ -93,7 +93,7 @@ entities.add('beachCourt', buildBeachVolleyballCourt());
 const geese      = createGeese(scene, carObstacles);
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
 const portals    = createPortals(scene, camera);
-let multiplayer = { update() {} };   // replaced after avatar selection
+let multiplayer = { update() {}, getRemotes() { return []; } };  // replaced after avatar selection
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Post-processing (composer needs scene + camera + npcRoot)
@@ -121,7 +121,7 @@ composer.addPass(new OutputPass());
 //  FPS player
 // ─────────────────────────────────────────────────────────────────────────────
 const { controls, update: updatePlayer, startMobile, setColor, playerPosition } = createPlayer(scene, camera, renderer.domElement);
-const minimap = createMinimap(camera);
+const minimap = createMinimap(camera, () => multiplayer.getRemotes());
 
 const overlay   = document.getElementById('overlay');
 const crosshair = document.getElementById('crosshair');
