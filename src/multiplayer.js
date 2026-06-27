@@ -86,11 +86,20 @@ export function createMultiplayer(scene, getState, myColor, myName) {
     const name  = member.data?.name  ?? '';
     const r = remotes.get(member.clientId);
     if (r) {
-      // A move message arrived before presence — avatar exists but is grey/unnamed.
-      // Update colour and name now that we have the real data.
+      // A move message arrived before presence — avatar exists but may be grey/unnamed.
+      // Update colour and rebuild the name label with the real presence data.
       if (r.mesh.children[0]) r.mesh.children[0].material.color.setHex(color);
       r.color = color;
       r.name  = name;
+      // Remove any existing label (children beyond body + head), then re-add.
+      while (r.mesh.children.length > 2) {
+        const old = r.mesh.children[2];
+        if (old.material?.map) old.material.map.dispose();
+        if (old.material) old.material.dispose();
+        r.mesh.remove(old);
+      }
+      const label = makeNameLabel(name);
+      if (label) r.mesh.add(label);
     } else {
       spawnRemote(member.clientId, color, name, 0, 0, 0);
     }
