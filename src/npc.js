@@ -163,7 +163,7 @@ const WAVE_HOLD    = 5.0;    // original 3.0 + 2.0 extra seconds
 const WAVE_LOWER   = 0.55;
 const WAVE_DURATION = WAVE_RAISE + WAVE_HOLD + WAVE_LOWER;
 
-const GREET_DURATION = 4.0;
+const GREET_DURATION = 1.0;
 
 // Pointing toward the portal at (0, 0, 16) — NPC at (0, 0, -8) must face +Z
 // root.rotation.y = π puts local -Z in world +Z direction.
