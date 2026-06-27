@@ -157,7 +157,7 @@ composer.addPass(new OutputPass());
 // ─────────────────────────────────────────────────────────────────────────────
 //  FPS player
 // ─────────────────────────────────────────────────────────────────────────────
-const { controls, update: updatePlayer, startMobile, setColor, playerPosition } = createPlayer(scene, camera, renderer.domElement);
+const { controls, update: updatePlayer, startMobile, setColor, playerPosition, getState } = createPlayer(scene, camera, renderer.domElement);
 const minimap = createMinimap(camera, () => multiplayer.getRemotes());
 
 const overlay   = document.getElementById('overlay');
@@ -208,7 +208,7 @@ if (isMobile) {
 showAvatarPicker(overlay, (color, name) => {
   setColor(color, name);
   avatarReady = true;                // set before anything that could throw
-  try { multiplayer = createMultiplayer(scene, camera, color, name); }
+  try { multiplayer = createMultiplayer(scene, getState, color, name); }
   catch (e) { console.warn('Multiplayer unavailable:', e); }
   if (!isMobile) renderer.domElement.requestPointerLock();
 });

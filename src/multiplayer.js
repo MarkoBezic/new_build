@@ -59,16 +59,16 @@ function makeAvatar(color, name) {
   return g;
 }
 
-export function createMultiplayer(scene, camera, myColor, myName) {
+export function createMultiplayer(scene, getState, myColor, myName) {
   const key = import.meta.env.VITE_ABLY_KEY;
   if (!key || key === 'your_ably_api_key_here') {
     console.warn('Multiplayer disabled — VITE_ABLY_KEY not set');
-    return { update() {} };
+    return { update() {}, getRemotes() { return []; } };
   }
 
   const myId = Math.random().toString(36).slice(2, 10);
-  const remotes = new Map();   // clientId → { mesh, tx, tz, try }
-  let   sendTimer = 0;
+  const remotes = new Map();   // clientId → { mesh, color, name, tx, tz, try }
+  let   sendTimer = SEND_INTERVAL;  // broadcast position on the very first frame
 
   const client  = new Ably.Realtime({
     key:      key,
@@ -77,26 +77,34 @@ export function createMultiplayer(scene, camera, myColor, myName) {
   const channel = client.channels.get(CHANNEL_NAME);
 
   // ── Presence: join / leave ────────────────────────────────────────────────
-  channel.presence.subscribe('enter', (member) => {
+  // 'present' fires for members already in the channel when we attach;
+  // 'enter'   fires for members who join after us.
+  // Both call the same handler so we never miss anyone regardless of timing.
+  function handleMemberJoin(member) {
     if (member.clientId === myId) return;
-    spawnRemote(member.clientId, member.data?.color ?? 0xAAAAAA, member.data?.name ?? '', 0, 0, 0);
-  });
+    const color = member.data?.color ?? 0xAAAAAA;
+    const name  = member.data?.name  ?? '';
+    const r = remotes.get(member.clientId);
+    if (r) {
+      // A move message arrived before presence — avatar exists but is grey/unnamed.
+      // Update colour and name now that we have the real data.
+      if (r.mesh.children[0]) r.mesh.children[0].material.color.setHex(color);
+      r.color = color;
+      r.name  = name;
+    } else {
+      spawnRemote(member.clientId, color, name, 0, 0, 0);
+    }
+    // Force-broadcast our own position immediately so the new joiner sees us.
+    sendTimer = SEND_INTERVAL;
+  }
 
-  channel.presence.subscribe('leave', (member) => {
-    removeRemote(member.clientId);
-  });
+  channel.presence.subscribe('present', handleMemberJoin);
+  channel.presence.subscribe('enter',   handleMemberJoin);
+  channel.presence.subscribe('leave',   member => removeRemote(member.clientId));
 
-  // Enter the presence set and snapshot existing occupants
-  channel.presence.enter({ color: myColor, name: myName }).then(() => {
-    channel.presence.get((err, members) => {
-      if (err || !members) return;
-      for (const m of members) {
-        if (m.clientId !== myId) {
-          spawnRemote(m.clientId, m.data?.color ?? 0xAAAAAA, m.data?.name ?? '', 0, 0, 0);
-        }
-      }
-    });
-  });
+  // Enter presence — 'present' events for existing members fire on channel attach,
+  // before or alongside this call, so no separate get() snapshot is needed.
+  channel.presence.enter({ color: myColor, name: myName });
 
   // ── Position updates ──────────────────────────────────────────────────────
   channel.subscribe('move', (msg) => {
@@ -106,7 +114,8 @@ export function createMultiplayer(scene, camera, myColor, myName) {
     if (r) {
       r.tx = x; r.tz = z; r.try = ry;
     } else {
-      // Move arrived before presence enter — spawn avatar immediately
+      // Move arrived before presence enter — spawn with grey placeholder.
+      // handleMemberJoin will update colour/name when presence catches up.
       spawnRemote(msg.clientId, 0xAAAAAA, '', x, z, ry);
     }
   });
@@ -142,11 +151,8 @@ export function createMultiplayer(scene, camera, myColor, myName) {
     sendTimer += dt;
     if (sendTimer >= SEND_INTERVAL) {
       sendTimer = 0;
-      channel.publish('move', {
-        x:  camera.position.x,
-        z:  camera.position.z,
-        ry: camera.rotation.y,
-      });
+      const { x, z, ry } = getState();
+      channel.publish('move', { x, z, ry });
     }
 
     // Smoothly interpolate remote avatars toward their latest known position

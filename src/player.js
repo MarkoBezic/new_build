@@ -173,6 +173,7 @@ function createDesktopPlayer(scene, camera, canvas) {
       camera.position.x = lx + Math.sin(yaw) * Math.cos(pitch) * CAM_DIST;
       camera.position.y = ly + Math.sin(pitch) * CAM_DIST;
       camera.position.z = lz + Math.cos(yaw) * Math.cos(pitch) * CAM_DIST;
+      if (camera.position.y < 0.1) camera.position.y = 0.1;
       camera.lookAt(lx, ly, lz);
 
       playerPosition.set(lx, ly, lz);
@@ -200,16 +201,34 @@ function createDesktopPlayer(scene, camera, canvas) {
     if (nameSprite) avatar.add(nameSprite);
   }
 
-  return { controls, update, startMobile: () => {}, setColor, playerPosition };
+  function getState() {
+    const pos = thirdPerson ? avatar.position : camera.position;
+    return { x: pos.x, z: pos.z, ry: yaw };
+  }
+
+  return { controls, update, startMobile: () => {}, setColor, playerPosition, getState };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  MOBILE  (virtual joystick + touch-look, 1st-person)
+//  MOBILE  (virtual joystick + touch-look, 3rd-person)
 // ─────────────────────────────────────────────────────────────────────────────
 function createMobilePlayer(scene, camera, canvas) {
-  camera.rotation.setFromQuaternion(camera.quaternion, 'YXZ');
+  const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
+  _euler.setFromQuaternion(camera.quaternion, 'YXZ');
+  let yaw   = _euler.y;
+  let pitch = 0.35;   // slight downward angle from behind for a cinematic view
 
-  let vy = 0, grounded = true;
+  let playerX = camera.position.x;
+  let playerZ = camera.position.z;
+  let playerY = 0;
+  let vy = 0;
+
+  // ── Avatar mesh ──────────────────────────────────────────────────────────────
+  const avatar = makeAvatarMesh(0x888888);
+  avatar.position.set(playerX, playerY, playerZ);
+  scene.add(avatar);
+
+  const playerPosition = new THREE.Vector3(playerX, EYE_HEIGHT, playerZ);
 
   // ── Joystick state ──────────────────────────────────────────────────────────
   const JOY_R = 52;
@@ -221,10 +240,6 @@ function createMobilePlayer(scene, camera, canvas) {
   // ── Look state ──────────────────────────────────────────────────────────────
   let lookId = null, lookPX = 0, lookPY = 0;
   const LOOK_S = 0.0045;
-
-  const fwdV  = new THREE.Vector3();
-  const rgtV  = new THREE.Vector3();
-  const upV   = new THREE.Vector3(0, 1, 0);
 
   // ── Joystick DOM ─────────────────────────────────────────────────────────────
   const joyBase = document.createElement('div');
@@ -282,9 +297,9 @@ function createMobilePlayer(scene, camera, canvas) {
         joyKnob.style.transform =
           `translate(calc(-50% + ${joyDX * JOY_R}px), calc(-50% + ${joyDY * JOY_R}px))`;
       } else if (t.identifier === lookId) {
-        camera.rotation.y -= (t.clientX - lookPX) * LOOK_S;
-        camera.rotation.x -= (t.clientY - lookPY) * LOOK_S;
-        camera.rotation.x  = Math.max(-Math.PI * 0.417, Math.min(Math.PI * 0.417, camera.rotation.x));
+        yaw   -= (t.clientX - lookPX) * LOOK_S;
+        pitch -= (t.clientY - lookPY) * LOOK_S;
+        pitch  = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitch));
         lookPX = t.clientX; lookPY = t.clientY;
       }
     }
@@ -300,23 +315,55 @@ function createMobilePlayer(scene, camera, canvas) {
   canvas.addEventListener('touchcancel', endTouch, { passive: false });
 
   function update(dt) {
+    // Movement in yaw direction
     if (joyId !== null && Math.hypot(joyDX, joyDY) > DEAD) {
-      camera.getWorldDirection(fwdV);
-      fwdV.y = 0; fwdV.normalize();
-      rgtV.crossVectors(fwdV, upV).normalize();
-      camera.position.addScaledVector(fwdV,  -joyDY * WALK_SPEED * dt);
-      camera.position.addScaledVector(rgtV,   joyDX * WALK_SPEED * dt);
+      const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
+      const rgtX =  Math.cos(yaw), rgtZ = -Math.sin(yaw);
+      playerX += (-joyDY * fwdX + joyDX * rgtX) * WALK_SPEED * dt;
+      playerZ += (-joyDY * fwdZ + joyDX * rgtZ) * WALK_SPEED * dt;
     }
+
+    // Gravity
     vy += GRAVITY * dt;
-    camera.position.y += vy * dt;
-    if (camera.position.y <= EYE_HEIGHT) {
-      camera.position.y = EYE_HEIGHT; vy = 0; grounded = true;
+    playerY += vy * dt;
+    if (playerY <= 0) { playerY = 0; vy = 0; }
+
+    // Update avatar
+    avatar.position.set(playerX, playerY, playerZ);
+    avatar.rotation.y = yaw;
+
+    // 3rd-person camera orbit (same formula as desktop)
+    const lx = playerX;
+    const ly = playerY + 1.2;
+    const lz = playerZ;
+    camera.position.x = lx + Math.sin(yaw) * Math.cos(pitch) * CAM_DIST;
+    camera.position.y = ly + Math.sin(pitch) * CAM_DIST;
+    camera.position.z = lz + Math.cos(yaw) * Math.cos(pitch) * CAM_DIST;
+    if (camera.position.y < 0.1) camera.position.y = 0.1;
+    camera.lookAt(lx, ly, lz);
+
+    playerPosition.set(lx, ly, lz);
+  }
+
+  let nameSprite = null;
+
+  function setColor(color, name) {
+    if (avatar.children[0]) avatar.children[0].material.color.setHex(color);
+    if (nameSprite) {
+      avatar.remove(nameSprite);
+      nameSprite.material.map.dispose();
+      nameSprite.material.dispose();
+      nameSprite = null;
     }
+    nameSprite = makeNameLabel(name);
+    if (nameSprite) avatar.add(nameSprite);
+  }
+
+  function getState() {
+    return { x: playerX, z: playerZ, ry: yaw };
   }
 
   const controls = { isLocked: true, lock() {}, unlock() {}, addEventListener() {} };
-  const playerPosition = camera.position;
-  function setColor() {}
 
-  return { controls, update, startMobile, setColor, playerPosition };
+  return { controls, update, startMobile, setColor, playerPosition, getState };
 }
