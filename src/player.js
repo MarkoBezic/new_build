@@ -88,13 +88,13 @@ function createDesktopPlayer(scene, camera, canvas) {
   let playerY  = camera.position.y - EYE_HEIGHT;  // feet height (0 = ground)
   let vy       = 0;
   let grounded = true;
-  let thirdPerson = false;
+  let thirdPerson = true;
   const keys = new Set();
 
-  // Player avatar — hidden in 1st-person, visible in 3rd-person
+  // Player avatar — visible in 3rd-person (default), hidden in 1st-person
   const avatar = makeAvatarMesh(0x888888);
   avatar.position.set(camera.position.x, playerY, camera.position.z);
-  avatar.visible = false;
+  avatar.visible = true;
   scene.add(avatar);
 
   // Logical player world position — updated every frame for NPC / geese / minimap

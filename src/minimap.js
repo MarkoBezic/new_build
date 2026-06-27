@@ -4,12 +4,8 @@ import { CLEARING_R, WORLD_R, LANDMARKS, OCEAN, SPAWN } from './world.config.js'
 // ── Canvas & scale ────────────────────────────────────────────────────────
 const W  = 280, H = 280;
 const CX = W / 2, CY = H / 2;
-const S  = 130 / WORLD_R;   // world radius fits with ~10 px margin on each side
+const S  = 130 / WORLD_R;
 
-export const MAP_SIZE   = W;    // used by main.js to position the HUD mesh
-export const MAP_MARGIN = 14;   // px gap from top-left of screen
-
-// World (x, z) → canvas pixel
 function px(x) { return CX + x * S; }
 function py(z) { return CY + z * S; }
 
@@ -34,17 +30,16 @@ function bakeMap() {
 
   const R_canvas = WORLD_R * S;
 
-  // Background
   c.fillStyle = '#070B05';
   c.fillRect(0, 0, W, H);
 
-  // Forest — filled world circle
+  // Forest
   c.fillStyle = '#1A3510';
   c.beginPath();
   c.arc(CX, CY, R_canvas, 0, Math.PI * 2);
   c.fill();
 
-  // Ocean — SW wedge
+  // Ocean wedge
   const outer = coastPts(OCEAN.coast);
   if (outer) {
     const tS = Math.atan2(outer.zS, outer.xS);
@@ -84,7 +79,7 @@ function bakeMap() {
   }
   c.restore();
 
-  // Clearing disc
+  // Clearing
   c.fillStyle = '#4D9240';
   c.beginPath();
   c.arc(CX, CY, Math.max(4, CLEARING_R * S), 0, Math.PI * 2);
@@ -133,7 +128,7 @@ function bakeMap() {
   c.fillRect(px(21),  py(-18), Math.max(2, 16 * S), Math.max(2, 36 * S));
   c.fillRect(px(-37), py(-18), Math.max(2, 16 * S), Math.max(2, 36 * S));
 
-  // Building footprint
+  // Building
   c.fillStyle   = '#9A9088';
   c.strokeStyle = '#C8C0B0';
   c.lineWidth   = 1;
@@ -147,45 +142,35 @@ function bakeMap() {
   c.beginPath(); c.arc(CX, CY, R_canvas, 0, Math.PI * 2); c.stroke();
 
   // Labels
-  c.textAlign    = 'center';
-  c.textBaseline = 'middle';
+  c.textAlign = 'center'; c.textBaseline = 'middle';
   c.fillStyle = 'rgba(255,250,240,0.85)';
   c.font      = 'bold 7px system-ui,sans-serif';
   c.fillText('OT', CX, CY + 1);
-
   c.fillStyle = 'rgba(160,220,255,0.80)';
   c.font      = '7px system-ui,sans-serif';
   c.fillText(LANDMARKS.pond.label, ppx, ppy + PR + 5);
-
   c.fillStyle = 'rgba(210,200,185,0.80)';
-  c.font      = '7px system-ui,sans-serif';
   c.fillText(LANDMARKS.cave.label, cpx, cpy + CR + 5);
-
   if (outer) {
-    const cx_ocean = px((outer.xW + outer.xS) / 2 * 0.85);
-    const cy_ocean = py((outer.zW + outer.zS) / 2 * 0.85);
     c.fillStyle = 'rgba(180,220,255,0.60)';
     c.font      = 'bold 8px system-ui,sans-serif';
-    c.fillText('OCEAN', cx_ocean, cy_ocean);
+    c.fillText('OCEAN', px((outer.xW + outer.xS) / 2 * 0.85), py((outer.zW + outer.zS) / 2 * 0.85));
   }
 
   // Map title
-  c.fillStyle    = 'rgba(255,255,255,0.38)';
-  c.font         = 'bold 8px system-ui,sans-serif';
-  c.textAlign    = 'left';
-  c.textBaseline = 'top';
+  c.fillStyle = 'rgba(255,255,255,0.38)';
+  c.font      = 'bold 8px system-ui,sans-serif';
+  c.textAlign = 'left'; c.textBaseline = 'top';
   c.fillText('WORLD MAP', 8, 8);
 
   // Compass rose
   const rosX = W - 18, rosY = H - 18, rosR = 10;
-  c.strokeStyle    = 'rgba(255,255,255,0.35)';
-  c.lineWidth      = 1;
+  c.strokeStyle = 'rgba(255,255,255,0.35)'; c.lineWidth = 1;
   c.beginPath(); c.moveTo(rosX, rosY - rosR); c.lineTo(rosX, rosY + rosR); c.stroke();
   c.beginPath(); c.moveTo(rosX - rosR, rosY); c.lineTo(rosX + rosR, rosY); c.stroke();
-  c.fillStyle    = '#D4FF90';
-  c.font         = 'bold 11px system-ui,sans-serif';
-  c.textAlign    = 'center';
-  c.textBaseline = 'alphabetic';
+  c.fillStyle = '#D4FF90';
+  c.font      = 'bold 11px system-ui,sans-serif';
+  c.textAlign = 'center'; c.textBaseline = 'alphabetic';
   c.fillText('N', rosX, rosY - rosR - 3);
 
   return off;
@@ -195,43 +180,39 @@ function bakeMap() {
 //  Public factory
 // ─────────────────────────────────────────────────────────────────────────────
 export function createMinimap(camera, getRemotes = () => []) {
-  // ── Offscreen canvas — never inserted into the DOM ───────────────────────
-  const offCanvas = document.createElement('canvas');
-  offCanvas.width  = W;
-  offCanvas.height = H;
-  const ctx = offCanvas.getContext('2d');
-
-  // CanvasTexture backed by the offscreen canvas; updated each frame
-  const texture = new THREE.CanvasTexture(offCanvas);
-
-  // Screen-space plane rendered by the HUD camera in main.js
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(W, H),
-    new THREE.MeshBasicMaterial({
-      map:        texture,
-      transparent: true,
-      depthTest:  false,
-      depthWrite: false,
-    })
-  );
-  mesh.renderOrder = 999;
-  mesh.visible     = false;
+  // DOM canvas — toggled visible/hidden with M key only (never mutated per-frame)
+  const canvas = document.createElement('canvas');
+  canvas.width  = W;
+  canvas.height = H;
+  Object.assign(canvas.style, {
+    position:     'fixed',
+    top:          '14px',
+    left:         '14px',
+    width:        `${W}px`,
+    height:       `${H}px`,
+    borderRadius: '8px',
+    border:       '1.5px solid rgba(255,255,255,0.22)',
+    display:      'none',
+    zIndex:       '15',
+    pointerEvents:'none',
+  });
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
 
   const staticMap = bakeMap();
 
-  // ── M-key toggle ────────────────────────────────────────────────────────────
+  // ── M-key toggle — display is only touched here, never inside animate() ───
   let visible = false;
   window.addEventListener('keydown', e => {
     if (e.code === 'KeyM') {
       visible = !visible;
-      mesh.visible = visible;
+      canvas.style.display = visible ? 'block' : 'none';
     }
   });
-  // Auto-hide on pointer-lock release (ESC / pause)
   document.addEventListener('pointerlockchange', () => {
     if (!document.pointerLockElement && visible) {
       visible = false;
-      mesh.visible = false;
+      canvas.style.display = 'none';
     }
   });
 
@@ -244,12 +225,12 @@ export function createMinimap(camera, getRemotes = () => []) {
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(staticMap, 0, 0);
 
-    // ── Player arrow ────────────────────────────────────────────────────────
+    // Player arrow
     camera.getWorldDirection(_dir);
     const heading = Math.atan2(_dir.x, -_dir.z);
     const margin  = 10;
-    let mx = Math.max(margin, Math.min(W - margin, px(camera.position.x)));
-    let my = Math.max(margin, Math.min(H - margin, py(camera.position.z)));
+    const mx = Math.max(margin, Math.min(W - margin, px(camera.position.x)));
+    const my = Math.max(margin, Math.min(H - margin, py(camera.position.z)));
 
     ctx.save();
     ctx.translate(mx, my);
@@ -267,7 +248,7 @@ export function createMinimap(camera, getRemotes = () => []) {
     ctx.stroke();
     ctx.restore();
 
-    // ── Remote players ───────────────────────────────────────────────────────
+    // Remote players
     for (const r of getRemotes()) {
       const rmx = Math.max(margin, Math.min(W - margin, px(r.x)));
       const rmy = Math.max(margin, Math.min(H - margin, py(r.z)));
@@ -296,27 +277,7 @@ export function createMinimap(camera, getRemotes = () => []) {
         ctx.fillText(label, rmx, by + 2);
       }
     }
-
-    // ── Border stroke (replaces CSS border/border-radius) ───────────────────
-    const br = 8;
-    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
-    ctx.lineWidth   = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(br + 0.75, 0.75);
-    ctx.lineTo(W - br - 0.75, 0.75);
-    ctx.quadraticCurveTo(W - 0.75, 0.75, W - 0.75, br + 0.75);
-    ctx.lineTo(W - 0.75, H - br - 0.75);
-    ctx.quadraticCurveTo(W - 0.75, H - 0.75, W - br - 0.75, H - 0.75);
-    ctx.lineTo(br + 0.75, H - 0.75);
-    ctx.quadraticCurveTo(0.75, H - 0.75, 0.75, H - br - 0.75);
-    ctx.lineTo(0.75, br + 0.75);
-    ctx.quadraticCurveTo(0.75, 0.75, br + 0.75, 0.75);
-    ctx.closePath();
-    ctx.stroke();
-
-    // Tell Three.js the canvas contents have changed
-    texture.needsUpdate = true;
   }
 
-  return { update, mesh };
+  return { update };
 }
