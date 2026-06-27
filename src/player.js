@@ -68,6 +68,15 @@ function makeAvatarMesh(color) {
   head.position.y = bodyH + 0.22;
   g.add(head);
 
+  // Subtle eyes on the front (-Z) face of the head to show facing direction
+  const eyeGeo = new THREE.SphereGeometry(0.035, 6, 6);
+  const eyeMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+  [-0.08, 0.08].forEach(ex => {
+    const eye = new THREE.Mesh(eyeGeo, eyeMat);
+    eye.position.set(ex, bodyH + 0.26, -0.19);
+    g.add(eye);
+  });
+
   return g;
 }
 
@@ -206,7 +215,17 @@ function createDesktopPlayer(scene, camera, canvas) {
     return { x: pos.x, z: pos.z, ry: yaw };
   }
 
-  return { controls, update, startMobile: () => {}, setColor, playerPosition, getState };
+  function teleport(x, z) {
+    if (thirdPerson) {
+      avatar.position.set(x, 0, z);
+    } else {
+      camera.position.set(x, EYE_HEIGHT, z);
+    }
+    playerY = 0;
+    vy = 0;
+  }
+
+  return { controls, update, startMobile: () => {}, setColor, playerPosition, getState, teleport };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -363,7 +382,14 @@ function createMobilePlayer(scene, camera, canvas) {
     return { x: playerX, z: playerZ, ry: yaw };
   }
 
+  function teleport(x, z) {
+    playerX = x;
+    playerZ = z;
+    playerY = 0;
+    vy = 0;
+  }
+
   const controls = { isLocked: true, lock() {}, unlock() {}, addEventListener() {} };
 
-  return { controls, update, startMobile, setColor, playerPosition, getState };
+  return { controls, update, startMobile, setColor, playerPosition, getState, teleport };
 }

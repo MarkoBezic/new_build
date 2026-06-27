@@ -129,7 +129,6 @@ const _CR = 13;  // just outside the 10.5 outer ring
 
 const geese      = createGeese(scene, carObstacles);
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
-const portals    = createPortals(scene, camera);
 let multiplayer = { update() {}, getRemotes() { return []; } };  // replaced after avatar selection
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -157,7 +156,8 @@ composer.addPass(new OutputPass());
 // ─────────────────────────────────────────────────────────────────────────────
 //  FPS player
 // ─────────────────────────────────────────────────────────────────────────────
-const { controls, update: updatePlayer, startMobile, setColor, playerPosition, getState } = createPlayer(scene, camera, renderer.domElement);
+const { controls, update: updatePlayer, startMobile, setColor, playerPosition, getState, teleport } = createPlayer(scene, camera, renderer.domElement);
+const portals    = createPortals(scene, playerPosition, teleport);
 const minimap = createMinimap(camera, () => multiplayer.getRemotes());
 
 const overlay   = document.getElementById('overlay');

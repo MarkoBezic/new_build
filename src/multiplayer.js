@@ -53,6 +53,14 @@ function makeAvatar(color, name) {
   head.position.y = BODY + 0.22;
   g.add(head);
 
+  const eyeGeo = new THREE.SphereGeometry(0.035, 6, 6);
+  const eyeMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+  [-0.08, 0.08].forEach(ex => {
+    const eye = new THREE.Mesh(eyeGeo, eyeMat);
+    eye.position.set(ex, BODY + 0.26, -0.19);
+    g.add(eye);
+  });
+
   const label = makeNameLabel(name);
   if (label) g.add(label);
 

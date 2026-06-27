@@ -64,16 +64,14 @@ function makePortal(scene, x, z, rotY) {
 }
 
 // ── Public factory ────────────────────────────────────────────────────────────
-export function createPortals(scene, camera) {
+export function createPortals(scene, playerPosition, teleport) {
   // Portal A — lobby back wall (building south interior, z≈+16)
-  //   faces the player entering from north; rotY=0 → oval in XY plane, visible from −Z
   makePortal(scene, 0, 16, 0);
-  const DEST_BEACH = new THREE.Vector3(-480, 1.75, 572);
+  const DEST_BEACH = { x: -480, z: 572 };
 
-  // Portal B — beach strip (SW quadrant; z−x=1055 puts it on the sand)
-  //   rotY = Math.PI * 0.85 rotates the face roughly toward the building
+  // Portal B — beach strip (SW quadrant)
   makePortal(scene, -480, 575, Math.PI * 0.85);
-  const DEST_LOBBY = new THREE.Vector3(0, 1.75, 11);
+  const DEST_LOBBY = { x: 0, z: 11 };
 
   let cooldown = 0;
   let time     = 0;
@@ -82,19 +80,19 @@ export function createPortals(scene, camera) {
     time     += dt;
     cooldown  = Math.max(0, cooldown - dt);
 
-    // Pulse both portals in sync
     surfaceMat.emissiveIntensity = 0.65 + 0.40 * Math.sin(time * 2.6);
 
     if (cooldown > 0) return;
 
-    const px = camera.position.x;
-    const pz = camera.position.z;
+    // Use avatar/player position (not camera) so 3rd-person works correctly
+    const px = playerPosition.x;
+    const pz = playerPosition.z;
 
     if (Math.hypot(px, pz - 16) < TRIGGER_R) {
-      camera.position.copy(DEST_BEACH);
+      teleport(DEST_BEACH.x, DEST_BEACH.z);
       cooldown = COOLDOWN;
     } else if (Math.hypot(px + 480, pz - 575) < TRIGGER_R) {
-      camera.position.copy(DEST_LOBBY);
+      teleport(DEST_LOBBY.x, DEST_LOBBY.z);
       cooldown = COOLDOWN;
     }
   }
