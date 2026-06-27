@@ -102,9 +102,16 @@ export function createMultiplayer(scene, getState, myColor, myName) {
   channel.presence.subscribe('enter',   handleMemberJoin);
   channel.presence.subscribe('leave',   member => removeRemote(member.clientId));
 
-  // Enter presence — 'present' events for existing members fire on channel attach,
-  // before or alongside this call, so no separate get() snapshot is needed.
-  channel.presence.enter({ color: myColor, name: myName });
+  // Enter then snapshot — 'present' fires for members already in the channel
+  // during attach; get() is a safety net in case any were missed due to timing.
+  channel.presence.enter({ color: myColor, name: myName }).then(() => {
+    channel.presence.get().then(members => {
+      if (!members) return;
+      for (const m of members) {
+        if (m.clientId !== myId) handleMemberJoin(m);
+      }
+    }).catch(() => {});
+  });
 
   // ── Position updates ──────────────────────────────────────────────────────
   channel.subscribe('move', (msg) => {
