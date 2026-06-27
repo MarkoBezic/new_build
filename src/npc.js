@@ -134,12 +134,16 @@ function buildCharacter() {
 }
 
 // ── State machine ─────────────────────────────────────────────────────────────
-const IDLE     = 0;
-const TURNING  = 1;
-const WAVING   = 2;
-const GREETING = 3;   // arm down, holds eye contact
-const LEAVING  = 4;
-const DONE     = 5;
+const IDLE        = 0;
+const TURNING     = 1;
+const WAVING      = 2;
+const GREETING    = 3;   // arm down, holds eye contact
+const LEAVING     = 4;
+const DONE        = 5;
+const POINT_TURN  = 6;   // rotate to face the portal
+const POINT_RAISE = 7;   // raise arm into pointing pose
+const POINT_HOLD  = 8;   // hold pointing for 3 s
+const POINT_LOWER = 9;   // lower arm back to resting
 
 const TRIGGER_DIST   = 14;
 const RESET_DIST     = 18;  // hysteresis: reset when player moves this far away
@@ -160,6 +164,16 @@ const WAVE_LOWER   = 0.55;
 const WAVE_DURATION = WAVE_RAISE + WAVE_HOLD + WAVE_LOWER;
 
 const GREET_DURATION = 4.0;
+
+// Pointing toward the portal at (0, 0, 16) — NPC at (0, 0, -8) must face +Z
+// root.rotation.y = π puts local -Z in world +Z direction.
+// rightArm.rotation.x = π/2 swings the arm from hanging-down into local -Z,
+// which is world +Z when the body is rotated π. ≈ horizontal forward point.
+const PORTAL_ANGLE   = Math.PI;
+const POINT_ARM_X    = Math.PI / 2;
+const POINT_HOLD_DUR = 3.0;
+const POINT_RAISE_T  = 0.5;
+const POINT_LOWER_T  = 0.5;
 
 // Capture the exact angle at end of wave hold so the lower phase starts cleanly.
 const WAVE_END_ANGLE = WAVE_CENTER + WAVE_AMPL * Math.sin(WAVE_HOLD * WAVE_FREQ);
@@ -196,6 +210,7 @@ export function createNPC(scene) {
       state               = IDLE;
       timer               = 0;
       rightArm.rotation.z = 0;
+      rightArm.rotation.x = 0;
       root.rotation.y     = Math.PI;
     }
 
@@ -244,6 +259,48 @@ export function createNPC(scene) {
       // Hold — facing player with arm at side for GREET_DURATION seconds
       timer += dt;
       if (timer >= GREET_DURATION) {
+        state = POINT_TURN;
+        timer = 0;
+      }
+
+    } else if (state === POINT_TURN) {
+      // Rotate to face the portal (+Z world = rotation.y π)
+      const diff = angleDiff(root.rotation.y, PORTAL_ANGLE);
+      if (Math.abs(diff) < 0.04) {
+        root.rotation.y = PORTAL_ANGLE;
+        state = POINT_RAISE;
+        timer = 0;
+      } else {
+        root.rotation.y += Math.sign(diff) * Math.min(Math.abs(diff), TURN_SPEED * dt);
+      }
+
+    } else if (state === POINT_RAISE) {
+      // Smoothly raise the right arm into a forward horizontal point
+      timer += dt;
+      const t = Math.min(timer / POINT_RAISE_T, 1);
+      rightArm.rotation.x = POINT_ARM_X * ease(t);
+      rightArm.rotation.z = 0;
+      if (t >= 1) {
+        rightArm.rotation.x = POINT_ARM_X;
+        state = POINT_HOLD;
+        timer = 0;
+      }
+
+    } else if (state === POINT_HOLD) {
+      // Hold the pointing pose for 3 seconds
+      timer += dt;
+      if (timer >= POINT_HOLD_DUR) {
+        state = POINT_LOWER;
+        timer = 0;
+      }
+
+    } else if (state === POINT_LOWER) {
+      // Lower arm back to resting, then turn away
+      timer += dt;
+      const t = Math.min(timer / POINT_LOWER_T, 1);
+      rightArm.rotation.x = POINT_ARM_X * (1 - ease(t));
+      if (t >= 1) {
+        rightArm.rotation.x = 0;
         state = LEAVING;
         timer = 0;
       }
