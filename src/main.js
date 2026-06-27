@@ -4,7 +4,7 @@ import { buildBuilding }   from './building.js';
 import { buildSite }       from './site.js';
 import { buildLandmarks }  from './landmarks.js';
 import { createPlayer, isMobile } from './player.js';
-import { createMinimap }   from './minimap.js';
+import { createMinimap, MAP_SIZE, MAP_MARGIN } from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
 import { EntityManager } from './entities.js';
 import { createGeese } from './geese.js';
@@ -160,6 +160,24 @@ composer.addPass(new OutputPass());
 const { controls, update: updatePlayer, startMobile, setColor, playerPosition } = createPlayer(scene, camera, renderer.domElement);
 const minimap = createMinimap(camera, () => multiplayer.getRemotes());
 
+// ── HUD scene — minimap rendered inside the WebGL canvas, no separate DOM element ──
+const hudScene  = new THREE.Scene();
+const hudCamera = new THREE.OrthographicCamera(
+  -window.innerWidth  / 2,  window.innerWidth  / 2,
+   window.innerHeight / 2, -window.innerHeight / 2,
+  -10, 10,
+);
+
+function _positionMapMesh() {
+  minimap.mesh.position.set(
+    -window.innerWidth  / 2 + MAP_MARGIN + MAP_SIZE / 2,
+     window.innerHeight / 2 - MAP_MARGIN - MAP_SIZE / 2,
+    0,
+  );
+}
+hudScene.add(minimap.mesh);
+_positionMapMesh();
+
 const overlay   = document.getElementById('overlay');
 const crosshair = document.getElementById('crosshair');
 
@@ -216,6 +234,13 @@ function animate() {
   multiplayer.update(dt);
   minimap.update();
   composer.render();
+
+  // Draw the minimap inside the same WebGL canvas so it never creates a
+  // separate compositor layer that would freeze the 3D view.
+  renderer.setRenderTarget(null);
+  renderer.autoClear = false;
+  renderer.render(hudScene, hudCamera);
+  renderer.autoClear = true;
 }
 
 animate();
@@ -229,4 +254,8 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   composer.setSize(w, h);
+  hudCamera.left   = -w / 2;  hudCamera.right  =  w / 2;
+  hudCamera.top    =  h / 2;  hudCamera.bottom = -h / 2;
+  hudCamera.updateProjectionMatrix();
+  _positionMapMesh();
 });
