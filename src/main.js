@@ -180,6 +180,9 @@ _positionMapMesh();
 
 const overlay   = document.getElementById('overlay');
 const crosshair = document.getElementById('crosshair');
+const ucEl      = document.getElementById('user-count');
+const ucNum     = document.getElementById('uc-num');
+let _prevCount  = -1;
 
 // Set up pointer-lock and overlay-click listeners now, guarded by a flag so
 // they don't fire during avatar selection. onConfirm just sets the flag and
@@ -232,6 +235,14 @@ function animate() {
   npcUpdate(dt, playerPosition);
   portals.update(dt);
   multiplayer.update(dt);
+  // User counter — visible once avatar is chosen and the player is in-world
+  const inGame = avatarReady && (isMobile || !!document.pointerLockElement);
+  ucEl.style.display = inGame ? 'block' : 'none';
+  if (inGame) {
+    const count = multiplayer.getRemotes().length + 1;
+    if (count !== _prevCount) { _prevCount = count; ucNum.textContent = count; }
+  }
+
   minimap.update();
   composer.render();
 

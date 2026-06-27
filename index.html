@@ -82,6 +82,19 @@
         z-index: 10;
       }
 
+      /* ── Active user counter ─────────────────────────────────────── */
+      #user-count {
+        display: none;
+        position: fixed;
+        top: 14px; right: 14px;
+        color: rgba(255, 255, 255, .38);
+        font: 11px/1 monospace;
+        letter-spacing: .06em;
+        pointer-events: none;
+        z-index: 10;
+      }
+      #user-count .uc-dot { color: rgba(140, 230, 140, .7); }
+
       /* ── Mobile hint switching ───────────────────────────────────── */
       /* Use #overlay prefix to beat the #overlay .keys specificity above */
       #overlay .mobile-hints  { display: none; }
@@ -125,6 +138,7 @@
     <div id="crosshair"></div>
 
     <div id="hud"></div>
+    <div id="user-count"><span class="uc-dot">●</span>&nbsp;<span id="uc-num">1</span>&nbsp;online</div>
 
     <script type="module" src="/src/main.js"></script>
   </body>
