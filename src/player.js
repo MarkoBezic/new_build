@@ -14,6 +14,11 @@ const PITCH_MAX    =  Math.PI / 2 - 0.05;
 // Touch primary input = mobile (consistent with CSS `pointer: coarse`)
 export const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
+// Building plinth top is at y=0.25; matches box(BW+3=45, h=0.25, BD+3=45, cy=0.125)
+function floorY(x, z) {
+  return (Math.abs(x) < 22.5 && Math.abs(z) < 22.5) ? 0.25 : 0;
+}
+
 export function createPlayer(scene, camera, canvas) {
   return isMobile
     ? createMobilePlayer(scene, camera, canvas)
@@ -127,7 +132,7 @@ function createDesktopPlayer(scene, camera, canvas) {
       thirdPerson = !thirdPerson;
       avatar.visible = thirdPerson;
       if (thirdPerson) {
-        playerY = Math.max(0, camera.position.y - EYE_HEIGHT);
+        playerY = Math.max(floorY(avatar.position.x, avatar.position.z), camera.position.y - EYE_HEIGHT);
         avatar.position.set(camera.position.x, playerY, camera.position.z);
       } else {
         // Return to 1st-person: move camera to avatar's eye level
@@ -167,7 +172,10 @@ function createDesktopPlayer(scene, camera, canvas) {
     // Gravity
     vy += GRAVITY * dt;
     playerY += vy * dt;
-    if (playerY <= 0) { playerY = 0; vy = 0; grounded = true; }
+    const px = thirdPerson ? avatar.position.x : camera.position.x;
+    const pz = thirdPerson ? avatar.position.z : camera.position.z;
+    const ground = floorY(px, pz);
+    if (playerY <= ground) { playerY = ground; vy = 0; grounded = true; }
 
     if (thirdPerson) {
       // ── 3rd-person ──────────────────────────────────────────────────────────
@@ -345,7 +353,8 @@ function createMobilePlayer(scene, camera, canvas) {
     // Gravity
     vy += GRAVITY * dt;
     playerY += vy * dt;
-    if (playerY <= 0) { playerY = 0; vy = 0; }
+    const ground = floorY(playerX, playerZ);
+    if (playerY <= ground) { playerY = ground; vy = 0; }
 
     // Update avatar
     avatar.position.set(playerX, playerY, playerZ);
