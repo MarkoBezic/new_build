@@ -14,9 +14,13 @@ const PITCH_MAX    =  Math.PI / 2 - 0.05;
 // Touch primary input = mobile (consistent with CSS `pointer: coarse`)
 export const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
-// Building plinth top is at y=0.25; matches box(BW+3=45, h=0.25, BD+3=45, cy=0.125)
+// Building plinth top is at y=0.25; beach sand is at y=0.15 (world.js buildBeach)
+// Beach strip: coast−beachWidth (1020) < z−x < coast (1100)
 function floorY(x, z) {
-  return (Math.abs(x) < 22.5 && Math.abs(z) < 22.5) ? 0.25 : 0;
+  if (Math.abs(x) < 22.5 && Math.abs(z) < 22.5) return 0.25;
+  const d = z - x;
+  if (d > 1020 && d < 1100) return 0.15;
+  return 0;
 }
 
 export function createPlayer(scene, camera, canvas) {
