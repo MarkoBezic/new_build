@@ -36,6 +36,8 @@ function buildMesh() {
 
   // ── Hull floor ──────────────────────────────────────────────────────────────
   box(g, BW, 0.08, BL, HULL_MAT, 0, 0.04, 0);
+  // Bow floor — closes the triangular gap under the pointed bow
+  box(g, BW, 0.08, PD, HULL_MAT, 0, 0.04, -(BL / 2 + PD / 2));
 
   // ── Side walls ─────────────────────────────────────────────────────────────
   box(g, WT, BH, BL, PLANK_MAT, -(BW/2 - WT/2), BH/2, 0);  // port
