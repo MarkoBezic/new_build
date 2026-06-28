@@ -12,13 +12,14 @@ const M_LEG   = new THREE.MeshLambertMaterial({ color: 0x282420 });
 const NOTICE_R       = 11;    // units — player within this radius triggers avoidance
 const FLEE_COOLDOWN  = 2.5;   // seconds to keep moving after player backs off
 
-// ─── Roam zones [x0, x1, z0, z1] ─────────────────────────────────────────────
+// ─── Roam zones [x0, x1, z0, z1, groundY] ────────────────────────────────────
+// groundY matches the mesh surface the geese walk on (0 = asphalt/grass, 0.15 = beach sand)
 const ZONES = [
-  [-26, 26, -59, -27],   // north parking lot (expanded)
-  [-18, 18,  27,  47],   // south parking lot (expanded)
-  [-22, 22, -38, -65],   // approach corridor — overlaps north lot + clearing edge
-  [-505, -458, 553, 594], // beach — portal area  (portal B at -480, 575)
-  [-480, -434, 577, 622], // beach — volleyball court area (court centre ≈ -457, 598)
+  [-26, 26, -59, -27,   0],    // north parking lot (expanded)
+  [-18, 18,  27,  47,   0],    // south parking lot (expanded)
+  [-22, 22, -38, -65,   0],    // approach corridor — overlaps north lot + clearing edge
+  [-505, -458, 553, 594, 0.15], // beach — portal area  (portal B at -480, 575)
+  [-480, -434, 577, 622, 0.15], // beach — volleyball court area (court centre ≈ -457, 598)
 ];
 
 function inBuilding(x, z) {
@@ -33,8 +34,8 @@ function inAnyZone(x, z) {
 }
 
 function randInZone(zi) {
-  const [x0, x1, z0, z1] = ZONES[zi];
-  return { x: rnd(x0, x1), z: rnd(z0, z1) };
+  const [x0, x1, z0, z1, groundY = 0] = ZONES[zi];
+  return { x: rnd(x0, x1), z: rnd(z0, z1), groundY };
 }
 
 function rnd(a, b) { return a + Math.random() * (b - a); }
@@ -133,9 +134,9 @@ const IDLE  = 2;
 const TURN  = 3;
 
 // ─── Spawn a goose ────────────────────────────────────────────────────────────
-function spawnGoose(scene, x, z, flockId) {
+function spawnGoose(scene, x, z, flockId, groundY = 0) {
   const mesh = buildGoose();
-  mesh.root.position.set(x, 0, z);
+  mesh.root.position.set(x, groundY, z);
   mesh.root.rotation.y = rnd(0, Math.PI * 2);
   scene.add(mesh.root);
 
@@ -404,7 +405,7 @@ export function createGeese(scene, obstacles = []) {
       } while (!inAnyZone(x, z) && tries < 20);
 
       if (!inAnyZone(x, z)) continue;
-      flock.push(spawnGoose(scene, x, z, fi));
+      flock.push(spawnGoose(scene, x, z, fi, center.groundY));
     }
 
     if (flock.length > 0) flocks.push(flock);
