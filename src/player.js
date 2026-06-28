@@ -12,8 +12,9 @@ const MOUSE_S      = 0.002;
 const PITCH_MIN    = -Math.PI / 2 + 0.05;
 const PITCH_MAX    =  Math.PI / 2 - 0.05;
 const BOARD_RADIUS = 2.5;
-const BOAT_FLOAT_Y = 0.15;  // boat surface = beach level
-const BOAT_DECK_Y  = 0.55;  // hull top: BOAT_FLOAT_Y + 0.40
+const BOAT_FLOAT_Y = 0.15;  // boat sits at beach/water surface
+const BOAT_DECK_Y  = 0.23;  // player stands on hull floor (FLOAT_Y + 0.08 floor panel)
+const BEACH_STOP   = 1099;  // boat z−x lower bound — ≈75% of hull on beach
 
 // Touch primary input = mobile (consistent with CSS `pointer: coarse`)
 export const isMobile = window.matchMedia('(pointer: coarse)').matches;
@@ -207,6 +208,19 @@ function createDesktopPlayer(scene, camera, canvas) {
       const dz = (fwdZ * (-mz) + rgtZ * mx) * n * speed * dt;
       if (_onBoat) {
         _boat.x += dx; _boat.z += dz;
+        // Stop boat when ~75% beached; auto-disembark so player walks off freely
+        const boatDiag = _boat.z - _boat.x;
+        if (boatDiag < BEACH_STOP) {
+          const excess = BEACH_STOP - boatDiag;
+          _boat.x -= excess / 2; _boat.z += excess / 2;
+          _onBoat = false;
+          boatHint.style.display = 'none';
+          // Step player a little toward beach so they don't immediately re-board
+          const tx = _boat.x + 1.5, tz = _boat.z - 1.5;
+          if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
+          else             { camera.position.x = tx; camera.position.z = tz; }
+          playerY = floorY(tx, tz); vy = 0;
+        }
       } else {
         const nx = (thirdPerson ? avatar.position.x : camera.position.x) + dx;
         const nz = (thirdPerson ? avatar.position.z : camera.position.z) + dz;
@@ -428,6 +442,14 @@ function createMobilePlayer(scene, camera, canvas) {
       const dz = (-joyDY * fwdZ + joyDX * rgtZ) * mSpeed * dt;
       if (_onBoat) {
         _boat.x += dx; _boat.z += dz;
+        const boatDiag = _boat.z - _boat.x;
+        if (boatDiag < BEACH_STOP) {
+          const excess = BEACH_STOP - boatDiag;
+          _boat.x -= excess / 2; _boat.z += excess / 2;
+          _onBoat = false;
+          playerX = _boat.x + 1.5; playerZ = _boat.z - 1.5;
+          playerY = floorY(playerX, playerZ); vy = 0;
+        }
       } else {
         const nx = playerX + dx, nz = playerZ + dz;
         if (nz - nx <= 1100) { playerX = nx; playerZ = nz; }
@@ -474,12 +496,6 @@ function createMobilePlayer(scene, camera, canvas) {
     // Auto-board: walk into boat
     if (!_onBoat && _boat && Math.hypot(playerX - _boat.x, playerZ - _boat.z) < BOARD_RADIUS) {
       _onBoat = true; playerY = BOAT_DECK_Y; vy = 0;
-    }
-    // Auto-disembark on mobile when boat returns near shore
-    if (_onBoat && _boat && _boat.z - _boat.x < 1102) {
-      _onBoat = false;
-      playerX = _boat.x; playerZ = _boat.z;
-      playerY = floorY(playerX, playerZ); vy = 0;
     }
   }
 
