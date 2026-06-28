@@ -76,6 +76,22 @@ function buildMesh() {
   return g;
 }
 
+// Three static decorative boats spread along the shore at z−x = 1099.
+// Spacing is intentionally uneven: ~27 m, ~81 m, ~52 m between neighbours.
+export function createDecorativeBoats(scene) {
+  const configs = [
+    { x: -483, z: 616, yaw: Math.PI * 0.68 },  // 27 m NE of rideable boat
+    { x: -559, z: 540, yaw: Math.PI * 0.81 },  // 81 m SW of rideable boat
+    { x: -596, z: 503, yaw: Math.PI * 0.72 },  // 52 m further SW
+  ];
+  for (const { x, z, yaw } of configs) {
+    const mesh = buildMesh();
+    mesh.rotation.y = yaw;
+    mesh.position.set(x, 0.15, z);
+    scene.add(mesh);
+  }
+}
+
 export function createBoat(scene) {
   const mesh = buildMesh();
   // Bow faces sea direction (−x, +z) — pressing W sails out, S returns to shore
