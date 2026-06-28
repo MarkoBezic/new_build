@@ -3,7 +3,7 @@ import { buildWorld }      from './world.js';
 import { buildBuilding }   from './building.js';
 import { buildSite }       from './site.js';
 import { buildLandmarks }  from './landmarks.js';
-import { createPlayer, isMobile, setBoat } from './player.js';
+import { createPlayer, isMobile, setBoats } from './player.js';
 import { createBoat, createDecorativeBoats } from './boat.js';
 import { createMinimap } from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
@@ -129,8 +129,7 @@ const _CR = 13;  // just outside the 10.5 outer ring
 });
 
 const geese      = createGeese(scene, carObstacles);
-setBoat(createBoat(scene));
-createDecorativeBoats(scene);
+setBoats([createBoat(scene), ...createDecorativeBoats(scene)]);
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
 let multiplayer = { update() {}, getRemotes() { return []; } };  // replaced after avatar selection
 

@@ -84,12 +84,13 @@ export function createDecorativeBoats(scene) {
     { x: -559, z: 540, yaw: Math.PI * 0.81 },  // 81 m SW of rideable boat
     { x: -596, z: 503, yaw: Math.PI * 0.72 },  // 52 m further SW
   ];
-  for (const { x, z, yaw } of configs) {
+  return configs.map(({ x, z, yaw }) => {
     const mesh = buildMesh();
     mesh.rotation.y = yaw;
     mesh.position.set(x, 0.15, z);
     scene.add(mesh);
-  }
+    return { x, z, yaw, mesh };
+  });
 }
 
 export function createBoat(scene) {

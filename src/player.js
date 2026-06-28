@@ -20,9 +20,10 @@ const BEACH_STOP   = 1099;  // boat z−x lower bound — ≈75% of hull on beac
 export const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
 // ── Boat state (shared across whichever player is active) ────────────────────
-let _boat   = null;
-let _onBoat = false;
-export function setBoat(b) { _boat = b; }
+let _boats      = [];
+let _activeBoat = null;
+let _onBoat     = false;
+export function setBoats(arr) { _boats = arr; }
 
 // Building plinth top is at y=0.25; beach sand is at y=0.15 (world.js buildBeach)
 // Beach strip: coast−beachWidth (1020) < z−x < coast (1100)
@@ -168,17 +169,18 @@ function createDesktopPlayer(scene, camera, canvas) {
     }
 
     // Disembark boat
-    if (e.code === 'KeyE' && _onBoat && _boat) {
+    if (e.code === 'KeyE' && _onBoat && _activeBoat) {
       _onBoat = false;
       boatHint.style.display = 'none';
       // Place player on beach side of shore from current boat position
-      const K = _boat.z - _boat.x;
+      const K = _activeBoat.z - _activeBoat.x;
       const shift = Math.max(0, K - 1092) / 2;  // move toward beach until z−x≈1092
-      const tx = _boat.x + shift, tz = _boat.z - shift;
+      const tx = _activeBoat.x + shift, tz = _activeBoat.z - shift;
       if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
       else             { camera.position.x = tx; camera.position.z = tz; }
       playerY = floorY(tx, tz);
       vy = 0;
+      _activeBoat = null;
     }
 
     if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Tab'].includes(e.code))
@@ -207,16 +209,17 @@ function createDesktopPlayer(scene, camera, canvas) {
       const dx = (fwdX * (-mz) + rgtX * mx) * n * speed * dt;
       const dz = (fwdZ * (-mz) + rgtZ * mx) * n * speed * dt;
       if (_onBoat) {
-        _boat.x += dx; _boat.z += dz;
+        _activeBoat.x += dx; _activeBoat.z += dz;
         // Stop boat when ~75% beached; auto-disembark so player walks off freely
-        const boatDiag = _boat.z - _boat.x;
+        const boatDiag = _activeBoat.z - _activeBoat.x;
         if (boatDiag < BEACH_STOP) {
           const excess = BEACH_STOP - boatDiag;
-          _boat.x -= excess / 2; _boat.z += excess / 2;
+          _activeBoat.x -= excess / 2; _activeBoat.z += excess / 2;
+          const tx = _activeBoat.x + 1.5, tz = _activeBoat.z - 1.5;
           _onBoat = false;
+          _activeBoat = null;
           boatHint.style.display = 'none';
           // Step player a little toward beach so they don't immediately re-board
-          const tx = _boat.x + 1.5, tz = _boat.z - 1.5;
           if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
           else             { camera.position.x = tx; camera.position.z = tz; }
           playerY = floorY(tx, tz); vy = 0;
@@ -244,16 +247,16 @@ function createDesktopPlayer(scene, camera, canvas) {
     }
 
     // Sync boat mesh and avatar to boat position
-    if (_onBoat && _boat) {
+    if (_onBoat && _activeBoat) {
       // Steer boat to face the player's look direction
-      let diff = yaw - _boat.yaw;
+      let diff = yaw - _activeBoat.yaw;
       while (diff >  Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
-      _boat.yaw += diff * Math.min(1.2 * dt, 1.0);
-      _boat.mesh.rotation.y = _boat.yaw;
-      _boat.mesh.position.set(_boat.x, BOAT_FLOAT_Y, _boat.z);
-      if (thirdPerson) { avatar.position.x = _boat.x; avatar.position.z = _boat.z; }
-      else             { camera.position.x = _boat.x; camera.position.z = _boat.z; }
+      _activeBoat.yaw += diff * Math.min(1.2 * dt, 1.0);
+      _activeBoat.mesh.rotation.y = _activeBoat.yaw;
+      _activeBoat.mesh.position.set(_activeBoat.x, BOAT_FLOAT_Y, _activeBoat.z);
+      if (thirdPerson) { avatar.position.x = _activeBoat.x; avatar.position.z = _activeBoat.z; }
+      else             { camera.position.x = _activeBoat.x; camera.position.z = _activeBoat.z; }
     }
 
     if (thirdPerson) {
@@ -282,11 +285,17 @@ function createDesktopPlayer(scene, camera, canvas) {
       playerPosition.copy(camera.position);
     }
 
-    // Auto-board: walk into boat to board it
-    if (!_onBoat && _boat) {
+    // Auto-board: walk into any boat to board the nearest one
+    if (!_onBoat && _boats.length) {
       const curX = thirdPerson ? avatar.position.x : camera.position.x;
       const curZ = thirdPerson ? avatar.position.z : camera.position.z;
-      if (Math.hypot(curX - _boat.x, curZ - _boat.z) < BOARD_RADIUS) {
+      let nearest = null, bestDist = BOARD_RADIUS;
+      for (const b of _boats) {
+        const d = Math.hypot(curX - b.x, curZ - b.z);
+        if (d < bestDist) { bestDist = d; nearest = b; }
+      }
+      if (nearest) {
+        _activeBoat = nearest;
         _onBoat = true;
         playerY = BOAT_DECK_Y;
         vy = 0;
@@ -441,13 +450,14 @@ function createMobilePlayer(scene, camera, canvas) {
       const dx = (-joyDY * fwdX + joyDX * rgtX) * mSpeed * dt;
       const dz = (-joyDY * fwdZ + joyDX * rgtZ) * mSpeed * dt;
       if (_onBoat) {
-        _boat.x += dx; _boat.z += dz;
-        const boatDiag = _boat.z - _boat.x;
+        _activeBoat.x += dx; _activeBoat.z += dz;
+        const boatDiag = _activeBoat.z - _activeBoat.x;
         if (boatDiag < BEACH_STOP) {
           const excess = BEACH_STOP - boatDiag;
-          _boat.x -= excess / 2; _boat.z += excess / 2;
+          _activeBoat.x -= excess / 2; _activeBoat.z += excess / 2;
+          playerX = _activeBoat.x + 1.5; playerZ = _activeBoat.z - 1.5;
           _onBoat = false;
-          playerX = _boat.x + 1.5; playerZ = _boat.z - 1.5;
+          _activeBoat = null;
           playerY = floorY(playerX, playerZ); vy = 0;
         }
       } else {
@@ -467,14 +477,14 @@ function createMobilePlayer(scene, camera, canvas) {
     }
 
     // Sync boat mesh and player position
-    if (_onBoat && _boat) {
-      let diff = yaw - _boat.yaw;
+    if (_onBoat && _activeBoat) {
+      let diff = yaw - _activeBoat.yaw;
       while (diff >  Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
-      _boat.yaw += diff * Math.min(1.2 * dt, 1.0);
-      _boat.mesh.rotation.y = _boat.yaw;
-      _boat.mesh.position.set(_boat.x, BOAT_FLOAT_Y, _boat.z);
-      playerX = _boat.x; playerZ = _boat.z;
+      _activeBoat.yaw += diff * Math.min(1.2 * dt, 1.0);
+      _activeBoat.mesh.rotation.y = _activeBoat.yaw;
+      _activeBoat.mesh.position.set(_activeBoat.x, BOAT_FLOAT_Y, _activeBoat.z);
+      playerX = _activeBoat.x; playerZ = _activeBoat.z;
     }
 
     // Update avatar
@@ -493,9 +503,14 @@ function createMobilePlayer(scene, camera, canvas) {
 
     playerPosition.set(lx, ly, lz);
 
-    // Auto-board: walk into boat
-    if (!_onBoat && _boat && Math.hypot(playerX - _boat.x, playerZ - _boat.z) < BOARD_RADIUS) {
-      _onBoat = true; playerY = BOAT_DECK_Y; vy = 0;
+    // Auto-board: walk into any boat to board the nearest one
+    if (!_onBoat && _boats.length) {
+      let nearest = null, bestDist = BOARD_RADIUS;
+      for (const b of _boats) {
+        const d = Math.hypot(playerX - b.x, playerZ - b.z);
+        if (d < bestDist) { bestDist = d; nearest = b; }
+      }
+      if (nearest) { _activeBoat = nearest; _onBoat = true; playerY = BOAT_DECK_Y; vy = 0; }
     }
   }
 
