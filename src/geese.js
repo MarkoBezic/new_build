@@ -17,6 +17,8 @@ const ZONES = [
   [-26, 26, -59, -27],   // north parking lot (expanded)
   [-18, 18,  27,  47],   // south parking lot (expanded)
   [-22, 22, -38, -65],   // approach corridor — overlaps north lot + clearing edge
+  [-505, -458, 553, 594], // beach — portal area  (portal B at -480, 575)
+  [-480, -434, 577, 622], // beach — volleyball court area (court centre ≈ -457, 598)
 ];
 
 function inBuilding(x, z) {
@@ -380,7 +382,11 @@ export function createGeese(scene, obstacles = []) {
     [2, 2], // approach corridor — pair (lone wanderers)
     [3, 1], // south lot — flock
     [2, 1], // south lot — pair
-  ]; // 5+3+2+3+2+2+3+2 = 22 geese
+    [3, 3], // beach portal area — trio
+    [2, 3], // beach portal area — pair
+    [3, 4], // beach volleyball court area — trio
+    [2, 4], // beach volleyball court area — pair
+  ]; // 5+3+2+3+2+2+3+2 + 3+2+3+2 = 32 geese
 
   const flocks = [];
 
