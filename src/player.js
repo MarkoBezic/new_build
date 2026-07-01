@@ -148,6 +148,10 @@ function createDesktopPlayer(scene, camera, canvas) {
 
   // ── Keys ────────────────────────────────────────────────────────────────────
   window.addEventListener('keydown', e => {
+    const inText = document.activeElement?.tagName === 'TEXTAREA' ||
+                   document.activeElement?.tagName === 'INPUT';
+    if (inText) return;
+
     keys.add(e.code);
 
     if (e.code === 'Space' && grounded && !_onBoat) { vy = JUMP_VEL; grounded = false; }
