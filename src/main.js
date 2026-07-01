@@ -38,6 +38,16 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(ATMOSPHERE.skyColor);
 scene.fog        = new THREE.FogExp2(ATMOSPHERE.fogColor, ATMOSPHERE.fogDensity);
 
+// ── Day / Night palette (pre-allocated — reused every frame) ─────────────────
+const _C_NIGHT_SKY = new THREE.Color(0x020510);
+const _C_DAWN_SKY  = new THREE.Color(0xB83010);
+const _C_DAY_SKY   = new THREE.Color(ATMOSPHERE.skyColor);
+const _C_NIGHT_FOG = new THREE.Color(0x020510);
+const _C_DAY_FOG   = new THREE.Color(ATMOSPHERE.fogColor);
+const _C_DAWN_SUN  = new THREE.Color(0xFF6020);
+const _C_DAY_SUN   = new THREE.Color(0xFFF8E0);
+let _dayTime = 180;  // seconds into the cycle — start near dawn (t ≈ 0.15)
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  Camera — spawn deep in the forest, facing the clearing
 // ─────────────────────────────────────────────────────────────────────────────
@@ -130,6 +140,52 @@ const _CR = 13;  // just outside the 10.5 outer ring
 
 const geese      = createGeese(scene, carObstacles);
 setBoats([createBoat(scene), ...createDecorativeBoats(scene)]);
+
+// ── Beach campfire — gathering point that glows at night ─────────────────────
+let campfireLight, _campfireFlame, _campfireInner;
+{
+  const CX = -465, CZ = 578;  // beach sand, z−x = 1043
+  const cg = new THREE.Group();
+
+  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.18, 5, 4), stoneMat);
+    s.position.set(Math.cos(a) * 0.52, 0.09, Math.sin(a) * 0.52);
+    s.scale.set(1, 0.65, 0.85);
+    cg.add(s);
+  }
+
+  const logMat = new THREE.MeshLambertMaterial({ color: 0x5C3A1A });
+  for (const ry of [0, Math.PI / 3]) {
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.075, 1.0, 6), logMat);
+    log.rotation.set(0, ry, Math.PI / 2);
+    log.position.y = 0.20;
+    cg.add(log);
+  }
+
+  _campfireFlame = new THREE.Mesh(
+    new THREE.ConeGeometry(0.18, 0.55, 7),
+    new THREE.MeshLambertMaterial({ color: 0xFF5500, emissive: 0xFF3300, emissiveIntensity: 0.6 }),
+  );
+  _campfireFlame.position.y = 0.43;
+  cg.add(_campfireFlame);
+
+  _campfireInner = new THREE.Mesh(
+    new THREE.ConeGeometry(0.10, 0.38, 7),
+    new THREE.MeshLambertMaterial({ color: 0xFFDD00, emissive: 0xFFAA00, emissiveIntensity: 0.8 }),
+  );
+  _campfireInner.position.y = 0.47;
+  cg.add(_campfireInner);
+
+  cg.position.set(CX, 0.15, CZ);
+  scene.add(cg);
+
+  campfireLight = new THREE.PointLight(0xFF6600, 1.5, 22);
+  campfireLight.position.set(CX, 0.15 + 0.9, CZ);
+  scene.add(campfireLight);
+}
+
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
 let multiplayer = { update() {}, getRemotes() { return []; } };  // replaced after avatar selection
 
@@ -216,6 +272,51 @@ showAvatarPicker(overlay, (color, name) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Day / Night cycle — 20-minute full cycle
+// ─────────────────────────────────────────────────────────────────────────────
+function updateDayNight(dt, nowSec) {
+  const DAY_DUR = 1200;
+  _dayTime = (_dayTime + dt) % DAY_DUR;
+  const t = _dayTime / DAY_DUR;
+
+  // sunElev: 1 at noon, -1 at midnight; positive = above horizon
+  const sunElev   = Math.sin(t * Math.PI * 2);
+  const dayFactor = Math.max(0, sunElev);
+
+  // Move sun along an arc east→west
+  const az = t * Math.PI * 2;
+  sun.position.set(Math.sin(az) * 120, sunElev * 140, Math.cos(az) * 60);
+
+  if (sunElev > 0) {
+    // Warm orange at low angle, white at noon
+    sun.color.copy(_C_DAWN_SUN).lerp(_C_DAY_SUN, Math.pow(dayFactor, 0.5));
+    sun.intensity  = dayFactor * 2.2;
+    sun.castShadow = true;
+  } else {
+    sun.intensity  = 0;
+    sun.castShadow = false;
+  }
+
+  hemi.intensity = 0.05 + dayFactor * 0.70;
+  fill.intensity = 0.03 + dayFactor * 0.37;
+
+  // Sky: night → day with dawn/dusk orange glow near the horizon
+  const dawnGlow = sunElev > -0.2 ? Math.max(0, 1 - Math.abs(sunElev) * 5) : 0;
+  scene.background.copy(_C_NIGHT_SKY).lerp(_C_DAY_SKY, dayFactor);
+  if (dawnGlow > 0.01) scene.background.lerp(_C_DAWN_SKY, dawnGlow * 0.4);
+
+  // Fog
+  scene.fog.color.copy(_C_NIGHT_FOG).lerp(_C_DAY_FOG, dayFactor);
+
+  // Campfire — always flickers, blazes at night
+  const flicker = 0.85 + Math.sin(nowSec * 7.3) * 0.09 + Math.sin(nowSec * 13.1) * 0.06;
+  campfireLight.intensity = (0.6 + (1 - dayFactor) * 2.8) * flicker;
+  _campfireFlame.scale.y = 0.85 + Math.sin(nowSec * 6.1) * 0.15;
+  _campfireFlame.scale.x = _campfireFlame.scale.z = 0.9 + Math.sin(nowSec * 9.7) * 0.10;
+  _campfireInner.scale.y = 0.90 + Math.sin(nowSec * 11.3) * 0.10;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  Render loop
 // ─────────────────────────────────────────────────────────────────────────────
 let prevTime = performance.now();
@@ -227,6 +328,7 @@ function animate() {
   const dt  = Math.min((now - prevTime) / 1000, 0.05); // cap at 50 ms
   prevTime  = now;
 
+  updateDayNight(dt, now / 1000);
   updatePlayer(dt);
   geese.update(dt, playerPosition);
   npcUpdate(dt, playerPosition);
