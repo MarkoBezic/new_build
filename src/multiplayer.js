@@ -67,22 +67,20 @@ function makeAvatar(color, name) {
   return g;
 }
 
-export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote } = {}) {
+export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote, onBallState } = {}) {
   const key = import.meta.env.VITE_ABLY_KEY;
   if (!key || key === 'your_ably_api_key_here') {
     console.warn('Multiplayer disabled — VITE_ABLY_KEY not set');
-    return { update() {}, getRemotes() { return []; } };
+    return { update() {}, getRemotes() { return []; }, broadcastEmote() {}, publishBall() {} };
   }
 
   const myId = Math.random().toString(36).slice(2, 10);
   const remotes = new Map();   // clientId → { mesh, color, name, tx, tz, try }
   let   sendTimer = SEND_INTERVAL;  // broadcast position on the very first frame
 
-  const client  = new Ably.Realtime({
-    key:      key,
-    clientId: myId,
-  });
-  const channel = client.channels.get(CHANNEL_NAME);
+  const client   = new Ably.Realtime({ key, clientId: myId });
+  const channel  = client.channels.get(CHANNEL_NAME);
+  const vChannel = client.channels.get('volleyball');
 
   // ── Presence: join / leave ────────────────────────────────────────────────
   // 'present' fires for members already in the channel when we attach;
@@ -156,6 +154,13 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     channel.publish('emote', { id, duration });
   }
 
+  // Volleyball ball-state sync
+  vChannel.subscribe('ball', msg => {
+    if (msg.clientId === myId) return;
+    if (onBallState) onBallState(msg.data);
+  });
+  function publishBall(state) { vChannel.publish('ball', state); }
+
   function spawnRemote(id, color, name, x, z, ry) {
     if (remotes.has(id)) return;
     const mesh = makeAvatar(color, name);
@@ -209,5 +214,5 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     }
   }
 
-  return { update, getRemotes, broadcastEmote };
+  return { update, getRemotes, broadcastEmote, publishBall };
 }

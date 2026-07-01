@@ -8,6 +8,7 @@ import { createFishing } from './fishing.js';
 import { createSecrets } from './secrets.js';
 import { createEmotes, EMOTES } from './emotes.js';
 import { createBulletin } from './bulletin.js';
+import { createVolleyball } from './volleyball.js';
 import { createBoat, createDecorativeBoats } from './boat.js';
 import { createMinimap } from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
@@ -226,6 +227,9 @@ const secrets    = createSecrets(scene);
 const emotes     = createEmotes(getAvatar);
 let _playerName  = 'Anonymous';
 const bulletin   = createBulletin(scene, () => _playerName);
+const volleyball = createVolleyball(scene, {
+  onBroadcast: state => { if (multiplayer.publishBall) multiplayer.publishBall(state); },
+});
 
 // Emote broadcast wired after multiplayer initialises in avatar picker callback
 emotes.setOnBroadcast((id) => {
@@ -255,7 +259,8 @@ window.addEventListener('keydown', e => {
   }
   fishing.onKey(e, playerPosition, getState().ry, isOnBoat());
   emotes.onKey(e);
-  bulletin.onKey(e);  // E to open when near board
+  bulletin.onKey(e);
+  volleyball.onKey(e, playerPosition);
 });
 // E key also closes the bulletin overlay when pointer lock is released
 window.addEventListener('keydown', e => {
@@ -300,6 +305,7 @@ showAvatarPicker(overlay, (color, name) => {
   try {
     multiplayer = createMultiplayer(scene, getState, color, name, {
       onRemoteEmote: (mesh, id, elapsed) => emotes.applyRemoteEmote(mesh, id, elapsed),
+      onBallState:   state => volleyball.handleRemoteState(state),
     });
   } catch (e) { console.warn('Multiplayer unavailable:', e); }
   if (!isMobile) renderer.domElement.requestPointerLock();
@@ -371,6 +377,7 @@ function animate() {
   emotes.showMobileBar(true);
   bulletin.update(dt, playerPosition);
   bulletin.showMobileBtn();
+  volleyball.update(dt, playerPosition);
   geese.update(dt, playerPosition);
   npcUpdate(dt, playerPosition);
   portals.update(dt);
