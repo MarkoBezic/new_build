@@ -51,7 +51,33 @@ const _C_NIGHT_FOG = new THREE.Color(0x020510);
 const _C_DAY_FOG   = new THREE.Color(ATMOSPHERE.fogColor);
 const _C_DAWN_SUN  = new THREE.Color(0xFF6020);
 const _C_DAY_SUN   = new THREE.Color(0xFFF8E0);
-let _dayTime = 180;  // seconds into the cycle — start near dawn (t ≈ 0.15)
+
+// Real-time solar calculation for US Eastern (EST/EDT, handles DST automatically)
+const _nyFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+});
+let _sunriseH = 6, _sunsetH = 20, _lastSolarDay = -1;
+
+function _refreshSolar(date) {
+  const doy = Math.round((date - new Date(date.getFullYear(), 0, 0)) / 86_400_000);
+  if (doy === _lastSolarDay) return;
+  _lastSolarDay = doy;
+  const LAT     = 40.7 * Math.PI / 180;   // NYC latitude
+  const dec     = -23.45 * Math.PI / 180 * Math.cos(2 * Math.PI * (doy + 10) / 365);
+  const cosH    = Math.max(-1, Math.min(1, -Math.tan(LAT) * Math.tan(dec)));
+  const H       = Math.acos(cosH) * 180 / Math.PI / 15;
+  _sunriseH     = 12 - H;   // local noon ± hour angle → today's sunrise/sunset
+  _sunsetH      = 12 + H;
+}
+
+function _estHourNow(date) {
+  const parts  = _nyFmt.formatToParts(date);
+  const h      = parseInt(parts.find(p => p.type === 'hour').value);
+  const m      = parseInt(parts.find(p => p.type === 'minute').value);
+  const s      = parseInt(parts.find(p => p.type === 'second').value);
+  return (h === 24 ? 0 : h) + m / 60 + s / 3600;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Camera — spawn deep in the forest, facing the clearing
@@ -312,19 +338,29 @@ showAvatarPicker(overlay, (color, name) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Day / Night cycle — 20-minute full cycle
+//  Day / Night cycle — synced to real US Eastern time with seasonal solar model
 // ─────────────────────────────────────────────────────────────────────────────
 function updateDayNight(dt, nowSec) {
-  const DAY_DUR = 1200;
-  _dayTime = (_dayTime + dt) % DAY_DUR;
-  const t = _dayTime / DAY_DUR;
+  const now = new Date();
+  _refreshSolar(now);
+  const hourEST = _estHourNow(now);
 
-  // sunElev: 1 at noon, -1 at midnight; positive = above horizon
-  const sunElev   = Math.sin(t * Math.PI * 2);
+  // Sun elevation: 0 at sunrise/sunset, 1 at solar noon, negative at night.
+  // Day half: half-sine arc from sunrise to sunset.
+  // Night half: inverted half-sine from sunset to next sunrise.
+  let sunElev;
+  if (hourEST > _sunriseH && hourEST < _sunsetH) {
+    sunElev = Math.sin(Math.PI * (hourEST - _sunriseH) / (_sunsetH - _sunriseH));
+  } else {
+    const nightDur = 24 - (_sunsetH - _sunriseH);
+    const hPast    = hourEST >= _sunsetH ? hourEST - _sunsetH : hourEST + (24 - _sunsetH);
+    sunElev = -Math.sin(Math.PI * hPast / nightDur);
+  }
+
   const dayFactor = Math.max(0, sunElev);
 
-  // Move sun along an arc east→west
-  const az = t * Math.PI * 2;
+  // Sun arc: east at sunrise, overhead at noon, west at sunset
+  const az = (hourEST / 24) * Math.PI * 2;
   sun.position.set(Math.sin(az) * 120, sunElev * 140, Math.cos(az) * 60);
 
   if (sunElev > 0) {
