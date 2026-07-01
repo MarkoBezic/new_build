@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { groundY as zoneGroundY, BEACH_STOP, SHORE } from './zones.js';
+import { buildHumanoid, animateAvatar } from './humanoid.js';
 
 const WALK_SPEED   = 8;
 const SPRINT_SPEED = 18;
@@ -67,36 +68,6 @@ function makeNameLabel(name) {
   return sprite;
 }
 
-function makeAvatarMesh(color) {
-  const g = new THREE.Group();
-  const R = 0.22, L = 0.85;
-  const bodyH = L + 2 * R;
-
-  const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(R, L, 4, 8),
-    new THREE.MeshLambertMaterial({ color }),
-  );
-  body.position.y = bodyH / 2;
-  g.add(body);
-
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(0.22, 10, 8),
-    new THREE.MeshLambertMaterial({ color: 0xD4956A }),
-  );
-  head.position.y = bodyH + 0.22;
-  g.add(head);
-
-  // Subtle eyes on the front (-Z) face of the head to show facing direction
-  const eyeGeo = new THREE.SphereGeometry(0.035, 6, 6);
-  const eyeMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
-  [-0.08, 0.08].forEach(ex => {
-    const eye = new THREE.Mesh(eyeGeo, eyeMat);
-    eye.position.set(ex, bodyH + 0.26, -0.19);
-    g.add(eye);
-  });
-
-  return g;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  DESKTOP  — 1st / 3rd person toggle via V key
@@ -119,7 +90,7 @@ function createDesktopPlayer(scene, camera, canvas) {
   const keys = new Set();
 
   // Player avatar — visible in 3rd-person (default), hidden in 1st-person
-  const avatar = makeAvatarMesh(0x888888);
+  const avatar = buildHumanoid(0x888888);
   avatar.position.set(camera.position.x, playerY, camera.position.z);
   avatar.visible = true;
   scene.add(avatar);
@@ -270,6 +241,9 @@ function createDesktopPlayer(scene, camera, canvas) {
       else             { camera.position.x = _activeBoat.x; camera.position.z = _activeBoat.z; }
     }
 
+    // Walk animation
+    animateAvatar(avatar, dt, !_onBoat && len > 0);
+
     if (thirdPerson) {
       // ── 3rd-person ──────────────────────────────────────────────────────────
       avatar.position.y = playerY;
@@ -318,7 +292,7 @@ function createDesktopPlayer(scene, camera, canvas) {
   let nameSprite = null;
 
   function setColor(color, name) {
-    if (avatar.children[0]) avatar.children[0].material.color.setHex(color);
+    if (avatar.userData.bodyMat) avatar.userData.bodyMat.color.setHex(color);
     if (nameSprite) {
       avatar.remove(nameSprite);
       nameSprite.material.map.dispose();
@@ -362,7 +336,7 @@ function createMobilePlayer(scene, camera, canvas) {
   let vy = 0;
 
   // ── Avatar mesh ──────────────────────────────────────────────────────────────
-  const avatar = makeAvatarMesh(0x888888);
+  const avatar = buildHumanoid(0x888888);
   avatar.position.set(playerX, playerY, playerZ);
   scene.add(avatar);
 
@@ -506,6 +480,9 @@ function createMobilePlayer(scene, camera, canvas) {
       playerX = _activeBoat.x; playerZ = _activeBoat.z;
     }
 
+    // Walk animation
+    animateAvatar(avatar, dt, !_onBoat && joyId !== null && Math.hypot(joyDX, joyDY) > DEAD);
+
     // Update avatar
     avatar.position.set(playerX, playerY, playerZ);
     avatar.rotation.y = yaw;
@@ -536,7 +513,7 @@ function createMobilePlayer(scene, camera, canvas) {
   let nameSprite = null;
 
   function setColor(color, name) {
-    if (avatar.children[0]) avatar.children[0].material.color.setHex(color);
+    if (avatar.userData.bodyMat) avatar.userData.bodyMat.color.setHex(color);
     if (nameSprite) {
       avatar.remove(nameSprite);
       nameSprite.material.map.dispose();

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import * as Ably from 'ably';
+import { buildHumanoid, animateAvatar } from './humanoid.js';
 
 const SEND_INTERVAL = 0.05;   // seconds — broadcast at ~20 fps
 const CHANNEL_NAME  = 'world';
@@ -34,36 +35,9 @@ function makeNameLabel(name) {
 }
 
 function makeAvatar(color, name) {
-  const g    = new THREE.Group();
-  const R    = 0.22;
-  const L    = 0.85;
-  const BODY = L + 2 * R;   // 1.29
-
-  const body = new THREE.Mesh(
-    new THREE.CapsuleGeometry(R, L, 4, 8),
-    new THREE.MeshLambertMaterial({ color }),
-  );
-  body.position.y = BODY / 2;
-  g.add(body);
-
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(0.22, 10, 8),
-    new THREE.MeshLambertMaterial({ color: 0xD4956A }),
-  );
-  head.position.y = BODY + 0.22;
-  g.add(head);
-
-  const eyeGeo = new THREE.SphereGeometry(0.035, 6, 6);
-  const eyeMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
-  [-0.08, 0.08].forEach(ex => {
-    const eye = new THREE.Mesh(eyeGeo, eyeMat);
-    eye.position.set(ex, BODY + 0.26, -0.19);
-    g.add(eye);
-  });
-
+  const g = buildHumanoid(color);
   const label = makeNameLabel(name);
-  if (label) g.add(label);
-
+  if (label) { g.add(label); g.userData.nameLabel = label; }
   return g;
 }
 
@@ -93,19 +67,19 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     const r = remotes.get(member.clientId);
     if (r) {
       // A move message arrived before presence — avatar exists but may be grey/unnamed.
-      // Update colour and rebuild the name label with the real presence data.
-      if (r.mesh.children[0]) r.mesh.children[0].material.color.setHex(color);
+      if (r.mesh.userData.bodyMat) r.mesh.userData.bodyMat.color.setHex(color);
       r.color = color;
       r.name  = name;
-      // Remove any existing label (children beyond body + head), then re-add.
-      while (r.mesh.children.length > 2) {
-        const old = r.mesh.children[2];
+      // Replace name label
+      if (r.mesh.userData.nameLabel) {
+        const old = r.mesh.userData.nameLabel;
         if (old.material?.map) old.material.map.dispose();
         if (old.material) old.material.dispose();
         r.mesh.remove(old);
+        r.mesh.userData.nameLabel = null;
       }
       const label = makeNameLabel(name);
-      if (label) r.mesh.add(label);
+      if (label) { r.mesh.add(label); r.mesh.userData.nameLabel = label; }
     } else {
       spawnRemote(member.clientId, color, name, 0, 0, 0);
     }
@@ -197,6 +171,7 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
 
     // Smoothly interpolate remote avatars toward their latest known position
     for (const r of remotes.values()) {
+      const prevX = r.mesh.position.x, prevZ = r.mesh.position.z;
       r.mesh.position.x = THREE.MathUtils.lerp(r.mesh.position.x, r.tx, 0.2);
       r.mesh.position.z = THREE.MathUtils.lerp(r.mesh.position.z, r.tz, 0.2);
 
@@ -204,6 +179,10 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
       while (diff >  Math.PI) diff -= 2 * Math.PI;
       while (diff < -Math.PI) diff += 2 * Math.PI;
       r.mesh.rotation.y += diff * 0.2;
+
+      // Walk animation — moving if position changed meaningfully this frame
+      const moved = Math.hypot(r.mesh.position.x - prevX, r.mesh.position.z - prevZ) > 0.001;
+      animateAvatar(r.mesh, dt, moved);
 
       // Remote emote animation
       if (r.emote && onRemoteEmote) {
