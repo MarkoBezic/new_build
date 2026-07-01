@@ -364,6 +364,21 @@ const ucEl      = document.getElementById('user-count');
 const ucNum     = document.getElementById('uc-num');
 let _prevCount  = -1;
 let _ucVisible  = false;
+let _bulletinOpen = false;
+
+// Release pointer lock when board opens so mouse/keyboard go to the textarea;
+// re-acquire it when the board closes so the player returns to the world.
+bulletin.setCallbacks(
+  () => {   // onOpen
+    _bulletinOpen = true;
+    crosshair.style.display = 'none';
+    document.exitPointerLock();
+  },
+  () => {   // onClose
+    _bulletinOpen = false;
+    if (!isMobile) renderer.domElement.requestPointerLock();
+  },
+);
 
 // C key — toggle user counter; F key — fishing (while pointer locked)
 window.addEventListener('keydown', e => {
@@ -382,9 +397,9 @@ window.addEventListener('keydown', e => {
   if (!avatarReady || document.pointerLockElement) return;
   if (e.code === 'KeyE' || e.code === 'Escape') bulletin.onKey({ code: 'KeyE' });
 });
-// Auto-hide when leaving pointer lock so it doesn't linger on the overlay
+// Auto-hide user count when leaving pointer lock
 controls.addEventListener('unlock', () => {
-  if (_ucVisible) { _ucVisible = false; ucEl.style.display = 'none'; }
+  if (_ucVisible && !_bulletinOpen) { _ucVisible = false; ucEl.style.display = 'none'; }
 });
 
 // Set up pointer-lock and overlay-click listeners now, guarded by a flag so
@@ -404,6 +419,7 @@ if (isMobile) {
     crosshair.style.display = 'block';
   });
   controls.addEventListener('unlock', () => {
+    if (_bulletinOpen) return;   // board released lock — don't show the main overlay
     overlay.style.display   = 'flex';
     crosshair.style.display = 'none';
   });

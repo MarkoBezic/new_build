@@ -127,12 +127,26 @@ function makeUI(getPlayerName) {
     refresh();
   });
 
-  el.querySelector('#_bb_close').addEventListener('click', () => { el.style.display = 'none'; });
+  let _onOpen = null, _onClose = null;
+
+  function open() {
+    refresh();
+    el.style.display = 'block';
+    setTimeout(() => inputEl.focus(), 50);  // focus textarea after display kicks in
+    if (_onOpen) _onOpen();
+  }
+
+  function close() {
+    el.style.display = 'none';
+    if (_onClose) _onClose();
+  }
+
+  el.querySelector('#_bb_close').addEventListener('click', close);
 
   return {
-    open()   { refresh(); el.style.display = 'block'; },
-    close()  { el.style.display = 'none'; },
+    open, close,
     isOpen() { return el.style.display !== 'none'; },
+    setCallbacks(onOpen, onClose) { _onOpen = onOpen; _onClose = onClose; },
   };
 }
 
