@@ -268,7 +268,7 @@ const volleyball = createVolleyball(scene, {
     ['E',       'Board / exit boat'],
     ['E',       'Open bulletin board (when near it)'],
     ['F',       'Cast / reel fishing rod (on boat)'],
-    ['V',       'Hit volleyball (near court)'],
+    ['H',       'Hit volleyball (near court)'],
     ['1',       '👋 Wave'],
     ['2',       '🎉 Cheer'],
     ['3',       '👉 Point'],

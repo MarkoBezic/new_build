@@ -238,7 +238,7 @@ export function createVolleyball(scene, { onBroadcast } = {}) {
 
   // ── Key handler ─────────────────────────────────────────────────────────────
   function onKey(e, playerPos) {
-    if (e.code !== 'KeyV') return;
+    if (e.code !== 'KeyH') return;
     if (!nearCourt) return;
     if (inPlay) {
       tryHit(playerPos);
