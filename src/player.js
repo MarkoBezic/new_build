@@ -20,9 +20,10 @@ const BOAT_DECK_Y  = 0.23;  // player stands on hull floor (FLOAT_Y + 0.08 floor
 export const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
 // ── Boat state (shared across whichever player is active) ────────────────────
-let _boats      = [];
-let _activeBoat = null;
-let _onBoat     = false;
+let _boats       = [];
+let _activeBoat  = null;
+let _onBoat      = false;
+let _hasCastOff  = false;   // true once the active boat has entered open water
 export function setBoats(arr) { _boats = arr; }
 export function isOnBoat()    { return _onBoat; }
 
@@ -166,7 +167,7 @@ function createDesktopPlayer(scene, camera, canvas) {
 
     // Disembark boat
     if (e.code === 'KeyE' && _onBoat && _activeBoat) {
-      _onBoat = false;
+      _onBoat = false; _hasCastOff = false;
       boatHint.style.display = 'none';
       // Place player on beach side of shore from current boat position
       const K = _activeBoat.z - _activeBoat.x;
@@ -206,16 +207,16 @@ function createDesktopPlayer(scene, camera, canvas) {
       const dz = (fwdZ * (-mz) + rgtZ * mx) * n * speed * dt;
       if (_onBoat) {
         _activeBoat.x += dx; _activeBoat.z += dz;
-        // Stop boat when ~75% beached; auto-disembark so player walks off freely
+        if (_activeBoat.z - _activeBoat.x >= SHORE) _hasCastOff = true;
+        // Stop boat when beached; auto-disembark so player walks off freely
         const boatDiag = _activeBoat.z - _activeBoat.x;
         if (boatDiag < BEACH_STOP) {
           const excess = BEACH_STOP - boatDiag;
           _activeBoat.x -= excess / 2; _activeBoat.z += excess / 2;
           const tx = _activeBoat.x + 1.5, tz = _activeBoat.z - 1.5;
-          _onBoat = false;
+          _onBoat = false; _hasCastOff = false;
           _activeBoat = null;
           boatHint.style.display = 'none';
-          // Step player a little toward beach so they don't immediately re-board
           if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
           else             { camera.position.x = tx; camera.position.z = tz; }
           playerY = floorY(tx, tz); vy = 0;
@@ -228,6 +229,16 @@ function createDesktopPlayer(scene, camera, canvas) {
           else             { camera.position.x = nx; camera.position.z = nz; }
         }
       }
+    }
+
+    // Auto-disembark once the boat has entered open water and drifts back to shore
+    if (_onBoat && _activeBoat && _hasCastOff && (_activeBoat.z - _activeBoat.x < SHORE)) {
+      const tx = _activeBoat.x + 1.5, tz = _activeBoat.z - 1.5;
+      _onBoat = false; _hasCastOff = false; _activeBoat = null;
+      boatHint.style.display = 'none';
+      if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
+      else             { camera.position.x = tx; camera.position.z = tz; }
+      playerY = floorY(tx, tz); vy = 0;
     }
 
     // Gravity / floor
@@ -292,7 +303,7 @@ function createDesktopPlayer(scene, camera, canvas) {
       }
       if (nearest) {
         _activeBoat = nearest;
-        _onBoat = true;
+        _onBoat = true; _hasCastOff = false;
         playerY = BOAT_DECK_Y;
         vy = 0;
         boatHint.style.display = 'block';
@@ -447,12 +458,13 @@ function createMobilePlayer(scene, camera, canvas) {
       const dz = (-joyDY * fwdZ + joyDX * rgtZ) * mSpeed * dt;
       if (_onBoat) {
         _activeBoat.x += dx; _activeBoat.z += dz;
+        if (_activeBoat.z - _activeBoat.x >= SHORE) _hasCastOff = true;
         const boatDiag = _activeBoat.z - _activeBoat.x;
         if (boatDiag < BEACH_STOP) {
           const excess = BEACH_STOP - boatDiag;
           _activeBoat.x -= excess / 2; _activeBoat.z += excess / 2;
           playerX = _activeBoat.x + 1.5; playerZ = _activeBoat.z - 1.5;
-          _onBoat = false;
+          _onBoat = false; _hasCastOff = false;
           _activeBoat = null;
           playerY = floorY(playerX, playerZ); vy = 0;
         }
@@ -460,6 +472,13 @@ function createMobilePlayer(scene, camera, canvas) {
         const nx = playerX + dx, nz = playerZ + dz;
         if (nz - nx <= SHORE) { playerX = nx; playerZ = nz; }
       }
+    }
+
+    // Auto-disembark once the boat has entered open water and drifts back to shore
+    if (_onBoat && _activeBoat && _hasCastOff && (_activeBoat.z - _activeBoat.x < SHORE)) {
+      playerX = _activeBoat.x + 1.5; playerZ = _activeBoat.z - 1.5;
+      _onBoat = false; _hasCastOff = false; _activeBoat = null;
+      playerY = floorY(playerX, playerZ); vy = 0;
     }
 
     // Gravity / floor
@@ -506,7 +525,7 @@ function createMobilePlayer(scene, camera, canvas) {
         const d = Math.hypot(playerX - b.x, playerZ - b.z);
         if (d < bestDist) { bestDist = d; nearest = b; }
       }
-      if (nearest) { _activeBoat = nearest; _onBoat = true; playerY = BOAT_DECK_Y; vy = 0; }
+      if (nearest) { _activeBoat = nearest; _onBoat = true; _hasCastOff = false; playerY = BOAT_DECK_Y; vy = 0; }
     }
   }
 
