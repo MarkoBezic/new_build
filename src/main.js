@@ -5,6 +5,7 @@ import { buildSite }       from './site.js';
 import { buildLandmarks }  from './landmarks.js';
 import { createPlayer, isMobile, setBoats, isOnBoat } from './player.js';
 import { createFishing } from './fishing.js';
+import { createSecrets } from './secrets.js';
 import { createBoat, createDecorativeBoats } from './boat.js';
 import { createMinimap } from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
@@ -219,6 +220,7 @@ const { controls, update: updatePlayer, startMobile, setColor, playerPosition, g
 const portals    = createPortals(scene, playerPosition, teleport);
 const minimap    = createMinimap(camera, () => multiplayer.getRemotes());
 const fishing    = createFishing(scene);
+const secrets    = createSecrets(scene);
 
 // Mobile fishing button — tap to cast / reel while on a boat
 fishing.getMobileBtn().addEventListener('touchend', e => {
@@ -342,6 +344,7 @@ function animate() {
   updatePlayer(dt);
   fishing.update(dt, playerPosition, getState().ry, isOnBoat());
   fishing.showMobileBtn(isOnBoat());
+  secrets.update(dt, playerPosition, isOnBoat());
   geese.update(dt, playerPosition);
   npcUpdate(dt, playerPosition);
   portals.update(dt);
