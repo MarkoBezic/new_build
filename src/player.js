@@ -24,6 +24,7 @@ let _boats      = [];
 let _activeBoat = null;
 let _onBoat     = false;
 export function setBoats(arr) { _boats = arr; }
+export function isOnBoat()    { return _onBoat; }
 
 function floorY(x, z) {
   if (_onBoat) return BOAT_DECK_Y;

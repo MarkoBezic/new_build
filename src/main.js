@@ -3,7 +3,8 @@ import { buildWorld }      from './world.js';
 import { buildBuilding }   from './building.js';
 import { buildSite }       from './site.js';
 import { buildLandmarks }  from './landmarks.js';
-import { createPlayer, isMobile, setBoats } from './player.js';
+import { createPlayer, isMobile, setBoats, isOnBoat } from './player.js';
+import { createFishing } from './fishing.js';
 import { createBoat, createDecorativeBoats } from './boat.js';
 import { createMinimap } from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
@@ -216,7 +217,14 @@ composer.addPass(new OutputPass());
 // ─────────────────────────────────────────────────────────────────────────────
 const { controls, update: updatePlayer, startMobile, setColor, playerPosition, getState, teleport } = createPlayer(scene, camera, renderer.domElement);
 const portals    = createPortals(scene, playerPosition, teleport);
-const minimap = createMinimap(camera, () => multiplayer.getRemotes());
+const minimap    = createMinimap(camera, () => multiplayer.getRemotes());
+const fishing    = createFishing(scene);
+
+// Mobile fishing button — tap to cast / reel while on a boat
+fishing.getMobileBtn().addEventListener('touchend', e => {
+  e.preventDefault();
+  fishing.handleAction(playerPosition, getState().ry, isOnBoat());
+});
 
 const overlay   = document.getElementById('overlay');
 const crosshair = document.getElementById('crosshair');
@@ -225,12 +233,14 @@ const ucNum     = document.getElementById('uc-num');
 let _prevCount  = -1;
 let _ucVisible  = false;
 
-// C key — toggle user counter (only while in-world)
+// C key — toggle user counter; F key — fishing (while pointer locked)
 window.addEventListener('keydown', e => {
-  if (e.code === 'KeyC' && avatarReady && document.pointerLockElement) {
+  if (!avatarReady || !document.pointerLockElement) return;
+  if (e.code === 'KeyC') {
     _ucVisible = !_ucVisible;
     ucEl.style.display = _ucVisible ? 'block' : 'none';
   }
+  fishing.onKey(e, playerPosition, getState().ry, isOnBoat());
 });
 // Auto-hide when leaving pointer lock so it doesn't linger on the overlay
 controls.addEventListener('unlock', () => {
@@ -330,6 +340,8 @@ function animate() {
 
   updateDayNight(dt, now / 1000);
   updatePlayer(dt);
+  fishing.update(dt, playerPosition, getState().ry, isOnBoat());
+  fishing.showMobileBtn(isOnBoat());
   geese.update(dt, playerPosition);
   npcUpdate(dt, playerPosition);
   portals.update(dt);
