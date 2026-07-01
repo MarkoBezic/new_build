@@ -9,6 +9,7 @@ import { createSecrets } from './secrets.js';
 import { createEmotes, EMOTES } from './emotes.js';
 import { createBulletin } from './bulletin.js';
 import { createVolleyball } from './volleyball.js';
+import { createTorches } from './torches.js';
 import { createBoat, createDecorativeBoats } from './boat.js';
 import { createMinimap } from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
@@ -216,6 +217,8 @@ let campfireLight, _campfireFlame, _campfireInner;
   campfireLight.position.set(CX, 0.15 + 0.9, CZ);
   scene.add(campfireLight);
 }
+
+const torches = createTorches(scene);
 
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
 let multiplayer = { update() {}, getRemotes() { return []; } };  // replaced after avatar selection
@@ -488,6 +491,9 @@ function updateDayNight(dt, nowSec) {
 
   // Fog
   scene.fog.color.copy(_C_NIGHT_FOG).lerp(_C_DAY_FOG, dayFactor);
+
+  // Tiki torches — off in daylight, glow at night
+  torches.update(nowSec, dayFactor);
 
   // Campfire — always flickers, blazes at night
   const flicker = 0.85 + Math.sin(nowSec * 7.3) * 0.09 + Math.sin(nowSec * 13.1) * 0.06;
