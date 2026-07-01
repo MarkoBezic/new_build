@@ -7,6 +7,7 @@ import { createPlayer, isMobile, setBoats, isOnBoat } from './player.js';
 import { createFishing } from './fishing.js';
 import { createSecrets } from './secrets.js';
 import { createEmotes, EMOTES } from './emotes.js';
+import { createBulletin } from './bulletin.js';
 import { createBoat, createDecorativeBoats } from './boat.js';
 import { createMinimap } from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
@@ -223,6 +224,8 @@ const minimap    = createMinimap(camera, () => multiplayer.getRemotes());
 const fishing    = createFishing(scene);
 const secrets    = createSecrets(scene);
 const emotes     = createEmotes(getAvatar);
+let _playerName  = 'Anonymous';
+const bulletin   = createBulletin(scene, () => _playerName);
 
 // Emote broadcast wired after multiplayer initialises in avatar picker callback
 emotes.setOnBroadcast((id) => {
@@ -252,6 +255,12 @@ window.addEventListener('keydown', e => {
   }
   fishing.onKey(e, playerPosition, getState().ry, isOnBoat());
   emotes.onKey(e);
+  bulletin.onKey(e);  // E to open when near board
+});
+// E key also closes the bulletin overlay when pointer lock is released
+window.addEventListener('keydown', e => {
+  if (!avatarReady || document.pointerLockElement) return;
+  if (e.code === 'KeyE' || e.code === 'Escape') bulletin.onKey({ code: 'KeyE' });
 });
 // Auto-hide when leaving pointer lock so it doesn't linger on the overlay
 controls.addEventListener('unlock', () => {
@@ -286,6 +295,7 @@ if (isMobile) {
 
 showAvatarPicker(overlay, (color, name) => {
   setColor(color, name);
+  _playerName = name || 'Anonymous';
   avatarReady = true;                // set before anything that could throw
   try {
     multiplayer = createMultiplayer(scene, getState, color, name, {
@@ -359,6 +369,8 @@ function animate() {
   secrets.update(dt, playerPosition, isOnBoat());
   emotes.update(dt);
   emotes.showMobileBar(true);
+  bulletin.update(dt, playerPosition);
+  bulletin.showMobileBtn();
   geese.update(dt, playerPosition);
   npcUpdate(dt, playerPosition);
   portals.update(dt);
