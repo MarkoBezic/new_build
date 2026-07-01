@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GEESE_REGIONS } from './zones.js';
 
 // ─── Shared materials ─────────────────────────────────────────────────────────
 const M_BODY  = new THREE.MeshLambertMaterial({ color: 0x7A6248 });
@@ -12,29 +13,20 @@ const M_LEG   = new THREE.MeshLambertMaterial({ color: 0x282420 });
 const NOTICE_R       = 11;    // units — player within this radius triggers avoidance
 const FLEE_COOLDOWN  = 2.5;   // seconds to keep moving after player backs off
 
-// ─── Roam zones [x0, x1, z0, z1, groundY] ────────────────────────────────────
-// groundY matches the mesh surface the geese walk on (0 = asphalt/grass, 0.15 = beach sand)
-const ZONES = [
-  [-26, 26, -59, -27,   0],    // north parking lot (expanded)
-  [-18, 18,  27,  47,   0],    // south parking lot (expanded)
-  [-22, 22, -38, -65,   0],    // approach corridor — overlaps north lot + clearing edge
-  [-505, -458, 553, 594, 0.15], // beach — portal area  (portal B at -480, 575)
-  [-480, -434, 577, 622, 0.15], // beach — volleyball court area (court centre ≈ -457, 598)
-];
 
 function inBuilding(x, z) {
   return Math.abs(x) < 22 && Math.abs(z) < 22;
 }
 
 function inAnyZone(x, z) {
-  for (const [x0, x1, z0, z1] of ZONES) {
+  for (const { x0, x1, z0, z1 } of GEESE_REGIONS) {
     if (x >= x0 && x <= x1 && z >= z0 && z <= z1) return true;
   }
   return false;
 }
 
 function randInZone(zi) {
-  const [x0, x1, z0, z1, groundY = 0] = ZONES[zi];
+  const { x0, x1, z0, z1, groundY } = GEESE_REGIONS[zi];
   return { x: rnd(x0, x1), z: rnd(z0, z1), groundY };
 }
 
@@ -234,15 +226,15 @@ function updateGoose(g, dt, flock, allGeese, playerPos, obstacles) {
 
     if (!inAnyZone(nx, nz) || inBuilding(nx, nz)) {
       // Steer toward nearest zone center
-      let bestZone = ZONES[0], bestD = Infinity;
-      for (const zone of ZONES) {
-        const cx = (zone[0] + zone[1]) * 0.5;
-        const cz = (zone[2] + zone[3]) * 0.5;
+      let bestZone = GEESE_REGIONS[0], bestD = Infinity;
+      for (const zone of GEESE_REGIONS) {
+        const cx = (zone.x0 + zone.x1) * 0.5;
+        const cz = (zone.z0 + zone.z1) * 0.5;
         const d  = Math.hypot(pos.x - cx, pos.z - cz);
         if (d < bestD) { bestD = d; bestZone = zone; }
       }
-      const cx = (bestZone[0] + bestZone[1]) * 0.5;
-      const cz = (bestZone[2] + bestZone[3]) * 0.5;
+      const cx = (bestZone.x0 + bestZone.x1) * 0.5;
+      const cz = (bestZone.z0 + bestZone.z1) * 0.5;
       g.targetY = Math.atan2(-(cx - pos.x), -(cz - pos.z));
       if (g.state !== TURN) { g.state = TURN; g.timer = rnd(0.3, 0.6); }
     }

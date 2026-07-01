@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { groundY as zoneGroundY, BEACH_STOP, SHORE } from './zones.js';
 
 const WALK_SPEED   = 8;
 const SPRINT_SPEED = 18;
@@ -14,7 +15,6 @@ const PITCH_MAX    =  Math.PI / 2 - 0.05;
 const BOARD_RADIUS = 2.5;
 const BOAT_FLOAT_Y = 0.15;  // boat sits at beach/water surface
 const BOAT_DECK_Y  = 0.23;  // player stands on hull floor (FLOAT_Y + 0.08 floor panel)
-const BEACH_STOP   = 1099;  // boat z−x lower bound — ≈75% of hull on beach
 
 // Touch primary input = mobile (consistent with CSS `pointer: coarse`)
 export const isMobile = window.matchMedia('(pointer: coarse)').matches;
@@ -25,14 +25,9 @@ let _activeBoat = null;
 let _onBoat     = false;
 export function setBoats(arr) { _boats = arr; }
 
-// Building plinth top is at y=0.25; beach sand is at y=0.15 (world.js buildBeach)
-// Beach strip: coast−beachWidth (1020) < z−x < coast (1100)
 function floorY(x, z) {
   if (_onBoat) return BOAT_DECK_Y;
-  if (Math.abs(x) < 22.5 && Math.abs(z) < 22.5) return 0.25;
-  const d = z - x;
-  if (d > 1020 && d < 1100) return 0.15;
-  return 0;
+  return zoneGroundY(x, z);
 }
 
 export function createPlayer(scene, camera, canvas) {
@@ -227,7 +222,7 @@ function createDesktopPlayer(scene, camera, canvas) {
       } else {
         const nx = (thirdPerson ? avatar.position.x : camera.position.x) + dx;
         const nz = (thirdPerson ? avatar.position.z : camera.position.z) + dz;
-        if (nz - nx <= 1100) {  // block walking into water
+        if (nz - nx <= SHORE) {  // block walking into water
           if (thirdPerson) { avatar.position.x = nx; avatar.position.z = nz; }
           else             { camera.position.x = nx; camera.position.z = nz; }
         }
@@ -462,7 +457,7 @@ function createMobilePlayer(scene, camera, canvas) {
         }
       } else {
         const nx = playerX + dx, nz = playerZ + dz;
-        if (nz - nx <= 1100) { playerX = nx; playerZ = nz; }
+        if (nz - nx <= SHORE) { playerX = nx; playerZ = nz; }
       }
     }
 

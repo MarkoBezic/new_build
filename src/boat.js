@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import { BOAT_SPAWNS } from './zones.js';
 
-// Boat rests at the beach-stop line (z−x = 1099 ≈ 75% beached for a 3.4 m hull)
-export const BOAT_X = -502;
-export const BOAT_Z =  597;   // z−x = 1099
+// Convenience exports kept for any external code that references the primary boat position
+export const BOAT_X = BOAT_SPAWNS[0].x;
+export const BOAT_Z = BOAT_SPAWNS[0].z;
 
 // ── Materials — dark hull + prominent light birch rails (Minecraft-style) ────
 const HULL_MAT  = new THREE.MeshLambertMaterial({ color: 0x6B3E12 }); // dark oak
@@ -76,29 +77,24 @@ function buildMesh() {
   return g;
 }
 
-// Three static decorative boats spread along the shore at z−x = 1099.
-// Spacing is intentionally uneven: ~27 m, ~81 m, ~52 m between neighbours.
+// All boats are created from BOAT_SPAWNS in zones.js.
+// createBoat → primary rideable boat (index 0)
+// createDecorativeBoats → remaining boats (indices 1–n)
+export function createBoat(scene) {
+  const { x, z, yaw } = BOAT_SPAWNS[0];
+  const mesh = buildMesh();
+  mesh.rotation.y = yaw;
+  mesh.position.set(x, 0.15, z);
+  scene.add(mesh);
+  return { x, z, yaw, mesh };
+}
+
 export function createDecorativeBoats(scene) {
-  const configs = [
-    { x: -483, z: 616, yaw: Math.PI * 0.68 },  // 27 m NE of rideable boat
-    { x: -559, z: 540, yaw: Math.PI * 0.81 },  // 81 m SW of rideable boat
-    { x: -596, z: 503, yaw: Math.PI * 0.72 },  // 52 m further SW
-  ];
-  return configs.map(({ x, z, yaw }) => {
+  return BOAT_SPAWNS.slice(1).map(({ x, z, yaw }) => {
     const mesh = buildMesh();
     mesh.rotation.y = yaw;
     mesh.position.set(x, 0.15, z);
     scene.add(mesh);
     return { x, z, yaw, mesh };
   });
-}
-
-export function createBoat(scene) {
-  const mesh = buildMesh();
-  // Bow faces sea direction (−x, +z) — pressing W sails out, S returns to shore
-  const initialYaw = Math.PI * 0.75;
-  mesh.rotation.y = initialYaw;
-  mesh.position.set(BOAT_X, 0.15, BOAT_Z);
-  scene.add(mesh);
-  return { x: BOAT_X, z: BOAT_Z, yaw: initialYaw, mesh };
 }
