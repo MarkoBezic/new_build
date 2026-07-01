@@ -67,7 +67,7 @@ function makeAvatar(color, name) {
   return g;
 }
 
-export function createMultiplayer(scene, getState, myColor, myName) {
+export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote } = {}) {
   const key = import.meta.env.VITE_ABLY_KEY;
   if (!key || key === 'your_ably_api_key_here') {
     console.warn('Multiplayer disabled — VITE_ABLY_KEY not set');
@@ -145,13 +145,24 @@ export function createMultiplayer(scene, getState, myColor, myName) {
   });
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+  // Emote messages — { id, duration }
+  channel.subscribe('emote', msg => {
+    if (msg.clientId === myId) return;
+    const r = remotes.get(msg.clientId);
+    if (r) r.emote = { id: msg.data.id, duration: msg.data.duration, elapsed: 0 };
+  });
+
+  function broadcastEmote(id, duration) {
+    channel.publish('emote', { id, duration });
+  }
+
   function spawnRemote(id, color, name, x, z, ry) {
     if (remotes.has(id)) return;
     const mesh = makeAvatar(color, name);
     mesh.position.set(x, 0, z);
     mesh.rotation.y = ry;
     scene.add(mesh);
-    remotes.set(id, { mesh, color, name, tx: x, tz: z, try: ry });
+    remotes.set(id, { mesh, color, name, tx: x, tz: z, try: ry, emote: null });
   }
 
   function removeRemote(id) {
@@ -188,8 +199,15 @@ export function createMultiplayer(scene, getState, myColor, myName) {
       while (diff >  Math.PI) diff -= 2 * Math.PI;
       while (diff < -Math.PI) diff += 2 * Math.PI;
       r.mesh.rotation.y += diff * 0.2;
+
+      // Remote emote animation
+      if (r.emote && onRemoteEmote) {
+        r.emote.elapsed += dt;
+        onRemoteEmote(r.mesh, r.emote.id, r.emote.elapsed);
+        if (r.emote.duration > 0 && r.emote.elapsed >= r.emote.duration) r.emote = null;
+      }
     }
   }
 
-  return { update, getRemotes };
+  return { update, getRemotes, broadcastEmote };
 }

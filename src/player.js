@@ -329,7 +329,7 @@ function createDesktopPlayer(scene, camera, canvas) {
     vy = 0;
   }
 
-  return { controls, update, startMobile: () => {}, setColor, playerPosition, getState, teleport };
+  return { controls, update, startMobile: () => {}, setColor, playerPosition, getState, teleport, getAvatar: () => avatar };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -537,5 +537,5 @@ function createMobilePlayer(scene, camera, canvas) {
 
   const controls = { isLocked: true, lock() {}, unlock() {}, addEventListener() {} };
 
-  return { controls, update, startMobile, setColor, playerPosition, getState, teleport };
+  return { controls, update, startMobile, setColor, playerPosition, getState, teleport, getAvatar: () => avatar };
 }

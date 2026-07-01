@@ -6,6 +6,7 @@ import { buildLandmarks }  from './landmarks.js';
 import { createPlayer, isMobile, setBoats, isOnBoat } from './player.js';
 import { createFishing } from './fishing.js';
 import { createSecrets } from './secrets.js';
+import { createEmotes, EMOTES } from './emotes.js';
 import { createBoat, createDecorativeBoats } from './boat.js';
 import { createMinimap } from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
@@ -216,11 +217,18 @@ composer.addPass(new OutputPass());
 // ─────────────────────────────────────────────────────────────────────────────
 //  FPS player
 // ─────────────────────────────────────────────────────────────────────────────
-const { controls, update: updatePlayer, startMobile, setColor, playerPosition, getState, teleport } = createPlayer(scene, camera, renderer.domElement);
+const { controls, update: updatePlayer, startMobile, setColor, playerPosition, getState, teleport, getAvatar } = createPlayer(scene, camera, renderer.domElement);
 const portals    = createPortals(scene, playerPosition, teleport);
 const minimap    = createMinimap(camera, () => multiplayer.getRemotes());
 const fishing    = createFishing(scene);
 const secrets    = createSecrets(scene);
+const emotes     = createEmotes(getAvatar);
+
+// Emote broadcast wired after multiplayer initialises in avatar picker callback
+emotes.setOnBroadcast((id) => {
+  const def = EMOTES.find(e => e.id === id);
+  if (multiplayer.broadcastEmote && def) multiplayer.broadcastEmote(id, def.duration);
+});
 
 // Mobile fishing button — tap to cast / reel while on a boat
 fishing.getMobileBtn().addEventListener('touchend', e => {
@@ -243,6 +251,7 @@ window.addEventListener('keydown', e => {
     ucEl.style.display = _ucVisible ? 'block' : 'none';
   }
   fishing.onKey(e, playerPosition, getState().ry, isOnBoat());
+  emotes.onKey(e);
 });
 // Auto-hide when leaving pointer lock so it doesn't linger on the overlay
 controls.addEventListener('unlock', () => {
@@ -278,8 +287,11 @@ if (isMobile) {
 showAvatarPicker(overlay, (color, name) => {
   setColor(color, name);
   avatarReady = true;                // set before anything that could throw
-  try { multiplayer = createMultiplayer(scene, getState, color, name); }
-  catch (e) { console.warn('Multiplayer unavailable:', e); }
+  try {
+    multiplayer = createMultiplayer(scene, getState, color, name, {
+      onRemoteEmote: (mesh, id, elapsed) => emotes.applyRemoteEmote(mesh, id, elapsed),
+    });
+  } catch (e) { console.warn('Multiplayer unavailable:', e); }
   if (!isMobile) renderer.domElement.requestPointerLock();
 });
 
@@ -345,6 +357,8 @@ function animate() {
   fishing.update(dt, playerPosition, getState().ry, isOnBoat());
   fishing.showMobileBtn(isOnBoat());
   secrets.update(dt, playerPosition, isOnBoat());
+  emotes.update(dt);
+  emotes.showMobileBar(true);
   geese.update(dt, playerPosition);
   npcUpdate(dt, playerPosition);
   portals.update(dt);
