@@ -257,6 +257,95 @@ const volleyball = createVolleyball(scene, {
   onBroadcast: state => { if (multiplayer.publishBall) multiplayer.publishBall(state); },
 });
 
+// ── Controls help panel ───────────────────────────────────────────────────────
+;(() => {
+  const ROWS_DESKTOP = [
+    ['WASD',    'Move'],
+    ['Mouse',   'Look around'],
+    ['E',       'Board / exit boat'],
+    ['E',       'Open bulletin board (when near it)'],
+    ['F',       'Cast / reel fishing rod (on boat)'],
+    ['V',       'Hit volleyball (near court)'],
+    ['1',       '👋 Wave'],
+    ['2',       '🎉 Cheer'],
+    ['3',       '👉 Point'],
+    ['4',       '🪑 Sit (press again to stand)'],
+    ['C',       'Toggle player count'],
+    ['Esc',     'Release cursor / close overlay'],
+  ];
+  const ROWS_MOBILE = [
+    ['Joystick', 'Move'],
+    ['👋🎉👉🪑', 'Emotes (bottom centre)'],
+    ['🎣',       'Cast / reel (on boat, bottom right)'],
+    ['🏐',       'Hit volleyball (near court, right)'],
+    ['📌',       'Bulletin board (near building, left)'],
+  ];
+
+  const rows = isMobile ? ROWS_MOBILE : ROWS_DESKTOP;
+
+  // Panel
+  const panel = document.createElement('div');
+  Object.assign(panel.style, {
+    position: 'fixed', bottom: '76px', right: '16px',
+    background: 'rgba(12,10,8,0.93)', color: '#F0E4C8',
+    borderRadius: '12px', padding: '14px 18px',
+    fontFamily: 'Arial, sans-serif', fontSize: '13px',
+    lineHeight: '1.75', display: 'none', zIndex: '40',
+    border: '1px solid rgba(180,140,60,0.35)',
+    minWidth: '240px', pointerEvents: 'none',
+  });
+
+  const title = document.createElement('div');
+  title.textContent = '⌨️  Controls';
+  Object.assign(title.style, {
+    fontWeight: 'bold', fontSize: '14px', color: '#D4A85A',
+    marginBottom: '8px',
+  });
+  panel.appendChild(title);
+
+  const grid = document.createElement('div');
+  Object.assign(grid.style, {
+    display: 'grid',
+    gridTemplateColumns: 'auto 1fr',
+    columnGap: '14px',
+  });
+  rows.forEach(([key, desc]) => {
+    const k = document.createElement('span');
+    k.textContent = key;
+    Object.assign(k.style, {
+      background: 'rgba(255,255,255,0.12)', borderRadius: '4px',
+      padding: '0 6px', fontFamily: 'monospace', fontSize: '12px',
+      color: '#FFD580', whiteSpace: 'nowrap', alignSelf: 'center',
+    });
+    const d = document.createElement('span');
+    d.textContent = desc;
+    d.style.color = '#D8CDB4';
+    grid.appendChild(k);
+    grid.appendChild(d);
+  });
+  panel.appendChild(grid);
+  document.body.appendChild(panel);
+
+  // Toggle button
+  const btn = document.createElement('button');
+  btn.textContent = '?';
+  Object.assign(btn.style, {
+    position: 'fixed', bottom: '20px', right: '20px',
+    width: '44px', height: '44px', borderRadius: '50%',
+    fontSize: '20px', fontWeight: 'bold', border: 'none',
+    background: 'rgba(0,0,0,0.50)', color: '#D4A85A',
+    cursor: 'pointer', zIndex: '40',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+  });
+  let open = false;
+  btn.addEventListener('click', () => {
+    open = !open;
+    panel.style.display = open ? 'block' : 'none';
+    btn.style.background = open ? 'rgba(180,140,60,0.55)' : 'rgba(0,0,0,0.50)';
+  });
+  document.body.appendChild(btn);
+})();
+
 // Emote broadcast wired after multiplayer initialises in avatar picker callback
 emotes.setOnBroadcast((id) => {
   const def = EMOTES.find(e => e.id === id);
