@@ -515,7 +515,7 @@ function animate() {
   fishing.showMobileBtn(isOnBoat());
   secrets.update(dt, playerPosition, isOnBoat());
   emotes.update(dt);
-  emotes.showMobileBar(true);
+  emotes.showMobileBar(isMobile);
   bulletin.update(dt, playerPosition);
   bulletin.showMobileBtn();
   volleyball.update(dt, playerPosition);
