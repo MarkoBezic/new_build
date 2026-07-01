@@ -191,5 +191,5 @@ export function createBulletin(scene, getPlayerName) {
     mobileBtn.style.display = isNear ? 'block' : 'none';
   }
 
-  return { update, onKey, showMobileBtn };
+  return { update, onKey, showMobileBtn, setCallbacks: ui.setCallbacks };
 }
