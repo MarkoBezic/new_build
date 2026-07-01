@@ -151,6 +151,8 @@ export function createBulletin(scene, getPlayerName) {
 
   function onKey(e) {
     if (e.code !== 'KeyE') return;
+    const tag = document.activeElement?.tagName;
+    if (tag === 'TEXTAREA' || tag === 'INPUT') return;
     if (ui.isOpen()) { ui.close(); return; }
     if (isNear)       ui.open();
   }
