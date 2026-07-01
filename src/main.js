@@ -392,10 +392,10 @@ window.addEventListener('keydown', e => {
   bulletin.onKey(e);
   volleyball.onKey(e, playerPosition);
 });
-// E key also closes the bulletin overlay when pointer lock is released
+// Escape closes the bulletin board when it is open and pointer lock is released
 window.addEventListener('keydown', e => {
   if (!avatarReady || document.pointerLockElement) return;
-  if (e.code === 'KeyE' || e.code === 'Escape') bulletin.onKey({ code: 'KeyE' });
+  if (e.code === 'Escape' && bulletin.isOpen()) bulletin.close();
 });
 // Auto-hide user count when leaving pointer lock
 controls.addEventListener('unlock', () => {

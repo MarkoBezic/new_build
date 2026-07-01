@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { append, load } from './persistence.js';
+import { append, load, save } from './persistence.js';
 
 // North interior wall of the building, centred, at eye height
 const BOARD_X = 0, BOARD_Z = -20, BOARD_Y = 2.05;
@@ -9,16 +9,30 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// ── Profanity filter ──────────────────────────────────────────────────────────
+const _SWEARS = [
+  'fuck','fucking','fucker','fucked','shit','shitting','bullshit',
+  'bitch','bitches','bastard','cunt','cock','dick','pussy','asshole',
+  'nigger','nigga','faggot','fag','whore','slut','wanker','twat',
+  'prick','bollocks','motherfucker','motherfucking',
+];
+function censor(text) {
+  let t = text;
+  for (const w of _SWEARS) {
+    t = t.replace(new RegExp(`(?<![a-zA-Z])${w}(?![a-zA-Z])`, 'gi'),
+      m => m[0] + '*'.repeat(Math.max(1, m.length - 2)) + (m.length > 1 ? m[m.length - 1] : ''));
+  }
+  return t;
+}
+
 // ── Physical board mesh ───────────────────────────────────────────────────────
 function buildMesh(scene) {
   const g       = new THREE.Group();
   const corkMat = new THREE.MeshLambertMaterial({ color: 0xC9A46A });
   const framMat = new THREE.MeshLambertMaterial({ color: 0x6B3A1F });
 
-  // Cork backing
   g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.8, 0.06), corkMat)));
 
-  // Outer frame
   const FT = 0.12;
   for (const s of [1, -1]) {
     const h = new THREE.Mesh(new THREE.BoxGeometry(3.0 + FT * 2, FT, 0.10), framMat);
@@ -29,7 +43,6 @@ function buildMesh(scene) {
     g.add(v);
   }
 
-  // Decorative pinned notes (static, just for looks)
   const noteMat   = new THREE.MeshLambertMaterial({ color: 0xFFFDE8 });
   const yellowMat = new THREE.MeshLambertMaterial({ color: 0xFFEE88 });
   [
@@ -44,7 +57,7 @@ function buildMesh(scene) {
   });
 
   g.position.set(BOARD_X, BOARD_Y, BOARD_Z + 0.18);
-  g.rotation.y = 0;  // faces +Z (toward building interior)
+  g.rotation.y = 0;
   g.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
   scene.add(g);
 }
@@ -93,13 +106,19 @@ function makeUI(getPlayerName) {
       <button id="_bb_post" style="flex:1;padding:8px;border-radius:6px;border:none;
         background:#8B5E3C;color:#fff;cursor:pointer;font-size:13px;">Post</button>
       <button id="_bb_close" style="padding:8px 16px;border-radius:6px;border:none;
-        background:rgba(255,255,255,0.13);color:#fff;cursor:pointer;font-size:13px;">Close</button>
+        background:rgba(255,255,255,0.13);color:#fff;cursor:pointer;font-size:13px;">Close  [Esc]</button>
     </div>`;
 
   document.body.appendChild(el);
 
   const msgsEl  = el.querySelector('#_bb_msgs');
   const inputEl = el.querySelector('#_bb_input');
+
+  function deleteMessage(ts) {
+    const msgs = load('bulletin:messages', []);
+    save('bulletin:messages', msgs.filter(m => m.ts !== ts));
+    refresh();
+  }
 
   function refresh() {
     const msgs = load('bulletin:messages', []);
@@ -110,21 +129,43 @@ function makeUI(getPlayerName) {
     msgsEl.innerHTML = msgs.slice().reverse().map(m => {
       const d    = new Date(m.ts);
       const date = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-      return `<div style="margin-bottom:8px;padding-bottom:8px;
+      return `<div style="display:flex;align-items:flex-start;gap:6px;
+                margin-bottom:8px;padding-bottom:8px;
                 border-bottom:1px solid rgba(180,140,60,0.18)">
-        <span style="color:#D4A85A;font-weight:bold">${escHtml(m.name || 'Anonymous')}</span>
-        <span style="color:#666;font-size:11px;margin-left:8px">${date}</span><br>
-        ${escHtml(m.text)}
+        <div style="flex:1;min-width:0">
+          <span style="color:#D4A85A;font-weight:bold">${escHtml(m.name || 'Anonymous')}</span>
+          <span style="color:#666;font-size:11px;margin-left:8px">${date}</span><br>
+          ${escHtml(m.text)}
+        </div>
+        <button data-del-ts="${m.ts}"
+          style="flex-shrink:0;background:none;border:none;color:#884;
+            cursor:pointer;font-size:15px;padding:0 2px;line-height:1;"
+          title="Delete message">×</button>
       </div>`;
     }).join('');
   }
 
+  // Delete via event delegation so dynamically rendered buttons work
+  msgsEl.addEventListener('click', e => {
+    const btn = e.target.closest('[data-del-ts]');
+    if (btn) deleteMessage(+btn.dataset.delTs);
+  });
+
   el.querySelector('#_bb_post').addEventListener('click', () => {
-    const text = inputEl.value.trim().slice(0, 120);
-    if (!text) return;
+    const raw  = inputEl.value.trim().slice(0, 120);
+    if (!raw) return;
+    const text = censor(raw);
     append('bulletin:messages', { name: getPlayerName(), text, ts: Date.now() }, 20);
     inputEl.value = '';
     refresh();
+  });
+
+  // Ctrl+Enter also posts
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      el.querySelector('#_bb_post').click();
+    }
   });
 
   let _onOpen = null, _onClose = null;
@@ -132,7 +173,7 @@ function makeUI(getPlayerName) {
   function open() {
     refresh();
     el.style.display = 'block';
-    setTimeout(() => inputEl.focus(), 50);  // focus textarea after display kicks in
+    setTimeout(() => inputEl.focus(), 50);
     if (_onOpen) _onOpen();
   }
 
@@ -145,7 +186,7 @@ function makeUI(getPlayerName) {
 
   return {
     open, close,
-    isOpen() { return el.style.display !== 'none'; },
+    isOpen()  { return el.style.display !== 'none'; },
     setCallbacks(onOpen, onClose) { _onOpen = onOpen; _onClose = onClose; },
   };
 }
@@ -153,9 +194,9 @@ function makeUI(getPlayerName) {
 // ── Public API ────────────────────────────────────────────────────────────────
 export function createBulletin(scene, getPlayerName) {
   buildMesh(scene);
-  const hint     = makeHint();
-  const ui       = makeUI(getPlayerName);
-  let   isNear   = false;
+  const hint  = makeHint();
+  const ui    = makeUI(getPlayerName);
+  let   isNear = false;
 
   function update(dt, playerPos) {
     const dist = Math.hypot(playerPos.x - BOARD_X, playerPos.z - BOARD_Z);
@@ -163,15 +204,15 @@ export function createBulletin(scene, getPlayerName) {
     hint.style.display = (isNear && !ui.isOpen()) ? 'block' : 'none';
   }
 
+  // onKey is only called from the pointer-locked listener in main.js.
+  // It only opens — closing is handled by the Close button or Escape key
+  // (see main.js second listener), so there is no toggle ambiguity.
   function onKey(e) {
     if (e.code !== 'KeyE') return;
-    const tag = document.activeElement?.tagName;
-    if (tag === 'TEXTAREA' || tag === 'INPUT') return;
-    if (ui.isOpen()) { ui.close(); return; }
-    if (isNear)       ui.open();
+    if (ui.isOpen()) return;
+    if (isNear) ui.open();
   }
 
-  // Mobile tap button
   const mobileBtn = (() => {
     const b = document.createElement('button');
     b.textContent = '📌';
@@ -191,5 +232,10 @@ export function createBulletin(scene, getPlayerName) {
     mobileBtn.style.display = isNear ? 'block' : 'none';
   }
 
-  return { update, onKey, showMobileBtn, setCallbacks: ui.setCallbacks };
+  return {
+    update, onKey, showMobileBtn,
+    close:   ui.close,
+    isOpen:  ui.isOpen,
+    setCallbacks: ui.setCallbacks,
+  };
 }
