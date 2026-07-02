@@ -45,10 +45,10 @@ scene.background = new THREE.Color(ATMOSPHERE.skyColor);
 scene.fog        = new THREE.FogExp2(ATMOSPHERE.fogColor, ATMOSPHERE.fogDensity);
 
 // ── Day / Night palette (pre-allocated — reused every frame) ─────────────────
-const _C_NIGHT_SKY = new THREE.Color(0x020510);
+const _C_NIGHT_SKY = new THREE.Color(0x3A404C);
 const _C_DAWN_SKY  = new THREE.Color(0xB83010);
 const _C_DAY_SKY   = new THREE.Color(ATMOSPHERE.skyColor);
-const _C_NIGHT_FOG = new THREE.Color(0x020510);
+const _C_NIGHT_FOG = new THREE.Color(0x444A56);
 const _C_DAY_FOG   = new THREE.Color(ATMOSPHERE.fogColor);
 const _C_DAWN_SUN  = new THREE.Color(0xFF6020);
 const _C_DAY_SUN   = new THREE.Color(0xFFF8E0);
@@ -501,8 +501,9 @@ function updateDayNight(dt, nowSec) {
     sun.castShadow = false;
   }
 
-  hemi.intensity = 0.05 + twilight * 0.10 + dayFactor * 0.60;
-  fill.intensity = 0.03 + twilight * 0.05 + dayFactor * 0.32;
+  // Night floor keeps the world dim-gray but readable, like overcast moonlight
+  hemi.intensity = 0.28 + twilight * 0.07 + dayFactor * 0.40;
+  fill.intensity = 0.14 + twilight * 0.04 + dayFactor * 0.22;
 
   // Sky: night → day with dawn/dusk orange glow near the horizon
   const skyMix   = Math.max(dayFactor, twilight * 0.18);
