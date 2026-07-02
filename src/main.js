@@ -58,6 +58,9 @@ const _nyFmt = new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/New_York',
   hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
 });
+const _nyOffFmt = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York', timeZoneName: 'shortOffset',
+});
 let _sunriseH = 6, _sunsetH = 20, _lastSolarDay = -1;
 
 function _refreshSolar(date) {
@@ -65,11 +68,23 @@ function _refreshSolar(date) {
   if (doy === _lastSolarDay) return;
   _lastSolarDay = doy;
   const LAT     = 43.7 * Math.PI / 180;   // Toronto latitude
+  const LON     = 79.4;                   // Toronto longitude (°W)
   const dec     = -23.45 * Math.PI / 180 * Math.cos(2 * Math.PI * (doy + 10) / 365);
-  const cosH    = Math.max(-1, Math.min(1, -Math.tan(LAT) * Math.tan(dec)));
+  // Hour angle at sunrise/sunset, with standard refraction (sun visible at -0.833°)
+  const Z       = Math.cos(90.833 * Math.PI / 180);
+  const cosH    = Math.max(-1, Math.min(1,
+    (Z - Math.sin(LAT) * Math.sin(dec)) / (Math.cos(LAT) * Math.cos(dec))));
   const H       = Math.acos(cosH) * 180 / Math.PI / 15;
-  _sunriseH     = 12 - H;   // local noon ± hour angle → today's sunrise/sunset
-  _sunsetH      = 12 + H;
+  // Equation of time — the sun runs up to ±16 min fast/slow of clock time
+  const B       = 2 * Math.PI * (doy - 81) / 365;
+  const eotH    = (9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B)) / 60;
+  // UTC offset of America/New_York right now (-5 EST, -4 EDT)
+  const offStr  = _nyOffFmt.formatToParts(date).find(p => p.type === 'timeZoneName').value;
+  const utcOffH = parseFloat(offStr.replace('GMT', '')) || -5;
+  // Solar noon in local clock time: meridian offset + DST + equation of time
+  const noonH   = 12 + LON / 15 + utcOffH - eotH;
+  _sunriseH     = noonH - H;
+  _sunsetH      = noonH + H;
 }
 
 function _estHourNow(date) {
@@ -465,7 +480,12 @@ function updateDayNight(dt, nowSec) {
     sunElev = -Math.sin(Math.PI * hPast / nightDur);
   }
 
-  const dayFactor = Math.max(0, sunElev);
+  // Real daylight saturates well before the sun is overhead — full brightness
+  // once the sun is ~a quarter of the way up its arc, ramping only near dawn/dusk.
+  const t = Math.min(1, Math.max(0, sunElev) / 0.25);
+  const dayFactor = t * t * (3 - 2 * t);
+  // Civil twilight: residual sky light for ~50 min past sunset / before sunrise
+  const twilight = Math.max(0, Math.min(1, 1 + sunElev / 0.3));
 
   // Sun arc: east at sunrise, overhead at noon, west at sunset
   const az = (hourEST / 24) * Math.PI * 2;
@@ -481,16 +501,17 @@ function updateDayNight(dt, nowSec) {
     sun.castShadow = false;
   }
 
-  hemi.intensity = 0.05 + dayFactor * 0.70;
-  fill.intensity = 0.03 + dayFactor * 0.37;
+  hemi.intensity = 0.05 + twilight * 0.10 + dayFactor * 0.60;
+  fill.intensity = 0.03 + twilight * 0.05 + dayFactor * 0.32;
 
   // Sky: night → day with dawn/dusk orange glow near the horizon
+  const skyMix   = Math.max(dayFactor, twilight * 0.18);
   const dawnGlow = sunElev > -0.2 ? Math.max(0, 1 - Math.abs(sunElev) * 5) : 0;
-  scene.background.copy(_C_NIGHT_SKY).lerp(_C_DAY_SKY, dayFactor);
+  scene.background.copy(_C_NIGHT_SKY).lerp(_C_DAY_SKY, skyMix);
   if (dawnGlow > 0.01) scene.background.lerp(_C_DAWN_SKY, dawnGlow * 0.4);
 
   // Fog
-  scene.fog.color.copy(_C_NIGHT_FOG).lerp(_C_DAY_FOG, dayFactor);
+  scene.fog.color.copy(_C_NIGHT_FOG).lerp(_C_DAY_FOG, skyMix);
 
   // Tiki torches — off in daylight, glow at night
   torches.update(nowSec, dayFactor);
