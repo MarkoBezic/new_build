@@ -53,7 +53,7 @@ const _C_DAY_FOG   = new THREE.Color(ATMOSPHERE.fogColor);
 const _C_DAWN_SUN  = new THREE.Color(0xFF6020);
 const _C_DAY_SUN   = new THREE.Color(0xFFF8E0);
 
-// Real-time solar calculation for US Eastern (EST/EDT, handles DST automatically)
+// Real-time solar calculation for Toronto (America/New_York timezone, handles DST automatically)
 const _nyFmt = new Intl.DateTimeFormat('en-US', {
   timeZone: 'America/New_York',
   hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
@@ -64,7 +64,7 @@ function _refreshSolar(date) {
   const doy = Math.round((date - new Date(date.getFullYear(), 0, 0)) / 86_400_000);
   if (doy === _lastSolarDay) return;
   _lastSolarDay = doy;
-  const LAT     = 40.7 * Math.PI / 180;   // NYC latitude
+  const LAT     = 43.7 * Math.PI / 180;   // Toronto latitude
   const dec     = -23.45 * Math.PI / 180 * Math.cos(2 * Math.PI * (doy + 10) / 365);
   const cosH    = Math.max(-1, Math.min(1, -Math.tan(LAT) * Math.tan(dec)));
   const H       = Math.acos(cosH) * 180 / Math.PI / 15;
