@@ -7,7 +7,6 @@ import { createPlayer, isMobile, setBoats, isOnBoat } from './player.js';
 import { createFishing } from './fishing.js';
 import { createSecrets } from './secrets.js';
 import { createEmotes, EMOTES } from './emotes.js';
-import { createBulletin } from './bulletin.js';
 import { createVolleyball } from './volleyball.js';
 import { createTorches } from './torches.js';
 import { createBoat, createDecorativeBoats } from './boat.js';
@@ -269,8 +268,6 @@ const minimap    = createMinimap(camera, () => multiplayer.getRemotes());
 const fishing    = createFishing(scene);
 const secrets    = createSecrets(scene);
 const emotes     = createEmotes(getAvatar);
-let _playerName  = 'Anonymous';
-const bulletin   = createBulletin(scene, () => _playerName);
 const volleyball = createVolleyball(scene, {
   onBroadcast: state => { if (multiplayer.publishBall) multiplayer.publishBall(state); },
 });
@@ -281,7 +278,6 @@ const volleyball = createVolleyball(scene, {
     ['WASD',    'Move'],
     ['Mouse',   'Look around'],
     ['E',       'Board / exit boat'],
-    ['E',       'Open bulletin board (when near it)'],
     ['F',       'Cast / reel fishing rod (on boat)'],
     ['H',       'Hit volleyball (near court)'],
     ['1',       '👋 Wave'],
@@ -296,7 +292,6 @@ const volleyball = createVolleyball(scene, {
     ['👋🎉👉🪑', 'Emotes (bottom centre)'],
     ['🎣',       'Cast / reel (on boat, bottom right)'],
     ['🏐',       'Hit volleyball (near court, right)'],
-    ['📌',       'Bulletin board (near building, left)'],
   ];
 
   const rows = isMobile ? ROWS_MOBILE : ROWS_DESKTOP;
@@ -382,21 +377,6 @@ const ucEl      = document.getElementById('user-count');
 const ucNum     = document.getElementById('uc-num');
 let _prevCount  = -1;
 let _ucVisible  = false;
-let _bulletinOpen = false;
-
-// Release pointer lock when board opens so mouse/keyboard go to the textarea;
-// re-acquire it when the board closes so the player returns to the world.
-bulletin.setCallbacks(
-  () => {   // onOpen
-    _bulletinOpen = true;
-    crosshair.style.display = 'none';
-    document.exitPointerLock();
-  },
-  () => {   // onClose
-    _bulletinOpen = false;
-    if (!isMobile) renderer.domElement.requestPointerLock();
-  },
-);
 
 // C key — toggle user counter; F key — fishing (while pointer locked)
 window.addEventListener('keydown', e => {
@@ -407,17 +387,11 @@ window.addEventListener('keydown', e => {
   }
   fishing.onKey(e, playerPosition, getState().ry, isOnBoat());
   emotes.onKey(e);
-  bulletin.onKey(e);
   volleyball.onKey(e, playerPosition);
-});
-// Escape closes the bulletin board when it is open and pointer lock is released
-window.addEventListener('keydown', e => {
-  if (!avatarReady || document.pointerLockElement) return;
-  if (e.code === 'Escape' && bulletin.isOpen()) bulletin.close();
 });
 // Auto-hide user count when leaving pointer lock
 controls.addEventListener('unlock', () => {
-  if (_ucVisible && !_bulletinOpen) { _ucVisible = false; ucEl.style.display = 'none'; }
+  if (_ucVisible) { _ucVisible = false; ucEl.style.display = 'none'; }
 });
 
 // Set up pointer-lock and overlay-click listeners now, guarded by a flag so
@@ -437,7 +411,6 @@ if (isMobile) {
     crosshair.style.display = 'block';
   });
   controls.addEventListener('unlock', () => {
-    if (_bulletinOpen) return;   // board released lock — don't show the main overlay
     overlay.style.display   = 'flex';
     crosshair.style.display = 'none';
   });
@@ -449,7 +422,6 @@ if (isMobile) {
 
 showAvatarPicker(overlay, (color, name) => {
   setColor(color, name);
-  _playerName = name || 'Anonymous';
   avatarReady = true;                // set before anything that could throw
   try {
     multiplayer = createMultiplayer(scene, getState, color, name, {
@@ -544,8 +516,6 @@ function animate() {
   secrets.update(dt, playerPosition, isOnBoat());
   emotes.update(dt);
   emotes.showMobileBar(isMobile);
-  bulletin.update(dt, playerPosition);
-  bulletin.showMobileBtn();
   volleyball.update(dt, playerPosition);
   geese.update(dt, playerPosition);
   npcUpdate(dt, playerPosition);

@@ -1,27 +1,37 @@
-// Persistence layer — localStorage today, Firestore-ready tomorrow.
+// Persistence layer — DISABLED for now.
 //
-// To upgrade to Firestore:
-//   1. npm install firebase
-//   2. Replace the _backend object below with Firestore read/write calls
-//   3. All callers (fishing, bulletin, secrets, etc.) need zero changes
+// localStorage only persists per-device/per-browser, not shared across all
+// users, so the feature is parked until a real shared backend (e.g. Firestore)
+// is added. The save/load/append API below still works within a single
+// session via an in-memory store, but nothing survives a page reload.
 //
-// Keys are namespaced under 'world3d:' to avoid clashing with other page data.
+// To re-enable device-local persistence, restore the localStorage backend
+// commented out below. To make state shared across ALL users, replace it
+// with server-side read/write calls instead — callers need zero changes.
 
-const NS = 'world3d:';
+// const NS = 'world3d:';
+//
+// const _backend = {
+//   get(key) {
+//     try {
+//       const raw = localStorage.getItem(NS + key);
+//       return raw === null ? undefined : JSON.parse(raw);
+//     } catch { return undefined; }
+//   },
+//   set(key, value) {
+//     try { localStorage.setItem(NS + key, JSON.stringify(value)); } catch {}
+//   },
+//   remove(key) {
+//     try { localStorage.removeItem(NS + key); } catch {}
+//   },
+// };
 
+// In-memory stand-in — same shape as the real backend, session-only.
+const _mem = new Map();
 const _backend = {
-  get(key) {
-    try {
-      const raw = localStorage.getItem(NS + key);
-      return raw === null ? undefined : JSON.parse(raw);
-    } catch { return undefined; }
-  },
-  set(key, value) {
-    try { localStorage.setItem(NS + key, JSON.stringify(value)); } catch {}
-  },
-  remove(key) {
-    try { localStorage.removeItem(NS + key); } catch {}
-  },
+  get(key)        { return _mem.get(key); },
+  set(key, value) { _mem.set(key, value); },
+  remove(key)     { _mem.delete(key); },
 };
 
 // Save any JSON-serialisable value under a namespaced key.
