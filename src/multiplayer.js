@@ -41,11 +41,11 @@ function makeAvatar(color, name) {
   return g;
 }
 
-export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote, onBallState } = {}) {
+export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote, onBallState, onChat } = {}) {
   const key = import.meta.env.VITE_ABLY_KEY;
   if (!key || key === 'your_ably_api_key_here') {
     console.warn('Multiplayer disabled — VITE_ABLY_KEY not set');
-    return { update() {}, getRemotes() { return []; }, broadcastEmote() {}, publishBall() {} };
+    return { update() {}, getRemotes() { return []; }, broadcastEmote() {}, publishBall() {}, sendChat() {} };
   }
 
   const myId = Math.random().toString(36).slice(2, 10);
@@ -128,6 +128,21 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     channel.publish('emote', { id, duration });
   }
 
+  // Chat messages — { text, name }. Name travels in the message so late
+  // joiners (or a presence race) still see who spoke.
+  channel.subscribe('chat', msg => {
+    if (msg.clientId === myId) return;
+    const text = String(msg.data?.text ?? '').slice(0, 140);
+    if (!text) return;
+    const r    = remotes.get(msg.clientId);
+    const name = r?.name || msg.data?.name || 'Visitor';
+    if (onChat) onChat(name, text, r?.mesh ?? null);
+  });
+
+  function sendChat(text) {
+    channel.publish('chat', { text, name: myName });
+  }
+
   // Volleyball ball-state sync
   vChannel.subscribe('ball', msg => {
     if (msg.clientId === myId) return;
@@ -193,5 +208,5 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     }
   }
 
-  return { update, getRemotes, broadcastEmote, publishBall };
+  return { update, getRemotes, broadcastEmote, publishBall, sendChat };
 }

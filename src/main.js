@@ -18,6 +18,7 @@ import { createNPC }     from './npc.js';
 import { createPortals } from './portal.js';
 import { buildBeachVolleyballCourt } from './beach_volleyball.js';
 import { createMultiplayer } from './multiplayer.js';
+import { createChat } from './chat.js';
 import { showAvatarPicker } from './avatar-select.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
@@ -236,6 +237,7 @@ const torches = createTorches(scene);
 
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
 let multiplayer = { update() {}, getRemotes() { return []; } };  // replaced after avatar selection
+let myName = '';                                                 // set after avatar selection
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Post-processing (composer needs scene + camera + npcRoot)
@@ -271,6 +273,13 @@ const emotes     = createEmotes(getAvatar);
 const volleyball = createVolleyball(scene, {
   onBroadcast: state => { if (multiplayer.publishBall) multiplayer.publishBall(state); },
 });
+const chat = createChat({
+  onSend: text => {
+    if (multiplayer.sendChat) multiplayer.sendChat(text);
+    chat.addMessage(myName || 'Me', text, true);
+    chat.showBubble(getAvatar(), text);   // visible to self in third-person view
+  },
+});
 
 // ── Controls help panel ───────────────────────────────────────────────────────
 ;(() => {
@@ -280,6 +289,7 @@ const volleyball = createVolleyball(scene, {
     ['E',       'Board / exit boat'],
     ['F',       'Cast / reel fishing rod (on boat)'],
     ['H',       'Hit volleyball (near court)'],
+    ['T / Enter', '💬 Chat'],
     ['1',       '👋 Wave'],
     ['2',       '🎉 Cheer'],
     ['3',       '👉 Point'],
@@ -289,6 +299,7 @@ const volleyball = createVolleyball(scene, {
   ];
   const ROWS_MOBILE = [
     ['Joystick', 'Move'],
+    ['💬',       'Chat (bottom left)'],
     ['👋🎉👉🪑', 'Emotes (bottom centre)'],
     ['🎣',       'Cast / reel (on boat, bottom right)'],
     ['🏐',       'Hit volleyball (near court, right)'],
@@ -381,6 +392,13 @@ let _ucVisible  = false;
 // C key — toggle user counter; F key — fishing (while pointer locked)
 window.addEventListener('keydown', e => {
   if (!avatarReady || !document.pointerLockElement) return;
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;   // typing in chat
+  if (e.code === 'Enter' || e.code === 'KeyT') {
+    e.preventDefault();
+    chat.open();
+    return;
+  }
   if (e.code === 'KeyC') {
     _ucVisible = !_ucVisible;
     ucEl.style.display = _ucVisible ? 'block' : 'none';
@@ -422,13 +440,19 @@ if (isMobile) {
 
 showAvatarPicker(overlay, (color, name) => {
   setColor(color, name);
+  myName = name;
   avatarReady = true;                // set before anything that could throw
   try {
     multiplayer = createMultiplayer(scene, getState, color, name, {
       onRemoteEmote: (mesh, id, elapsed) => emotes.applyRemoteEmote(mesh, id, elapsed),
       onBallState:   state => volleyball.handleRemoteState(state),
+      onChat: (senderName, text, mesh) => {
+        chat.addMessage(senderName, text);
+        if (mesh) chat.showBubble(mesh, text);
+      },
     });
   } catch (e) { console.warn('Multiplayer unavailable:', e); }
+  chat.showMobileButton(isMobile);
   if (!isMobile) renderer.domElement.requestPointerLock();
 });
 
