@@ -289,7 +289,7 @@ const chat = createChat({
     ['E',       'Board / exit boat'],
     ['F',       'Cast / reel fishing rod (on boat)'],
     ['H',       'Hit volleyball (near court)'],
-    ['T / Enter', '💬 Chat'],
+    ['T / Enter', '💬 Chat with other players'],
     ['1',       '👋 Wave'],
     ['2',       '🎉 Cheer'],
     ['3',       '👉 Point'],
@@ -299,7 +299,7 @@ const chat = createChat({
   ];
   const ROWS_MOBILE = [
     ['Joystick', 'Move'],
-    ['💬',       'Chat (bottom left)'],
+    ['💬',       'Chat with other players (bottom left)'],
     ['👋🎉👉🪑', 'Emotes (bottom centre)'],
     ['🎣',       'Cast / reel (on boat, bottom right)'],
     ['🏐',       'Hit volleyball (near court, right)'],
