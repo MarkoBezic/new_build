@@ -53,6 +53,15 @@
         50%       { opacity: .7;  }
       }
 
+      /* ── Warp fade (portal transitions) ─────────────────────────── */
+      #fade {
+        position: fixed; inset: 0;
+        background: #000;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 60;
+      }
+
       /* ── Crosshair ──────────────────────────────────────────────── */
       #crosshair {
         display: none;
@@ -122,6 +131,7 @@
         <span>Shift</span><span>Sprint</span>
         <span>Space</span><span>Jump</span>
         <span>Mouse</span><span>Look</span>
+        <span>V</span><span>1st / 3rd person view</span>
         <span>ESC</span><span>Pause</span>
         <span>M</span><span>Map</span>
         <span>T</span><span>Chat with other players</span>
@@ -137,6 +147,7 @@
       </p>
     </div>
 
+    <div id="fade"></div>
     <div id="crosshair"></div>
 
     <div id="hud"></div>

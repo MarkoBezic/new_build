@@ -5,11 +5,23 @@
 export const CLEARING_R = 62;    // radius of the open meadow
 export const WORLD_R    = 920;   // forest outer radius (doubled)
 
+// ── Biome zones ───────────────────────────────────────────────────────────────
+export const BIOMES = {
+  icy:   { x: 350, z: -650, r: 220, label: 'Icy Peaks' },
+  ruins: { x: 650, z:  150, r: 180, label: 'Ancient Ruins' },
+};
+
 // ── Landmark registry ─────────────────────────────────────────────────────────
 // exclR: tree-exclusion radius around the landmark clearing
 export const LANDMARKS = {
-  pond: { x: -160, z:  20, exclR: 33, label: 'POND' },
-  cave: { x:  160, z: -20, exclR: 36, label: 'CAVE' },
+  pond:  { x: -160, z:  20, exclR: 33, label: 'POND' },
+  cave:  { x:  160, z: -20, exclR: 36, label: 'CAVE' },
+  // Biomes get their own themed vegetation — keep generic forest out
+  icy:   { x: BIOMES.icy.x,   z: BIOMES.icy.z,   exclR: BIOMES.icy.r + 15,   label: '' },
+  ruins: { x: BIOMES.ruins.x, z: BIOMES.ruins.z, exclR: BIOMES.ruins.r + 15, label: '' },
+  // Keep the warp-gate plaza and spawn circle clear of trees
+  gate:  { x: 0, z: -130, exclR: 28, label: '' },
+  spawn: { x: 0, z: -165, exclR: 24, label: '' },
 };
 
 // ── Atmosphere ────────────────────────────────────────────────────────────────

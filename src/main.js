@@ -20,6 +20,12 @@ import { buildBeachVolleyballCourt } from './beach_volleyball.js';
 import { createMultiplayer } from './multiplayer.js';
 import { createChat } from './chat.js';
 import { showAvatarPicker } from './avatar-select.js';
+import { createSky }      from './sky.js';
+import { createWater }    from './water.js';
+import { createCrystals } from './crystals.js';
+import { createBiomes, biomeAt } from './biomes.js';
+import { createGhosts }   from './ghosts.js';
+import { createHUD }      from './hud.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
 import { OutlinePass }    from 'three/addons/postprocessing/OutlinePass.js';
@@ -45,13 +51,14 @@ scene.background = new THREE.Color(ATMOSPHERE.skyColor);
 scene.fog        = new THREE.FogExp2(ATMOSPHERE.fogColor, ATMOSPHERE.fogDensity);
 
 // ── Day / Night palette (pre-allocated — reused every frame) ─────────────────
-const _C_NIGHT_SKY = new THREE.Color(0x3A404C);
-const _C_DAWN_SKY  = new THREE.Color(0xB83010);
-const _C_DAY_SKY   = new THREE.Color(ATMOSPHERE.skyColor);
 const _C_NIGHT_FOG = new THREE.Color(0x444A56);
 const _C_DAY_FOG   = new THREE.Color(ATMOSPHERE.fogColor);
 const _C_DAWN_SUN  = new THREE.Color(0xFF6020);
 const _C_DAY_SUN   = new THREE.Color(0xFFF8E0);
+
+// Current sun direction + day factor — shared with the sky and water shaders
+const _sunDir     = new THREE.Vector3(0.3, 0.8, 0.2);
+let   _dayFactor  = 1;
 
 // Real-time solar calculation for Toronto (America/New_York timezone, handles DST automatically)
 const _nyFmt = new Intl.DateTimeFormat('en-US', {
@@ -147,6 +154,12 @@ const { group: siteGroup, carObstacles } = buildSite();
 entities.add('site',     siteGroup);
 entities.add('landmarks', buildLandmarks());
 entities.add('beachCourt', buildBeachVolleyballCourt());
+
+// ── Atmosphere, ocean, crystals, biomes ─────────────────────────────────────
+const sky      = createSky(scene);
+const water    = createWater(scene);
+const crystals = createCrystals(scene);
+const biomes   = createBiomes(scene);
 
 // ── Spawn ground marker ─────────────────────────────────────────────────────
 const _spawnMat = (color, opacity, ring) => new THREE.MeshBasicMaterial({
@@ -266,12 +279,17 @@ composer.addPass(new OutputPass());
 // ─────────────────────────────────────────────────────────────────────────────
 const { controls, update: updatePlayer, startMobile, setColor, playerPosition, getState, teleport, getAvatar } = createPlayer(scene, camera, renderer.domElement);
 const portals    = createPortals(scene, playerPosition, teleport);
-const minimap    = createMinimap(camera, () => multiplayer.getRemotes());
+const ghosts     = createGhosts(scene, { applyEmote: (mesh, id, t) => emotes.applyRemoteEmote(mesh, id, t) });
+const minimap    = createMinimap(camera, () => [...multiplayer.getRemotes(), ...ghosts.getRemotes()]);
 const fishing    = createFishing(scene);
 const secrets    = createSecrets(scene);
 const emotes     = createEmotes(getAvatar);
 const volleyball = createVolleyball(scene, {
   onBroadcast: state => { if (multiplayer.publishBall) multiplayer.publishBall(state); },
+});
+const hud = createHUD({
+  camera, playerPosition, biomeAt,
+  getNearestPortal: portals.getNearest, isMobile,
 });
 const chat = createChat({
   onSend: text => {
@@ -286,6 +304,9 @@ const chat = createChat({
   const ROWS_DESKTOP = [
     ['WASD',    'Move'],
     ['Mouse',   'Look around'],
+    ['V',       'Toggle 1st / 3rd person'],
+    ['Shift',   'Sprint'],
+    ['Space',   'Jump'],
     ['E',       'Board / exit boat'],
     ['F',       'Cast / reel fishing rod (on boat)'],
     ['H',       'Hit volleyball (near court)'],
@@ -479,13 +500,21 @@ function updateDayNight(dt, nowSec) {
   // Real daylight saturates well before the sun is overhead — full brightness
   // once the sun is ~a quarter of the way up its arc, ramping only near dawn/dusk.
   const t = Math.min(1, Math.max(0, sunElev) / 0.25);
-  const dayFactor = t * t * (3 - 2 * t);
+  const dayFactor = _dayFactor = t * t * (3 - 2 * t);
   // Civil twilight: residual sky light for ~50 min past sunset / before sunrise
   const twilight = Math.max(0, Math.min(1, 1 + sunElev / 0.3));
 
   // Sun arc: east at sunrise, overhead at noon, west at sunset
   const az = (hourEST / 24) * Math.PI * 2;
-  sun.position.set(Math.sin(az) * 120, sunElev * 140, Math.cos(az) * 60);
+  _sunDir.set(Math.sin(az) * 120, sunElev * 140, Math.cos(az) * 60).normalize();
+
+  // Sun light + shadow frustum follow the player so shadows work world-wide
+  sun.position.set(
+    playerPosition.x + _sunDir.x * 170,
+    Math.max(_sunDir.y, 0.05) * 170,
+    playerPosition.z + _sunDir.z * 170,
+  );
+  sun.target.position.set(playerPosition.x, 0, playerPosition.z);
 
   if (sunElev > 0) {
     // Warm orange at low angle, white at noon
@@ -501,11 +530,9 @@ function updateDayNight(dt, nowSec) {
   hemi.intensity = 0.28 + twilight * 0.07 + dayFactor * 0.40;
   fill.intensity = 0.14 + twilight * 0.04 + dayFactor * 0.22;
 
-  // Sky: night → day with dawn/dusk orange glow near the horizon
-  const skyMix   = Math.max(dayFactor, twilight * 0.18);
-  const dawnGlow = sunElev > -0.2 ? Math.max(0, 1 - Math.abs(sunElev) * 5) : 0;
-  scene.background.copy(_C_NIGHT_SKY).lerp(_C_DAY_SKY, skyMix);
-  if (dawnGlow > 0.01) scene.background.lerp(_C_DAWN_SKY, dawnGlow * 0.4);
+  // Physical sky (Rayleigh/Mie scattering) + stars after dusk
+  const skyMix = Math.max(dayFactor, twilight * 0.18);
+  sky.update(_sunDir, sunElev, nowSec, camera);
 
   // Fog
   scene.fog.color.copy(_C_NIGHT_FOG).lerp(_C_DAY_FOG, skyMix);
@@ -544,6 +571,11 @@ function animate() {
   geese.update(dt, playerPosition);
   npcUpdate(dt, playerPosition);
   portals.update(dt);
+  ghosts.update(dt);
+  biomes.update(dt, playerPosition, now / 1000);
+  crystals.update(now / 1000);
+  water.update(now / 1000, _sunDir, scene.fog, _dayFactor);
+  hud.update(dt);
   multiplayer.update(dt);
   // Update counter text only when visible and only when the value changes
   if (_ucVisible) {

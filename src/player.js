@@ -309,12 +309,12 @@ function createDesktopPlayer(scene, camera, canvas) {
   }
 
   function teleport(x, z) {
+    playerY = floorY(x, z);
     if (thirdPerson) {
-      avatar.position.set(x, 0, z);
+      avatar.position.set(x, playerY, z);
     } else {
-      camera.position.set(x, EYE_HEIGHT, z);
+      camera.position.set(x, playerY + EYE_HEIGHT, z);
     }
-    playerY = 0;
     vy = 0;
   }
 
@@ -531,7 +531,7 @@ function createMobilePlayer(scene, camera, canvas) {
   function teleport(x, z) {
     playerX = x;
     playerZ = z;
-    playerY = 0;
+    playerY = floorY(x, z);
     vy = 0;
   }
 

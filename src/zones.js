@@ -1,4 +1,5 @@
 import { OCEAN } from './world.config.js';
+import { terrainHeight } from './terrain.js';
 
 // ── Surface heights ────────────────────────────────────────────────────────────
 export const GROUND_Y = {
@@ -32,7 +33,7 @@ export const ZONE = {
 export function groundY(x, z) {
   if (ZONE.building.test(x, z)) return GROUND_Y.building;
   if (ZONE.beach.test(x, z))    return GROUND_Y.beach;
-  return GROUND_Y.default;
+  return terrainHeight(x, z);   // 0 in the flat core, hills beyond
 }
 
 // ── Geese roam regions ────────────────────────────────────────────────────────
