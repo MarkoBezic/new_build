@@ -1,8 +1,35 @@
 import * as THREE from 'three';
 
+// ── Toast notifications — standalone, usable by any module ──────────────────
+let _toastBox = null;
+export function toast(msg, ms = 3200) {
+  if (!_toastBox) {
+    _toastBox = document.createElement('div');
+    Object.assign(_toastBox.style, {
+      position: 'fixed', top: '84px', left: '50%', transform: 'translateX(-50%)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+      pointerEvents: 'none', zIndex: '25',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+    });
+    document.body.appendChild(_toastBox);
+  }
+  const el = document.createElement('div');
+  el.textContent = msg;
+  Object.assign(el.style, {
+    color: '#fff', fontSize: '14px', background: 'rgba(20,16,8,0.78)',
+    padding: '8px 18px', borderRadius: '10px',
+    border: '1px solid rgba(255,215,130,0.35)',
+    textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+    transition: 'opacity 0.5s ease', opacity: '1',
+  });
+  _toastBox.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; }, ms - 500);
+  setTimeout(() => el.remove(), ms);
+}
+
 // HUD overlay — compass strip (top centre), current biome name, a biome
 // banner that flashes on zone change, and a contextual hint line.
-export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, isMobile }) {
+export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, getInteractPrompt, isMobile }) {
   const mk = (styles) => {
     const el = document.createElement('div');
     Object.assign(el.style, {
@@ -45,9 +72,14 @@ export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, i
   });
 
   const TIPS = isMobile
-    ? ['Drag left side to move, right side to look', 'Walk into a glowing portal to warp', 'Tap 💬 to chat']
+    ? ['Drag left side to move, right side to look', 'Walk into a glowing portal to warp',
+       '✦ Collect resonant shards — look for the light beams', 'Tap 💬 to chat']
     : ['Press V to toggle 1st / 3rd person view', 'Hold Shift to sprint — Space to jump',
-       'Walk into a glowing portal to warp', 'Press T to chat with other players'];
+       'Walk into a glowing portal to warp',
+       '✦ Collect resonant shards — look for the light beams',
+       'Stone tablets hold the Warden story — press J for your journal',
+       'Return at night… some things only wake after dark',
+       'Press T to chat with other players'];
 
   const CARDINALS = [['N', 0], ['E', 90], ['S', 180], ['W', 270]];
   const _dir = new THREE.Vector3();
@@ -109,9 +141,13 @@ export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, i
       if (bannerTimer <= 0) bannerEl.style.opacity = '0';
     }
 
-    // Contextual hint — portal proximity wins, then rotating starter tips
+    // Contextual hint — interact prompt wins, then portals, then starter tips
+    const prompt = getInteractPrompt ? getInteractPrompt() : null;
     const near = getNearestPortal(playerPosition.x, playerPosition.z);
-    if (near && near.dist < 10) {
+    if (prompt) {
+      hintEl.textContent = isMobile ? `✦ ${prompt}` : `[E] ${prompt}`;
+      hintEl.style.opacity = '1';
+    } else if (near && near.dist < 10) {
       hintEl.textContent = `Run into the portal to warp → ${near.label}`;
       hintEl.style.opacity = '1';
     } else if (tipLife > 0) {

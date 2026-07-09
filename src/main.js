@@ -25,7 +25,16 @@ import { createWater }    from './water.js';
 import { createCrystals } from './crystals.js';
 import { createBiomes, biomeAt } from './biomes.js';
 import { createGhosts }   from './ghosts.js';
-import { createHUD }      from './hud.js';
+import { createHUD, toast } from './hud.js';
+import { createAudio }    from './audio.js';
+import { progress }       from './progress.js';
+import { createInteract } from './interact.js';
+import { createCosmetics } from './cosmetics.js';
+import { createShards }   from './shards.js';
+import { createTablets }  from './tablets.js';
+import { createNight }    from './night.js';
+import { createEvents }   from './events.js';
+import { createPOIs }     from './pois.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
 import { OutlinePass }    from 'three/addons/postprocessing/OutlinePass.js';
@@ -56,9 +65,14 @@ const _C_DAY_FOG   = new THREE.Color(ATMOSPHERE.fogColor);
 const _C_DAWN_SUN  = new THREE.Color(0xFF6020);
 const _C_DAY_SUN   = new THREE.Color(0xFFF8E0);
 
-// Current sun direction + day factor — shared with the sky and water shaders
+// Current sun direction + day/night state — shared across systems
 const _sunDir     = new THREE.Vector3(0.3, 0.8, 0.2);
 let   _dayFactor  = 1;
+let   _night      = 0;   // 0 day → 1 deep night
+let   _hourEST    = 12;  // fractional local hour, for scheduled events
+let   _fireFeed   = 0;   // campfire "feed" interaction boost, decays
+
+const audio = createAudio();
 
 // Real-time solar calculation for Toronto (America/New_York timezone, handles DST automatically)
 const _nyFmt = new Intl.DateTimeFormat('en-US', {
@@ -278,7 +292,7 @@ composer.addPass(new OutputPass());
 //  FPS player
 // ─────────────────────────────────────────────────────────────────────────────
 const { controls, update: updatePlayer, startMobile, setColor, playerPosition, getState, teleport, getAvatar } = createPlayer(scene, camera, renderer.domElement);
-const portals    = createPortals(scene, playerPosition, teleport);
+const portals    = createPortals(scene, playerPosition, (x, z) => { audio.sfx.whoosh(); teleport(x, z); });
 const ghosts     = createGhosts(scene, { applyEmote: (mesh, id, t) => emotes.applyRemoteEmote(mesh, id, t) });
 const minimap    = createMinimap(camera, () => [...multiplayer.getRemotes(), ...ghosts.getRemotes()]);
 const fishing    = createFishing(scene);
@@ -287,9 +301,48 @@ const emotes     = createEmotes(getAvatar);
 const volleyball = createVolleyball(scene, {
   onBroadcast: state => { if (multiplayer.publishBall) multiplayer.publishBall(state); },
 });
+// ── Progression, interaction and living-world systems ───────────────────────
+const interact    = createInteract(playerPosition, { isMobile });
+const cosmetics   = createCosmetics(scene, getAvatar, progress);
+const shards      = createShards(scene, { progress, audio, cosmetics });
+const tablets     = createTablets(scene, { progress, audio, interact, cosmetics });
+const nightLife   = createNight(scene, {
+  interact,
+  onSpiritSpeak: (mesh, line) => { chat.showBubble(mesh, line); audio.sfx.bell(); },
+});
+const worldEvents = createEvents(scene);
+const pois        = createPOIs(scene, { interact, audio });
+
+// World-object interactions (main owns the campfire and rune meshes/coords)
+interact.register({
+  x: -465, z: 578, r: 4.5, label: 'Feed the campfire',
+  cb: () => { _fireFeed = 1; audio.sfx.grind(); },
+});
+interact.register({
+  x: 650, z: 150, r: 8, label: 'Ring the ancient rune',
+  cb: () => { audio.sfx.bell(); toast('The rune tolls across the ruins…', 2400); },
+});
+interact.register({
+  x: -145, z: 24, r: 6, label: 'Skip a stone across the pond',
+  cb: () => {
+    audio.sfx.plink();
+    setTimeout(() => audio.sfx.splash(), 350);
+    setTimeout(() => audio.sfx.splash(), 700);
+  },
+});
+
+// U — mute / unmute the soundscape (works even outside pointer lock)
+window.addEventListener('keydown', e => {
+  if (e.code !== 'KeyU') return;
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  toast(audio.toggleMute() ? '🔇 Sound muted' : '🔊 Sound on', 1500);
+});
+
 const hud = createHUD({
   camera, playerPosition, biomeAt,
-  getNearestPortal: portals.getNearest, isMobile,
+  getNearestPortal: portals.getNearest,
+  getInteractPrompt: interact.getPrompt, isMobile,
 });
 const chat = createChat({
   onSend: text => {
@@ -307,7 +360,10 @@ const chat = createChat({
     ['V',       'Toggle 1st / 3rd person'],
     ['Shift',   'Sprint'],
     ['Space',   'Jump'],
-    ['E',       'Board / exit boat'],
+    ['E',       'Interact · board / exit boat'],
+    ['J',       '📖 Warden journal'],
+    ['B',       'Cycle trail style'],
+    ['U',       'Mute / unmute sound'],
     ['F',       'Cast / reel fishing rod (on boat)'],
     ['H',       'Hit volleyball (near court)'],
     ['T / Enter', '💬 Chat with other players'],
@@ -496,6 +552,8 @@ function updateDayNight(dt, nowSec) {
     const hPast    = hourEST >= _sunsetH ? hourEST - _sunsetH : hourEST + (24 - _sunsetH);
     sunElev = -Math.sin(Math.PI * hPast / nightDur);
   }
+  _night   = Math.min(1, Math.max(0, (-sunElev - 0.03) * 5));
+  _hourEST = hourEST;
 
   // Real daylight saturates well before the sun is overhead — full brightness
   // once the sun is ~a quarter of the way up its arc, ramping only near dawn/dusk.
@@ -540,10 +598,13 @@ function updateDayNight(dt, nowSec) {
   // Tiki torches — off in daylight, glow at night
   torches.update(nowSec, dayFactor);
 
-  // Campfire — always flickers, blazes at night
+  // Campfire — always flickers, blazes at night; the sunset-bonfire event
+  // and the "feed the fire" interaction both stoke it further
+  _fireFeed = Math.max(0, _fireFeed - dt * 0.12);
+  const stoke = worldEvents.getCampfireBoost() + _fireFeed * 1.2;
   const flicker = 0.85 + Math.sin(nowSec * 7.3) * 0.09 + Math.sin(nowSec * 13.1) * 0.06;
-  campfireLight.intensity = (0.6 + (1 - dayFactor) * 2.8) * flicker;
-  _campfireFlame.scale.y = 0.85 + Math.sin(nowSec * 6.1) * 0.15;
+  campfireLight.intensity = (0.6 + (1 - dayFactor) * 2.8) * flicker * stoke;
+  _campfireFlame.scale.y = (0.85 + Math.sin(nowSec * 6.1) * 0.15) * (0.7 + stoke * 0.35);
   _campfireFlame.scale.x = _campfireFlame.scale.z = 0.9 + Math.sin(nowSec * 9.7) * 0.10;
   _campfireInner.scale.y = 0.90 + Math.sin(nowSec * 11.3) * 0.10;
 }
@@ -575,6 +636,18 @@ function animate() {
   biomes.update(dt, playerPosition, now / 1000);
   crystals.update(now / 1000);
   water.update(now / 1000, _sunDir, scene.fog, _dayFactor);
+  interact.update(dt);
+  shards.update(dt, playerPosition, now / 1000);
+  tablets.update(dt, now / 1000);
+  nightLife.update(dt, now / 1000, playerPosition, _night);
+  worldEvents.update(dt, _hourEST, _sunsetH, _night, camera);
+  pois.update(dt, now / 1000, _night);
+  cosmetics.update(dt);
+  audio.update(dt, {
+    x: playerPosition.x, z: playerPosition.z, altitude: playerPosition.y,
+    biome: biomeAt(playerPosition.x, playerPosition.z),
+    dayFactor: _dayFactor, night: _night,
+  });
   hud.update(dt);
   multiplayer.update(dt);
   // Update counter text only when visible and only when the value changes

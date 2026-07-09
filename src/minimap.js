@@ -1,5 +1,15 @@
 import * as THREE from 'three';
-import { CLEARING_R, WORLD_R, LANDMARKS, OCEAN, SPAWN } from './world.config.js';
+import { CLEARING_R, WORLD_R, LANDMARKS, OCEAN, SPAWN, BIOMES } from './world.config.js';
+import { progress } from './progress.js';
+import { toast } from './hud.js';
+
+// ── Fog of war — landmarks appear on the map only after you visit them ──────
+const DISCOVERABLES = [
+  { id: 'pond',  x: LANDMARKS.pond.x, z: LANDMARKS.pond.z, r: 60,           hint: 'The pond' },
+  { id: 'cave',  x: LANDMARKS.cave.x, z: LANDMARKS.cave.z, r: 60,           hint: 'The cave' },
+  { id: 'icy',   x: BIOMES.icy.x,     z: BIOMES.icy.z,     r: BIOMES.icy.r,   hint: 'Icy Peaks' },
+  { id: 'ruins', x: BIOMES.ruins.x,   z: BIOMES.ruins.z,   r: BIOMES.ruins.r, hint: 'Ancient Ruins' },
+];
 
 // ── Canvas & scale ────────────────────────────────────────────────────────
 const W  = 280, H = 280;
@@ -22,7 +32,7 @@ function coastPts(coastVal) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  Pre-render the static world map once to an offscreen canvas
 // ─────────────────────────────────────────────────────────────────────────────
-function bakeMap() {
+function bakeMap(found) {
   const off = document.createElement('canvas');
   off.width  = W;
   off.height = H;
@@ -105,21 +115,58 @@ function bakeMap() {
   c.textBaseline = 'top';
   c.fillText('START', spx, spy + 11);
 
-  // Pond
+  // Pond — only once discovered
   const ppx = px(LANDMARKS.pond.x), ppy = py(LANDMARKS.pond.z);
   const PR = Math.max(4, 18 * S);
-  c.fillStyle = '#2E7D3A';
-  c.beginPath(); c.ellipse(ppx, ppy, PR * 1.3, PR * 0.8, 0, 0, Math.PI * 2); c.fill();
-  c.fillStyle = '#1A5276';
-  c.beginPath(); c.ellipse(ppx, ppy, PR, PR * 0.6, 0, 0, Math.PI * 2); c.fill();
+  if (found.has('pond')) {
+    c.fillStyle = '#2E7D3A';
+    c.beginPath(); c.ellipse(ppx, ppy, PR * 1.3, PR * 0.8, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#1A5276';
+    c.beginPath(); c.ellipse(ppx, ppy, PR, PR * 0.6, 0, 0, Math.PI * 2); c.fill();
+  }
 
-  // Cave
+  // Cave — only once discovered
   const cpx = px(LANDMARKS.cave.x), cpy = py(LANDMARKS.cave.z);
   const CR = Math.max(4, 18 * S);
-  c.fillStyle = '#5A5248';
-  c.beginPath(); c.arc(cpx, cpy, CR, 0, Math.PI * 2); c.fill();
-  c.fillStyle = '#111008';
-  c.beginPath(); c.arc(cpx, cpy, Math.max(2, CR * 0.45), 0, Math.PI * 2); c.fill();
+  if (found.has('cave')) {
+    c.fillStyle = '#5A5248';
+    c.beginPath(); c.arc(cpx, cpy, CR, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#111008';
+    c.beginPath(); c.arc(cpx, cpy, Math.max(2, CR * 0.45), 0, Math.PI * 2); c.fill();
+  }
+
+  // Biomes — only once discovered
+  if (found.has('icy')) {
+    const ix = px(BIOMES.icy.x), iy = py(BIOMES.icy.z), ir = BIOMES.icy.r * S;
+    c.fillStyle = 'rgba(228,240,248,0.85)';
+    c.beginPath(); c.arc(ix, iy, ir, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#8B929E';
+    for (const [dx, dy] of [[-0.3, 0.1], [0.15, -0.2], [0.05, 0.35]]) {
+      c.beginPath();
+      c.moveTo(ix + dx * ir - 4, iy + dy * ir + 3);
+      c.lineTo(ix + dx * ir, iy + dy * ir - 4);
+      c.lineTo(ix + dx * ir + 4, iy + dy * ir + 3);
+      c.closePath(); c.fill();
+    }
+  }
+  if (found.has('ruins')) {
+    const rx = px(BIOMES.ruins.x), ry = py(BIOMES.ruins.z), rr = BIOMES.ruins.r * S;
+    c.fillStyle = 'rgba(154,143,118,0.85)';
+    c.beginPath(); c.arc(rx, ry, rr, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#5C523E';
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      c.fillRect(rx + Math.cos(a) * rr * 0.55 - 1, ry + Math.sin(a) * rr * 0.55 - 2, 2, 4);
+    }
+  }
+
+  // Undiscovered landmarks show as faint question marks
+  c.fillStyle    = 'rgba(255,255,255,0.30)';
+  c.font         = 'bold 11px system-ui,sans-serif';
+  c.textAlign    = 'center'; c.textBaseline = 'middle';
+  for (const d of DISCOVERABLES) {
+    if (!found.has(d.id)) c.fillText('?', px(d.x), py(d.z));
+  }
 
   // Parking lots
   c.fillStyle = '#1E1E22';
@@ -146,11 +193,23 @@ function bakeMap() {
   c.fillStyle = 'rgba(255,250,240,0.85)';
   c.font      = 'bold 7px system-ui,sans-serif';
   c.fillText('OT', CX, CY + 1);
-  c.fillStyle = 'rgba(160,220,255,0.80)';
-  c.font      = '7px system-ui,sans-serif';
-  c.fillText(LANDMARKS.pond.label, ppx, ppy + PR + 5);
-  c.fillStyle = 'rgba(210,200,185,0.80)';
-  c.fillText(LANDMARKS.cave.label, cpx, cpy + CR + 5);
+  c.font = '7px system-ui,sans-serif';
+  if (found.has('pond')) {
+    c.fillStyle = 'rgba(160,220,255,0.80)';
+    c.fillText(LANDMARKS.pond.label, ppx, ppy + PR + 5);
+  }
+  if (found.has('cave')) {
+    c.fillStyle = 'rgba(210,200,185,0.80)';
+    c.fillText(LANDMARKS.cave.label, cpx, cpy + CR + 5);
+  }
+  if (found.has('icy')) {
+    c.fillStyle = 'rgba(228,240,248,0.85)';
+    c.fillText('ICY PEAKS', px(BIOMES.icy.x), py(BIOMES.icy.z) + BIOMES.icy.r * S + 5);
+  }
+  if (found.has('ruins')) {
+    c.fillStyle = 'rgba(220,205,170,0.85)';
+    c.fillText('RUINS', px(BIOMES.ruins.x), py(BIOMES.ruins.z) + BIOMES.ruins.r * S + 5);
+  }
   if (outer) {
     c.fillStyle = 'rgba(180,220,255,0.60)';
     c.font      = 'bold 8px system-ui,sans-serif';
@@ -199,7 +258,9 @@ export function createMinimap(camera, getRemotes = () => []) {
   document.body.appendChild(canvas);
   const ctx = canvas.getContext('2d');
 
-  const staticMap = bakeMap();
+  const found = new Set(progress.get('found'));
+  let staticMap = bakeMap(found);
+  let scanTimer = 0;
 
   // ── M-key toggle — display is only touched here, never inside animate() ───
   let visible = false;
@@ -220,6 +281,20 @@ export function createMinimap(camera, getRemotes = () => []) {
 
   // ── Per-frame update ─────────────────────────────────────────────────────
   function update() {
+    // Discovery scan — cheap, throttled, runs even while the map is hidden
+    if (--scanTimer <= 0) {
+      scanTimer = 30;   // every ~0.5 s
+      for (const d of DISCOVERABLES) {
+        if (found.has(d.id)) continue;
+        if (Math.hypot(camera.position.x - d.x, camera.position.z - d.z) < d.r) {
+          found.add(d.id);
+          progress.add('found', d.id);
+          staticMap = bakeMap(found);
+          toast(`📍 ${d.hint} added to your map`, 2600);
+        }
+      }
+    }
+
     if (!visible) return;
 
     ctx.clearRect(0, 0, W, H);
