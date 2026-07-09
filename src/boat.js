@@ -137,8 +137,10 @@ function buildMesh(index) {
   rig.add(stem);
 
   // ── Interior — floor boards, thwarts, foredeck ─────────────────────────────
-  for (let i = -2; i <= 2; i++) {
-    box(rig, 0.20, 0.04, L * 0.62, DARK_MAT, i * 0.24, 0.09, 0.18);
+  // Boards span only the flat middle of the rocker (t ≈ 0.35–0.85) and stay
+  // narrower than the hull bottom, so nothing pokes through the curved skin.
+  for (let i = -1; i <= 1; i++) {
+    box(rig, 0.22, 0.04, 1.85, DARK_MAT, i * 0.26, 0.115, 0.37);
   }
   box(rig, halfW(0.50) * 1.78, 0.06, 0.30, WOOD_MAT, 0, 0.36, zAt(0.50));  // mid thwart
   box(rig, halfW(0.82) * 1.70, 0.06, 0.28, WOOD_MAT, 0, 0.38, zAt(0.82));  // stern thwart

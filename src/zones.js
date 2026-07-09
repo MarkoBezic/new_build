@@ -45,10 +45,11 @@ export const GEESE_REGIONS = [
   { name: 'beach-volleyball', x0: -480, x1: -434, z0: 577, z1: 622, groundY: GROUND_Y.beach   },
 ];
 
-// ── Boat spawn positions (all at z − x = BEACH_STOP) ─────────────────────────
+// ── Boat spawn positions — idle boats float just offshore (z − x = 1103),
+//    still within boarding reach (2.5) of the walkable shoreline ─────────────
 export const BOAT_SPAWNS = [
-  { x: -502, z: 597, yaw: Math.PI * 0.75 },  // primary rideable boat
-  { x: -483, z: 616, yaw: Math.PI * 0.68 },
-  { x: -559, z: 540, yaw: Math.PI * 0.81 },
-  { x: -596, z: 503, yaw: Math.PI * 0.72 },
+  { x: -504, z: 599, yaw: Math.PI * 0.75 },  // primary rideable boat
+  { x: -485, z: 618, yaw: Math.PI * 0.68 },
+  { x: -561, z: 542, yaw: Math.PI * 0.81 },
+  { x: -598, z: 505, yaw: Math.PI * 0.72 },
 ];

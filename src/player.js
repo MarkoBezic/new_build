@@ -15,7 +15,7 @@ const PITCH_MIN    = -Math.PI / 2 + 0.05;
 const PITCH_MAX    =  Math.PI / 2 - 0.05;
 const BOARD_RADIUS = 2.5;
 const BOAT_FLOAT_Y = 0.15;  // boat sits at beach/water surface
-const BOAT_DECK_Y  = 0.23;  // player stands on hull floor (FLOAT_Y + 0.08 floor panel)
+const BOAT_DECK_Y  = 0.28;  // player stands on the floor boards (FLOAT_Y + 0.13 board top)
 
 // Touch primary input = mobile (consistent with CSS `pointer: coarse`)
 export const isMobile = window.matchMedia('(pointer: coarse)').matches;

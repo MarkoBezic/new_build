@@ -5,6 +5,8 @@ import { groundY } from './zones.js';
 // Client-side "ghost player" simulation — a handful of named avatars that
 // roam, idle, jump and emote so the world feels inhabited even when no real
 // players are online. They also appear on the minimap via getRemotes().
+// Every ghost is tagged "(NPC)" in its name label and on the minimap so
+// real players are never mistaken for automated ones.
 
 const ROSTER = [
   { name: 'Nova', color: 0xE06A9A },
@@ -32,10 +34,10 @@ function makeNameLabel(name) {
   cx.beginPath();
   cx.roundRect(0, 0, 256, 64, 10);
   cx.fill();
-  cx.font = 'bold 28px Arial, sans-serif';
+  cx.font = 'bold 24px Arial, sans-serif';
   cx.fillStyle = 'white';
   cx.textAlign = 'center'; cx.textBaseline = 'middle';
-  cx.fillText(name, 128, 34);
+  cx.fillText(`${name} (NPC)`, 128, 34);
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({
     map: new THREE.CanvasTexture(cv), transparent: true,
   }));
@@ -123,7 +125,7 @@ export function createGhosts(scene, { applyEmote } = {}) {
 
   function getRemotes() {
     return ghosts.map(g => ({
-      x: g.mesh.position.x, z: g.mesh.position.z, color: g.color, name: g.name,
+      x: g.mesh.position.x, z: g.mesh.position.z, color: g.color, name: `${g.name} (NPC)`,
     }));
   }
 
