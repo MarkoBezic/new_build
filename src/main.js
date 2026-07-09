@@ -9,7 +9,7 @@ import { createSecrets } from './secrets.js';
 import { createEmotes, EMOTES } from './emotes.js';
 import { createVolleyball } from './volleyball.js';
 import { createTorches } from './torches.js';
-import { createBoat, createDecorativeBoats } from './boat.js';
+import { createBoat, createDecorativeBoats, updateBoats } from './boat.js';
 import { createMinimap } from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
 import { EntityManager } from './entities.js';
@@ -637,6 +637,7 @@ function animate() {
   crystals.update(now / 1000);
   water.update(now / 1000, _sunDir, scene.fog, _dayFactor);
   interact.update(dt);
+  updateBoats(now / 1000);
   shards.update(dt, playerPosition, now / 1000);
   tablets.update(dt, now / 1000);
   nightLife.update(dt, now / 1000, playerPosition, _night);

@@ -6,8 +6,6 @@ const HALF_W    = 0.95;   // half-width of the oval arch
 const HALF_H    = 1.45;   // half-height — arch top at y = 2 × HALF_H = 2.9
 const TRIGGER_R = 1.8;    // units — teleport when player gets this close
 const COOLDOWN  = 2.2;    // seconds before re-trigger allowed
-const FADE_OUT  = 0.40;   // seconds of fade-to-black before the warp
-const FADE_IN   = 0.55;   // seconds of fade back in after arrival
 
 // ── Warp network ──────────────────────────────────────────────────────────────
 // Two gates stand at the valley plaza (north of the clearing, by the spawn
@@ -81,12 +79,9 @@ function makePortal(scene, def) {
 // ── Public factory ────────────────────────────────────────────────────────────
 export function createPortals(scene, playerPosition, teleport) {
   const surfMats = DEFS.map(def => makePortal(scene, def));
-  const fadeEl   = document.getElementById('fade');
 
   let cooldown = 0;
   let time     = 0;
-  // Warp fade state: null | { t, dest }
-  let warp = null;
 
   function update(dt) {
     time     += dt;
@@ -95,32 +90,14 @@ export function createPortals(scene, playerPosition, teleport) {
     const pulse = 0.65 + 0.40 * Math.sin(time * 2.6);
     for (const m of surfMats) m.emissiveIntensity = pulse;
 
-    // Fade sequence: black out → teleport → fade back in
-    if (warp) {
-      warp.t += dt;
-      if (warp.dest) {
-        const k = Math.min(1, warp.t / FADE_OUT);
-        if (fadeEl) fadeEl.style.opacity = k;
-        if (k >= 1) {
-          teleport(warp.dest.x, warp.dest.z);
-          warp = { t: 0, dest: null };
-        }
-      } else {
-        const k = Math.min(1, warp.t / FADE_IN);
-        if (fadeEl) fadeEl.style.opacity = 1 - k;
-        if (k >= 1) warp = null;
-      }
-      return;
-    }
-
     if (cooldown > 0) return;
 
+    // Snappy jump cut — teleport the instant the player touches a portal
     const px = playerPosition.x, pz = playerPosition.z;
     for (const def of DEFS) {
       if (Math.hypot(px - def.x, pz - def.z) < TRIGGER_R) {
-        cooldown = COOLDOWN + FADE_OUT + FADE_IN;
-        if (fadeEl) warp = { t: 0, dest: def.dest };
-        else        teleport(def.dest.x, def.dest.z);   // fallback: instant warp
+        cooldown = COOLDOWN;
+        teleport(def.dest.x, def.dest.z);
         break;
       }
     }
