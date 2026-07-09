@@ -21,12 +21,22 @@ const BOAT_DECK_Y  = 0.28;  // player stands on the floor boards (FLOAT_Y + 0.13
 export const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
 // ── Boat state (shared across whichever player is active) ────────────────────
-let _boats       = [];
-let _activeBoat  = null;
-let _onBoat      = false;
-let _hasCastOff  = false;   // true once the active boat has entered open water
+let _boats         = [];
+let _activeBoat    = null;
+let _onBoat        = false;
+let _hasCastOff    = false;   // true once the active boat has entered open water
+let _boardCooldown = 0;       // grace period after disembarking before re-board
+const BOARD_COOLDOWN = 1.2;
 export function setBoats(arr) { _boats = arr; }
 export function isOnBoat()    { return _onBoat; }
+
+// Walk-off landing spot: step inland from the boat to z−x ≈ 1092, safely on
+// the sand and OUTSIDE the auto-board radius — otherwise the player is
+// re-boarded the very next frame and gets stuck at the waterline.
+function shoreExit(boat) {
+  const shift = Math.max(2.5, (boat.z - boat.x - 1092) / 2);
+  return { tx: boat.x + shift, tz: boat.z - shift };
+}
 
 function floorY(x, z) {
   if (_onBoat) return BOAT_DECK_Y;
@@ -143,6 +153,7 @@ function createDesktopPlayer(scene, camera, canvas) {
     // Disembark boat
     if (e.code === 'KeyE' && _onBoat && _activeBoat) {
       _onBoat = false; _hasCastOff = false;
+      _boardCooldown = BOARD_COOLDOWN;
       boatHint.style.display = 'none';
       // Place player on beach side of shore from current boat position
       const K = _activeBoat.z - _activeBoat.x;
@@ -164,6 +175,7 @@ function createDesktopPlayer(scene, camera, canvas) {
   // ── Per-frame update ────────────────────────────────────────────────────────
   function update(dt) {
     if (!document.pointerLockElement) return;
+    _boardCooldown = Math.max(0, _boardCooldown - dt);
 
     const speed = _onBoat ? BOAT_SPEED
                 : (keys.has('ShiftLeft') || keys.has('ShiftRight') ? SPRINT_SPEED : WALK_SPEED);
@@ -188,9 +200,10 @@ function createDesktopPlayer(scene, camera, canvas) {
         if (boatDiag < BEACH_STOP) {
           const excess = BEACH_STOP - boatDiag;
           _activeBoat.x -= excess / 2; _activeBoat.z += excess / 2;
-          const tx = _activeBoat.x + 1.5, tz = _activeBoat.z - 1.5;
+          const { tx, tz } = shoreExit(_activeBoat);
           _onBoat = false; _hasCastOff = false;
           _activeBoat = null;
+          _boardCooldown = BOARD_COOLDOWN;
           boatHint.style.display = 'none';
           if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
           else             { camera.position.x = tx; camera.position.z = tz; }
@@ -206,10 +219,12 @@ function createDesktopPlayer(scene, camera, canvas) {
       }
     }
 
-    // Auto-disembark once the boat has entered open water and drifts back to shore
+    // Auto-disembark once the boat has entered open water and drifts back to
+    // shore — the player simply walks off onto the sand and keeps going
     if (_onBoat && _activeBoat && _hasCastOff && (_activeBoat.z - _activeBoat.x < SHORE)) {
-      const tx = _activeBoat.x + 1.5, tz = _activeBoat.z - 1.5;
+      const { tx, tz } = shoreExit(_activeBoat);
       _onBoat = false; _hasCastOff = false; _activeBoat = null;
+      _boardCooldown = BOARD_COOLDOWN;
       boatHint.style.display = 'none';
       if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
       else             { camera.position.x = tx; camera.position.z = tz; }
@@ -271,7 +286,7 @@ function createDesktopPlayer(scene, camera, canvas) {
     }
 
     // Auto-board: walk into any boat to board the nearest one
-    if (!_onBoat && _boats.length) {
+    if (!_onBoat && _boardCooldown <= 0 && _boats.length) {
       const curX = thirdPerson ? avatar.position.x : camera.position.x;
       const curZ = thirdPerson ? avatar.position.z : camera.position.z;
       let nearest = null, bestDist = BOARD_RADIUS;
@@ -427,6 +442,8 @@ function createMobilePlayer(scene, camera, canvas) {
   canvas.addEventListener('touchcancel', endTouch, { passive: false });
 
   function update(dt) {
+    _boardCooldown = Math.max(0, _boardCooldown - dt);
+
     // Movement in yaw direction
     if (joyId !== null && Math.hypot(joyDX, joyDY) > DEAD) {
       const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
@@ -441,9 +458,11 @@ function createMobilePlayer(scene, camera, canvas) {
         if (boatDiag < BEACH_STOP) {
           const excess = BEACH_STOP - boatDiag;
           _activeBoat.x -= excess / 2; _activeBoat.z += excess / 2;
-          playerX = _activeBoat.x + 1.5; playerZ = _activeBoat.z - 1.5;
+          const { tx, tz } = shoreExit(_activeBoat);
+          playerX = tx; playerZ = tz;
           _onBoat = false; _hasCastOff = false;
           _activeBoat = null;
+          _boardCooldown = BOARD_COOLDOWN;
           playerY = floorY(playerX, playerZ); vy = 0;
         }
       } else {
@@ -454,8 +473,10 @@ function createMobilePlayer(scene, camera, canvas) {
 
     // Auto-disembark once the boat has entered open water and drifts back to shore
     if (_onBoat && _activeBoat && _hasCastOff && (_activeBoat.z - _activeBoat.x < SHORE)) {
-      playerX = _activeBoat.x + 1.5; playerZ = _activeBoat.z - 1.5;
+      const { tx, tz } = shoreExit(_activeBoat);
+      playerX = tx; playerZ = tz;
       _onBoat = false; _hasCastOff = false; _activeBoat = null;
+      _boardCooldown = BOARD_COOLDOWN;
       playerY = floorY(playerX, playerZ); vy = 0;
     }
 
@@ -500,7 +521,7 @@ function createMobilePlayer(scene, camera, canvas) {
     playerPosition.set(lx, ly, lz);
 
     // Auto-board: walk into any boat to board the nearest one
-    if (!_onBoat && _boats.length) {
+    if (!_onBoat && _boardCooldown <= 0 && _boats.length) {
       let nearest = null, bestDist = BOARD_RADIUS;
       for (const b of _boats) {
         const d = Math.hypot(playerX - b.x, playerZ - b.z);
