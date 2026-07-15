@@ -41,6 +41,10 @@ import { createSnowballs } from './snowballs.js';
 import { createWeather }  from './weather.js';
 import { createTreasure } from './treasure.js';
 import { createTasks }    from './tasks.js';
+import { createPhoto }    from './photo.js';
+import { createRitual }   from './ritual.js';
+import { createRace }     from './race.js';
+import { createGosling }  from './gosling.js';
 import { bus }            from './bus.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
@@ -326,6 +330,10 @@ const tasks       = createTasks({ playerPosition });
 const treasure    = createTreasure(scene, {
   interact, audio, summit: glider.summit, getTasksNote: tasks.summaryLine,
 });
+const photo       = createPhoto(renderer, { audio, isMobile });
+const ritual      = createRitual(scene, { audio });
+const race        = createRace(scene, { interact, audio, playerPosition });
+const gosling     = createGosling(scene, { interact, audio, playerPosition });
 const snowballs   = createSnowballs(scene, {
   camera, playerPosition, biomeAt, audio,
   getTargets:  () => [...multiplayer.getRemotes(), ...ghosts.getRemotes()],
@@ -335,7 +343,13 @@ const snowballs   = createSnowballs(scene, {
 // World-object interactions (main owns the campfire and rune meshes/coords)
 interact.register({
   x: -465, z: 578, r: 4.5, label: 'Feed the campfire',
-  cb: () => { _fireFeed = 1; audio.sfx.grind(); bus.emit('campfire'); },
+  cb: () => {
+    _fireFeed = 1;
+    audio.sfx.grind();
+    bus.emit('campfire');
+    ritual.onFeed('me', performance.now() / 1000);
+    if (multiplayer.publishFire) multiplayer.publishFire();
+  },
 });
 interact.register({
   x: 650, z: 150, r: 8, label: 'Ring the ancient rune',
@@ -376,6 +390,7 @@ const chat = createChat({
     ['G',       '❄️ Throw snowball (in the Icy Peaks)'],
     ['J',       '📖 Warden journal'],
     ['K',       '📋 Daily tasks'],
+    ['P',       '📷 Save a photo'],
     ['B',       'Cycle trail style'],
     ['U',       'Mute / unmute sound'],
     ['F',       'Cast / reel fishing rod (on boat)'],
@@ -395,6 +410,7 @@ const chat = createChat({
     ['🎣',       'Cast / reel (on boat, bottom right)'],
     ['🏐',       'Hit volleyball (near court, right)'],
     ['❄️',       'Throw snowball (in the Icy Peaks)'],
+    ['📷',       'Save a photo (left side)'],
   ];
 
   const rows = isMobile ? ROWS_MOBILE : ROWS_DESKTOP;
@@ -540,6 +556,7 @@ showAvatarPicker(overlay, (color, name) => {
       onRemoteEmote: (mesh, id, elapsed) => emotes.applyRemoteEmote(mesh, id, elapsed),
       onBallState:   state => volleyball.handleRemoteState(state),
       onSnow:        data => snowballs.spawnRemote(data),
+      onFire:        id => ritual.onFeed(id, performance.now() / 1000),
       onChat: (senderName, text, mesh) => {
         chat.addMessage(senderName, text);
         if (mesh) chat.showBubble(mesh, text);
@@ -624,7 +641,7 @@ function updateDayNight(dt, nowSec) {
   // Campfire — always flickers, blazes at night; the sunset-bonfire event
   // and the "feed the fire" interaction both stoke it further
   _fireFeed = Math.max(0, _fireFeed - dt * 0.12);
-  const stoke = worldEvents.getCampfireBoost() + _fireFeed * 1.2;
+  const stoke = worldEvents.getCampfireBoost() + _fireFeed * 1.2 + ritual.getBoost();
   const flicker = 0.85 + Math.sin(nowSec * 7.3) * 0.09 + Math.sin(nowSec * 13.1) * 0.06;
   campfireLight.intensity = (0.6 + (1 - dayFactor) * 2.8) * flicker * stoke;
   _campfireFlame.scale.y = (0.85 + Math.sin(nowSec * 6.1) * 0.15) * (0.7 + stoke * 0.35);
@@ -713,6 +730,9 @@ function animate() {
   snowballs.update(dt);
   treasure.update(dt, now / 1000);
   tasks.update(dt);
+  ritual.update(dt, now / 1000);
+  race.update(dt, now / 1000);
+  gosling.update(dt);
   fishing.setConditions({ night: _night, rain: weather.current().rain });
   updateFeel(dt);
   shards.update(dt, playerPosition, now / 1000);
@@ -737,6 +757,7 @@ function animate() {
 
   minimap.update();
   composer.render();
+  photo.afterRender();   // must run while the frame buffer is fresh
 }
 
 animate();

@@ -111,6 +111,16 @@ export function createAudio() {
     thump(i = 1) { noiseBurst(0.16, 170 + 90 * i, { vol: 0.10 + 0.22 * i, sweepTo: 85 }); },
     // Something small leaves the hand at speed
     whiff() { noiseBurst(0.14, 700, { type: 'bandpass', vol: 0.12, sweepTo: 2000 }); },
+    // Camera shutter — two tight clicks
+    shutter() {
+      tone(2400, 0.03, { type: 'square', vol: 0.10 });
+      tone(1700, 0.04, { type: 'square', vol: 0.08, when: 0.05 });
+    },
+    // A tiny gosling peep
+    peep() {
+      tone(640, 0.09, { type: 'triangle', vol: 0.06 });
+      tone(520, 0.10, { type: 'triangle', vol: 0.04, when: 0.11 });
+    },
   };
 
   // ── Wildlife + thunder schedulers ──────────────────────────────────────────
