@@ -3,7 +3,7 @@ import { buildWorld }      from './world.js';
 import { buildBuilding }   from './building.js';
 import { buildSite }       from './site.js';
 import { buildLandmarks }  from './landmarks.js';
-import { createPlayer, isMobile, setBoats, isOnBoat } from './player.js';
+import { createPlayer, isMobile, setBoats, isOnBoat, isGliding } from './player.js';
 import { createFishing } from './fishing.js';
 import { createSecrets } from './secrets.js';
 import { createEmotes, EMOTES } from './emotes.js';
@@ -35,6 +35,9 @@ import { createTablets }  from './tablets.js';
 import { createNight }    from './night.js';
 import { createEvents }   from './events.js';
 import { createPOIs }     from './pois.js';
+import { createGlider }   from './glider.js';
+import { createStones }   from './stones.js';
+import { createSnowballs } from './snowballs.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
 import { OutlinePass }    from 'three/addons/postprocessing/OutlinePass.js';
@@ -312,6 +315,13 @@ const nightLife   = createNight(scene, {
 });
 const worldEvents = createEvents(scene);
 const pois        = createPOIs(scene, { interact, audio });
+const glider      = createGlider(scene, { progress, interact, audio });
+const stones      = createStones(scene, { interact, audio, playerPosition });
+const snowballs   = createSnowballs(scene, {
+  camera, playerPosition, biomeAt, audio,
+  getTargets:  () => [...multiplayer.getRemotes(), ...ghosts.getRemotes()],
+  onBroadcast: data => { if (multiplayer.publishSnow) multiplayer.publishSnow(data); },
+});
 
 // World-object interactions (main owns the campfire and rune meshes/coords)
 interact.register({
@@ -321,14 +331,6 @@ interact.register({
 interact.register({
   x: 650, z: 150, r: 8, label: 'Ring the ancient rune',
   cb: () => { audio.sfx.bell(); toast('The rune tolls across the ruins…', 2400); },
-});
-interact.register({
-  x: -145, z: 24, r: 6, label: 'Skip a stone across the pond',
-  cb: () => {
-    audio.sfx.plink();
-    setTimeout(() => audio.sfx.splash(), 350);
-    setTimeout(() => audio.sfx.splash(), 700);
-  },
 });
 
 // U — mute / unmute the soundscape (works even outside pointer lock)
@@ -361,6 +363,8 @@ const chat = createChat({
     ['Shift',   'Sprint'],
     ['Space',   'Jump'],
     ['E',       'Interact · board / exit boat'],
+    ['Space ✈', '🪂 Hold in the air to glide (find it at the Icy Peaks summit)'],
+    ['G',       '❄️ Throw snowball (in the Icy Peaks)'],
     ['J',       '📖 Warden journal'],
     ['B',       'Cycle trail style'],
     ['U',       'Mute / unmute sound'],
@@ -380,6 +384,7 @@ const chat = createChat({
     ['👋🎉👉🪑', 'Emotes (bottom centre)'],
     ['🎣',       'Cast / reel (on boat, bottom right)'],
     ['🏐',       'Hit volleyball (near court, right)'],
+    ['❄️',       'Throw snowball (in the Icy Peaks)'],
   ];
 
   const rows = isMobile ? ROWS_MOBILE : ROWS_DESKTOP;
@@ -483,6 +488,7 @@ window.addEventListener('keydown', e => {
   fishing.onKey(e, playerPosition, getState().ry, isOnBoat());
   emotes.onKey(e);
   volleyball.onKey(e, playerPosition);
+  snowballs.onKey(e);
 });
 // Auto-hide user count when leaving pointer lock
 controls.addEventListener('unlock', () => {
@@ -523,6 +529,7 @@ showAvatarPicker(overlay, (color, name) => {
     multiplayer = createMultiplayer(scene, getState, color, name, {
       onRemoteEmote: (mesh, id, elapsed) => emotes.applyRemoteEmote(mesh, id, elapsed),
       onBallState:   state => volleyball.handleRemoteState(state),
+      onSnow:        data => snowballs.spawnRemote(data),
       onChat: (senderName, text, mesh) => {
         chat.addMessage(senderName, text);
         if (mesh) chat.showBubble(mesh, text);
@@ -610,6 +617,53 @@ function updateDayNight(dt, nowSec) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  Micro-feel — footsteps, landing thump, speed-reactive FOV
+// ─────────────────────────────────────────────────────────────────────────────
+const BASE_FOV = 78;
+let _prevPX = SPAWN.x, _prevPY = SPAWN.y, _prevPZ = SPAWN.z;
+let _prevVY = 0, _stepAcc = 0;
+
+function updateFeel(dt) {
+  if (dt <= 0) return;
+  const hSpeed = Math.hypot(playerPosition.x - _prevPX, playerPosition.z - _prevPZ) / dt;
+  const vSpeed = (playerPosition.y - _prevPY) / dt;
+  _prevPX = playerPosition.x; _prevPY = playerPosition.y; _prevPZ = playerPosition.z;
+
+  // Landing thump — vertical speed snaps from a hard fall to none.
+  // The -60 floor ignores the one-frame spikes caused by portal teleports.
+  if (_prevVY < -10 && _prevVY > -60 && vSpeed > -1.5) {
+    audio.sfx.thump(Math.min(1, -_prevVY / 26));
+  }
+  _prevVY = vSpeed;
+
+  // Footsteps — cadence follows speed, voice follows the biome underfoot.
+  // hSpeed < 40 skips teleport frames; |vSpeed| > 3 means airborne.
+  if (hSpeed > 2 && hSpeed < 40 && Math.abs(vSpeed) <= 3 && !isOnBoat() && !isGliding()) {
+    _stepAcc += hSpeed * dt;
+    if (_stepAcc >= 2.9) {   // stride length in metres
+      _stepAcc = 0;
+      const b = biomeAt(playerPosition.x, playerPosition.z);
+      audio.sfx.step(
+        b === 'Icy Peaks' ? 'snow'
+        : b === 'Sunset Shore' ? 'sand'
+        : (b === 'Ancient Ruins' || b === 'OpenText Campus') ? 'stone'
+        : 'grass');
+    }
+  } else if (hSpeed <= 2) {
+    _stepAcc = 0;
+  }
+
+  // FOV kick — subtle wide-angle stretch at sprint and glide speeds
+  const fovT = BASE_FOV
+    + Math.min(1, Math.max(0, (hSpeed - 9) / 9)) * 6
+    + (isGliding() ? 4 : 0);
+  if (Math.abs(camera.fov - fovT) > 0.01) {
+    camera.fov += (fovT - camera.fov) * Math.min(1, dt * 5);
+    camera.updateProjectionMatrix();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  Render loop
 // ─────────────────────────────────────────────────────────────────────────────
 let prevTime = performance.now();
@@ -638,6 +692,10 @@ function animate() {
   water.update(now / 1000, _sunDir, scene.fog, _dayFactor);
   interact.update(dt);
   updateBoats(now / 1000);
+  glider.update(now / 1000);
+  stones.update(dt);
+  snowballs.update(dt);
+  updateFeel(dt);
   shards.update(dt, playerPosition, now / 1000);
   tablets.update(dt, now / 1000);
   nightLife.update(dt, now / 1000, playerPosition, _night);
@@ -647,7 +705,7 @@ function animate() {
   audio.update(dt, {
     x: playerPosition.x, z: playerPosition.z, altitude: playerPosition.y,
     biome: biomeAt(playerPosition.x, playerPosition.z),
-    dayFactor: _dayFactor, night: _night,
+    dayFactor: _dayFactor, night: _night, gliding: isGliding(),
   });
   hud.update(dt);
   multiplayer.update(dt);

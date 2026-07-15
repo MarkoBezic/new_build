@@ -97,6 +97,19 @@ export function createAudio() {
     fanfare() {
       [0, 4, 7, 12].forEach((s, i) => tone(523 * Math.pow(2, s / 12), 0.8, { vol: 0.2, when: i * 0.13 }));
     },
+    // Footsteps — filtered noise taps voiced per surface
+    step(kind = 'grass') {
+      if (kind === 'snow')       noiseBurst(0.10, 1500, { type: 'bandpass', vol: 0.10, sweepTo: 600 });
+      else if (kind === 'sand')  noiseBurst(0.12, 420,  { vol: 0.09, sweepTo: 200 });
+      else if (kind === 'stone') noiseBurst(0.05, 1600, { vol: 0.07, sweepTo: 900 });
+      else                       noiseBurst(0.08, 600,  { vol: 0.07, sweepTo: 300 });
+    },
+    // Snowball / packed-snow impact
+    splat() { noiseBurst(0.22, 1300, { vol: 0.3, sweepTo: 280 }); },
+    // Landing impact — weight scales with fall speed (i in 0..1)
+    thump(i = 1) { noiseBurst(0.16, 170 + 90 * i, { vol: 0.10 + 0.22 * i, sweepTo: 85 }); },
+    // Something small leaves the hand at speed
+    whiff() { noiseBurst(0.14, 700, { type: 'bandpass', vol: 0.12, sweepTo: 2000 }); },
   };
 
   // ── Wildlife schedulers ────────────────────────────────────────────────────
@@ -121,8 +134,9 @@ export function createAudio() {
     if (ctx.state !== 'running') return;
 
     const icy = s.biome === 'Icy Peaks' ? 1 : 0;
-    wind.target = Math.min(0.16, 0.045 + s.altitude * 0.0035 + icy * 0.07);
-    wind.filter.frequency.value = 450 + s.altitude * 8 + icy * 250;
+    // Gliding gets a rushing-air boost on top of the altitude wind
+    wind.target = Math.min(0.16, 0.045 + s.altitude * 0.0035 + icy * 0.07) + (s.gliding ? 0.10 : 0);
+    wind.filter.frequency.value = 450 + s.altitude * 8 + icy * 250 + (s.gliding ? 350 : 0);
 
     const shoreDist = Math.max(0, SHORE - (s.z - s.x));       // 0 at waterline
     const wavesNear = Math.max(0, 1 - shoreDist / 260);

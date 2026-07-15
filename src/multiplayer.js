@@ -41,11 +41,11 @@ function makeAvatar(color, name) {
   return g;
 }
 
-export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote, onBallState, onChat } = {}) {
+export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote, onBallState, onChat, onSnow } = {}) {
   const key = import.meta.env.VITE_ABLY_KEY;
   if (!key || key === 'your_ably_api_key_here') {
     console.warn('Multiplayer disabled — VITE_ABLY_KEY not set');
-    return { update() {}, getRemotes() { return []; }, broadcastEmote() {}, publishBall() {}, sendChat() {} };
+    return { update() {}, getRemotes() { return []; }, broadcastEmote() {}, publishBall() {}, sendChat() {}, publishSnow() {} };
   }
 
   const myId = Math.random().toString(36).slice(2, 10);
@@ -150,6 +150,13 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
   });
   function publishBall(state) { vChannel.publish('ball', state); }
 
+  // Snowball throws — { x, y, z, vx, vy, vz }
+  channel.subscribe('snow', msg => {
+    if (msg.clientId === myId) return;
+    if (onSnow) onSnow(msg.data);
+  });
+  function publishSnow(data) { channel.publish('snow', data); }
+
   function spawnRemote(id, color, name, x, z, ry) {
     if (remotes.has(id)) return;
     const mesh = makeAvatar(color, name);
@@ -208,5 +215,5 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     }
   }
 
-  return { update, getRemotes, broadcastEmote, publishBall, sendChat };
+  return { update, getRemotes, broadcastEmote, publishBall, sendChat, publishSnow };
 }

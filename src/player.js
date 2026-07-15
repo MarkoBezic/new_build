@@ -16,6 +16,8 @@ const PITCH_MAX    =  Math.PI / 2 - 0.05;
 const BOARD_RADIUS = 2.5;
 const BOAT_FLOAT_Y = 0.15;  // boat sits at beach/water surface
 const BOAT_DECK_Y  = 0.28;  // player stands on the floor boards (FLOAT_Y + 0.13 board top)
+const GLIDE_FALL   = -3.4;  // capped sink rate while gliding
+const GLIDE_SPEED  = 15;    // forward push along the look direction
 
 // Touch primary input = mobile (consistent with CSS `pointer: coarse`)
 export const isMobile = window.matchMedia('(pointer: coarse)').matches;
@@ -29,6 +31,32 @@ let _boardCooldown = 0;       // grace period after disembarking before re-board
 const BOARD_COOLDOWN = 1.2;
 export function setBoats(arr) { _boats = arr; }
 export function isOnBoat()    { return _onBoat; }
+
+// ── Glider state (unlocked at the Icy Peaks summit, see glider.js) ────────────
+let _gliderUnlocked = false;
+let _gliding        = false;
+export function setGliderUnlocked(v) { _gliderUnlocked = v; }
+export function isGliding()          { return _gliding; }
+
+// Wearable delta wing — attached to the avatar, shown only while gliding
+function makeWing() {
+  const wing = new THREE.Group();
+  const mat  = new THREE.MeshLambertMaterial({ color: 0xE8593A, side: THREE.DoubleSide });
+  const half = new THREE.BoxGeometry(1.55, 0.04, 0.55);
+  const L = new THREE.Mesh(half, mat);
+  L.position.x = -0.74; L.rotation.set(0, 0.32, 0.18);
+  const R = new THREE.Mesh(half, mat);
+  R.position.x = 0.74; R.rotation.set(0, -0.32, -0.18);
+  const spar = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.03, 0.9, 5),
+    new THREE.MeshLambertMaterial({ color: 0x5C3A1A }),
+  );
+  spar.rotation.z = Math.PI / 2;
+  wing.add(L, R, spar);
+  wing.position.y = 2.05;
+  wing.visible = false;
+  return wing;
+}
 
 // Walk-off landing spot: step inland from the boat to z−x ≈ 1092, safely on
 // the sand and OUTSIDE the auto-board radius — otherwise the player is
@@ -96,6 +124,7 @@ function createDesktopPlayer(scene, camera, canvas) {
   let playerY  = camera.position.y - EYE_HEIGHT;  // feet height (0 = ground)
   let vy       = 0;
   let grounded = true;
+  let airTime  = 0;
   let thirdPerson = true;
   const keys = new Set();
 
@@ -104,6 +133,8 @@ function createDesktopPlayer(scene, camera, canvas) {
   avatar.position.set(camera.position.x, playerY, camera.position.z);
   avatar.visible = true;
   scene.add(avatar);
+  const wing = makeWing();
+  avatar.add(wing);
 
   // Logical player world position — updated every frame for NPC / geese / minimap
   const playerPosition = new THREE.Vector3(camera.position.x, camera.position.y, camera.position.z);
@@ -231,17 +262,32 @@ function createDesktopPlayer(scene, camera, canvas) {
       playerY = floorY(tx, tz); vy = 0;
     }
 
-    // Gravity / floor
+    // Gravity / floor / glide
     if (_onBoat) {
-      playerY = BOAT_DECK_Y; vy = 0; grounded = true;
+      playerY = BOAT_DECK_Y; vy = 0; grounded = true; airTime = 0; _gliding = false;
     } else {
       vy += GRAVITY * dt;
+      // Hold Space while falling to deploy the Warden's Glider
+      _gliding = _gliderUnlocked && airTime > 0.22 && vy < 0 && keys.has('Space');
+      if (_gliding) {
+        vy = Math.max(vy, GLIDE_FALL);
+        const gx = -Math.sin(yaw) * GLIDE_SPEED * dt;
+        const gz = -Math.cos(yaw) * GLIDE_SPEED * dt;
+        const nx = (thirdPerson ? avatar.position.x : camera.position.x) + gx;
+        const nz = (thirdPerson ? avatar.position.z : camera.position.z) + gz;
+        if (nz - nx <= SHORE) {
+          if (thirdPerson) { avatar.position.x = nx; avatar.position.z = nz; }
+          else             { camera.position.x = nx; camera.position.z = nz; }
+        }
+      }
       playerY += vy * dt;
       const px = thirdPerson ? avatar.position.x : camera.position.x;
       const pz = thirdPerson ? avatar.position.z : camera.position.z;
       const ground = floorY(px, pz);
-      if (playerY <= ground) { playerY = ground; vy = 0; grounded = true; }
+      if (playerY <= ground) { playerY = ground; vy = 0; grounded = true; airTime = 0; _gliding = false; }
+      else airTime += dt;
     }
+    wing.visible = _gliding;
 
     // Sync boat mesh and avatar to boat position
     if (_onBoat && _activeBoat) {
@@ -349,11 +395,14 @@ function createMobilePlayer(scene, camera, canvas) {
   let playerZ = camera.position.z;
   let playerY = 0;
   let vy = 0;
+  let airTime = 0;
 
   // ── Avatar mesh ──────────────────────────────────────────────────────────────
   const avatar = buildHumanoid(0x888888);
   avatar.position.set(playerX, playerY, playerZ);
   scene.add(avatar);
+  const wing = makeWing();
+  avatar.add(wing);
 
   const playerPosition = new THREE.Vector3(playerX, EYE_HEIGHT, playerZ);
 
@@ -480,15 +529,24 @@ function createMobilePlayer(scene, camera, canvas) {
       playerY = floorY(playerX, playerZ); vy = 0;
     }
 
-    // Gravity / floor
+    // Gravity / floor / glide (mobile auto-deploys after a beat of freefall)
     if (_onBoat) {
-      playerY = BOAT_DECK_Y; vy = 0;
+      playerY = BOAT_DECK_Y; vy = 0; airTime = 0; _gliding = false;
     } else {
       vy += GRAVITY * dt;
+      _gliding = _gliderUnlocked && airTime > 0.3 && vy < 0;
+      if (_gliding) {
+        vy = Math.max(vy, GLIDE_FALL);
+        const nx = playerX - Math.sin(yaw) * GLIDE_SPEED * dt;
+        const nz = playerZ - Math.cos(yaw) * GLIDE_SPEED * dt;
+        if (nz - nx <= SHORE) { playerX = nx; playerZ = nz; }
+      }
       playerY += vy * dt;
       const ground = floorY(playerX, playerZ);
-      if (playerY <= ground) { playerY = ground; vy = 0; }
+      if (playerY <= ground) { playerY = ground; vy = 0; airTime = 0; _gliding = false; }
+      else airTime += dt;
     }
+    wing.visible = _gliding;
 
     // Sync boat mesh and player position
     if (_onBoat && _activeBoat) {
