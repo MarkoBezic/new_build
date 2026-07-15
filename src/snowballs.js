@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { groundY } from './zones.js';
 import { toast } from './hud.js';
+import { bus } from './bus.js';
 import { isMobile } from './player.js';
 
 // Snowballs — anywhere in the Icy Peaks, G (or the mobile ❄️ button) scoops
@@ -113,7 +114,7 @@ export function createSnowballs(scene, { camera, playerPosition, biomeAt, audio,
       if (hitName || y <= g + 0.12 || s.life <= 0) {
         puff(x, Math.max(y, g + 0.15), z);
         audio.sfx.splat();
-        if (hitName) toast(`❄️ Direct hit on ${hitName}!`, 2000);
+        if (hitName) { toast(`❄️ Direct hit on ${hitName}!`, 2000); bus.emit('snowball-hit'); }
         scene.remove(s.mesh);
         live.splice(i, 1);
       }

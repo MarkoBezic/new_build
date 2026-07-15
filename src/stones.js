@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { save, load } from './persistence.js';
 import { toast } from './hud.js';
+import { bus } from './bus.js';
 import { LANDMARKS } from './world.config.js';
 
 // Physical stone skipping at the pond. The E interact throws a real stone
@@ -57,6 +58,7 @@ export function createStones(scene, { interact, audio, playerPosition }) {
 
   function finish(s, msg, dur = 2400) {
     toast(msg, dur);
+    bus.emit('stone-skips', s.skips);
     s.done = 0.1;
   }
 

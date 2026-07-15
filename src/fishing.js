@@ -1,30 +1,42 @@
 import * as THREE from 'three';
-import { append, load } from './persistence.js';
+import { append, save, load } from './persistence.js';
+import { bus } from './bus.js';
 
 // ── Catch table ───────────────────────────────────────────────────────────────
+// `cond` gates a species on world state (night, rain) — those fish only bite
+// under the right sky, giving fishing a reason to happen at different times.
 const CATCHES = [
-  { name: 'Tiny Minnow',    weight: [0.05, 0.18], rarity: 'common',    color: 0xA0C8E0 },
-  { name: 'Bass',           weight: [0.4,  1.8],  rarity: 'common',    color: 0x7B9B6A },
-  { name: 'Catfish',        weight: [0.8,  3.2],  rarity: 'uncommon',  color: 0x5A4A3A },
-  { name: 'Rainbow Trout',  weight: [0.5,  2.5],  rarity: 'uncommon',  color: 0xE08080 },
-  { name: 'Pike',           weight: [1.0,  5.0],  rarity: 'rare',      color: 0x6A8A50 },
-  { name: 'Old Boot',       weight: [0.3,  0.3],  rarity: 'common',    color: 0x443322 },
-  { name: 'Golden Carp',    weight: [1.5,  4.0],  rarity: 'legendary', color: 0xFFCC00 },
+  { name: 'Tiny Minnow',    weight: [0.05, 0.18], rarity: 'common',    color: 0xA0C8E0, w: 35 },
+  { name: 'Bass',           weight: [0.4,  1.8],  rarity: 'common',    color: 0x7B9B6A, w: 28 },
+  { name: 'Catfish',        weight: [0.8,  3.2],  rarity: 'uncommon',  color: 0x5A4A3A, w: 16 },
+  { name: 'Rainbow Trout',  weight: [0.5,  2.5],  rarity: 'uncommon',  color: 0xE08080, w: 13 },
+  { name: 'Pike',           weight: [1.0,  5.0],  rarity: 'rare',      color: 0x6A8A50, w: 5 },
+  { name: 'Old Boot',       weight: [0.3,  0.3],  rarity: 'common',    color: 0x443322, w: 2 },
+  { name: 'Golden Carp',    weight: [1.5,  4.0],  rarity: 'legendary', color: 0xFFCC00, w: 1 },
+  { name: 'Moonfish',       weight: [0.6,  2.0],  rarity: 'rare',      color: 0xB8D8FF, w: 8,
+    cond: c => c.night > 0.5 },
+  { name: 'Stormfin',       weight: [1.2,  4.5],  rarity: 'rare',      color: 0x4A6A8A, w: 10,
+    cond: c => c.rain > 0.3 },
+  { name: 'Aurora Koi',     weight: [0.8,  2.2],  rarity: 'legendary', color: 0x9FF0C8, w: 2,
+    cond: c => c.night > 0.5 },
 ];
-const WEIGHTS = [35, 28, 16, 13, 5, 2, 1]; // probability weights
+const SPECIES_TOTAL = CATCHES.length;
+
+// World state fed each frame from main — decides which species can bite
+let _cond = { night: 0, rain: 0 };
 
 function pickCatch() {
-  const total = WEIGHTS.reduce((a, b) => a + b, 0);
+  const avail = CATCHES.filter(c => !c.cond || c.cond(_cond));
+  const total = avail.reduce((a, c) => a + c.w, 0);
   let r = Math.random() * total;
-  for (let i = 0; i < CATCHES.length; i++) {
-    r -= WEIGHTS[i];
+  for (const c of avail) {
+    r -= c.w;
     if (r <= 0) {
-      const c = CATCHES[i];
       const kg = c.weight[0] + Math.random() * (c.weight[1] - c.weight[0]);
       return { ...c, kg: +kg.toFixed(2) };
     }
   }
-  return { ...CATCHES[0], kg: 0.1 };
+  return { ...avail[0], kg: 0.1 };
 }
 
 // ── Fishing line (Two.js-style LineSegments) ──────────────────────────────────
@@ -141,11 +153,19 @@ export function createFishing(scene) {
 
   function reel() {
     if (state === STATE.BITE) {
-      // Success — record catch
-      const { name, kg, rarity, color } = catchData;
+      // Success — record catch, track the species collection
+      const { name, kg, rarity } = catchData;
       const label = rarity === 'legendary' ? '★ LEGENDARY ★ ' : '';
-      showToast(`${label}Caught a ${name}! (${kg} kg)`, 5);
+      const species = load('fishing:species', []);
+      let suffix = '';
+      if (!species.includes(name)) {
+        species.push(name);
+        save('fishing:species', species);
+        suffix = `  ✨ New species! (${species.length}/${SPECIES_TOTAL})`;
+      }
+      showToast(`${label}Caught a ${name}! (${kg} kg)${suffix}`, 5);
       append('fishing:log', { name, kg, rarity, ts: Date.now() }, 50);
+      bus.emit('fish', catchData);
     } else if (state === STATE.WAITING) {
       showToast('Nothing yet… you reeled in early.', 3);
     }
@@ -233,7 +253,10 @@ export function createFishing(scene) {
     mobileBtn.style.display = onBoat ? 'block' : 'none';
   }
 
-  return { update, onKey, handleAction, showMobileBtn, getMobileBtn: () => mobileBtn };
+  return {
+    update, onKey, handleAction, showMobileBtn, getMobileBtn: () => mobileBtn,
+    setConditions: c => { _cond = c; },
+  };
 }
 
 // Returns the catch log from localStorage for display elsewhere

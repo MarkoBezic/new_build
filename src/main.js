@@ -38,6 +38,10 @@ import { createPOIs }     from './pois.js';
 import { createGlider }   from './glider.js';
 import { createStones }   from './stones.js';
 import { createSnowballs } from './snowballs.js';
+import { createWeather }  from './weather.js';
+import { createTreasure } from './treasure.js';
+import { createTasks }    from './tasks.js';
+import { bus }            from './bus.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
 import { OutlinePass }    from 'three/addons/postprocessing/OutlinePass.js';
@@ -295,7 +299,7 @@ composer.addPass(new OutputPass());
 //  FPS player
 // ─────────────────────────────────────────────────────────────────────────────
 const { controls, update: updatePlayer, startMobile, setColor, playerPosition, getState, teleport, getAvatar } = createPlayer(scene, camera, renderer.domElement);
-const portals    = createPortals(scene, playerPosition, (x, z) => { audio.sfx.whoosh(); teleport(x, z); });
+const portals    = createPortals(scene, playerPosition, (x, z) => { audio.sfx.whoosh(); teleport(x, z); bus.emit('warp'); });
 const ghosts     = createGhosts(scene, { applyEmote: (mesh, id, t) => emotes.applyRemoteEmote(mesh, id, t) });
 const minimap    = createMinimap(camera, () => [...multiplayer.getRemotes(), ...ghosts.getRemotes()]);
 const fishing    = createFishing(scene);
@@ -317,6 +321,11 @@ const worldEvents = createEvents(scene);
 const pois        = createPOIs(scene, { interact, audio });
 const glider      = createGlider(scene, { progress, interact, audio });
 const stones      = createStones(scene, { interact, audio, playerPosition });
+const weather     = createWeather(scene);
+const tasks       = createTasks({ playerPosition });
+const treasure    = createTreasure(scene, {
+  interact, audio, summit: glider.summit, getTasksNote: tasks.summaryLine,
+});
 const snowballs   = createSnowballs(scene, {
   camera, playerPosition, biomeAt, audio,
   getTargets:  () => [...multiplayer.getRemotes(), ...ghosts.getRemotes()],
@@ -326,7 +335,7 @@ const snowballs   = createSnowballs(scene, {
 // World-object interactions (main owns the campfire and rune meshes/coords)
 interact.register({
   x: -465, z: 578, r: 4.5, label: 'Feed the campfire',
-  cb: () => { _fireFeed = 1; audio.sfx.grind(); },
+  cb: () => { _fireFeed = 1; audio.sfx.grind(); bus.emit('campfire'); },
 });
 interact.register({
   x: 650, z: 150, r: 8, label: 'Ring the ancient rune',
@@ -366,6 +375,7 @@ const chat = createChat({
     ['Space ✈', '🪂 Hold in the air to glide (find it at the Icy Peaks summit)'],
     ['G',       '❄️ Throw snowball (in the Icy Peaks)'],
     ['J',       '📖 Warden journal'],
+    ['K',       '📋 Daily tasks'],
     ['B',       'Cycle trail style'],
     ['U',       'Mute / unmute sound'],
     ['F',       'Cast / reel fishing rod (on boat)'],
@@ -581,10 +591,14 @@ function updateDayNight(dt, nowSec) {
   );
   sun.target.position.set(playerPosition.x, 0, playerPosition.z);
 
+  // Weather — seeded per 3-hour block; dims the sun, thickens fog, drives rain
+  weather.update(dt, hourEST, dayFactor, camera);
+  const wx = weather.current();
+
   if (sunElev > 0) {
     // Warm orange at low angle, white at noon
     sun.color.copy(_C_DAWN_SUN).lerp(_C_DAY_SUN, Math.pow(dayFactor, 0.5));
-    sun.intensity  = dayFactor * 2.2;
+    sun.intensity  = dayFactor * 2.2 * wx.sun;
     sun.castShadow = true;
   } else {
     sun.intensity  = 0;
@@ -592,8 +606,10 @@ function updateDayNight(dt, nowSec) {
   }
 
   // Night floor keeps the world dim-gray but readable, like overcast moonlight
-  hemi.intensity = 0.28 + twilight * 0.07 + dayFactor * 0.40;
-  fill.intensity = 0.14 + twilight * 0.04 + dayFactor * 0.22;
+  const wxAmb = 0.7 + 0.3 * wx.sun;
+  hemi.intensity = (0.28 + twilight * 0.07 + dayFactor * 0.40) * wxAmb;
+  fill.intensity = (0.14 + twilight * 0.04 + dayFactor * 0.22) * wxAmb;
+  scene.fog.density = ATMOSPHERE.fogDensity * wx.fog;
 
   // Physical sky (Rayleigh/Mie scattering) + stars after dusk
   const skyMix = Math.max(dayFactor, twilight * 0.18);
@@ -695,6 +711,9 @@ function animate() {
   glider.update(now / 1000);
   stones.update(dt);
   snowballs.update(dt);
+  treasure.update(dt, now / 1000);
+  tasks.update(dt);
+  fishing.setConditions({ night: _night, rain: weather.current().rain });
   updateFeel(dt);
   shards.update(dt, playerPosition, now / 1000);
   tablets.update(dt, now / 1000);
@@ -706,6 +725,7 @@ function animate() {
     x: playerPosition.x, z: playerPosition.z, altitude: playerPosition.y,
     biome: biomeAt(playerPosition.x, playerPosition.z),
     dayFactor: _dayFactor, night: _night, gliding: isGliding(),
+    rain: weather.current().rain, windBoost: weather.current().wind,
   });
   hud.update(dt);
   multiplayer.update(dt);

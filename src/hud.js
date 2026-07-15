@@ -21,6 +21,7 @@ export function toast(msg, ms = 3200) {
     border: '1px solid rgba(255,215,130,0.35)',
     textShadow: '0 1px 3px rgba(0,0,0,0.8)',
     transition: 'opacity 0.5s ease', opacity: '1',
+    whiteSpace: 'pre-line', textAlign: 'center', maxWidth: '80vw',
   });
   _toastBox.appendChild(el);
   setTimeout(() => { el.style.opacity = '0'; }, ms - 500);

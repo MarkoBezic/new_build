@@ -42,6 +42,7 @@ export function createAudio() {
   const wind  = makeBed('bandpass', 500, 0.6);
   const waves = makeBed('lowpass',  420, 0.8);
   const fire  = makeBed('bandpass', 2600, 1.2);
+  const rain  = makeBed('lowpass', 1400, 0.4);
 
   // ── One-shot helpers ───────────────────────────────────────────────────────
   function tone(freq, dur, { type = 'sine', vol = 0.25, when = 0 } = {}) {
@@ -112,8 +113,13 @@ export function createAudio() {
     whiff() { noiseBurst(0.14, 700, { type: 'bandpass', vol: 0.12, sweepTo: 2000 }); },
   };
 
-  // ── Wildlife schedulers ────────────────────────────────────────────────────
-  let birdTimer = 4, cricketTimer = 0.5;
+  // ── Wildlife + thunder schedulers ──────────────────────────────────────────
+  let birdTimer = 4, cricketTimer = 0.5, thunderTimer = 6;
+
+  function thunderRumble() {
+    noiseBurst(2.4, 95, { vol: 0.5, sweepTo: 42 });
+    noiseBurst(1.4, 240, { vol: 0.18, sweepTo: 70, when: 0.15 });
+  }
 
   function birdChirp() {
     const base = 2200 + Math.random() * 1200;
@@ -148,19 +154,28 @@ export function createAudio() {
       ? (1 - fireDist / 20) * (0.10 + Math.random() * 0.14)   // random crackle spikes
       : 0;
 
-    for (const bed of [wind, waves, fire]) {
+    // Weather beds — rain hiss scales with intensity, wind rises in gusty blocks
+    rain.target  = (s.rain ?? 0) * 0.24;
+    wind.target += (s.windBoost ?? 0) * 0.06;
+
+    for (const bed of [wind, waves, fire, rain]) {
       const t = muted ? 0 : bed.target;
       bed.gain.gain.value += (t - bed.gain.gain.value) * Math.min(1, dt * 3);
     }
 
     if (!muted) {
-      if (s.dayFactor > 0.35 && s.biome !== 'Open Water' && icy === 0) {
+      if (s.dayFactor > 0.35 && s.biome !== 'Open Water' && icy === 0 && (s.rain ?? 0) < 0.3) {
         birdTimer -= dt;
         if (birdTimer <= 0) { birdTimer = 4 + Math.random() * 9; birdChirp(); }
       }
-      if (s.night > 0.5 && wavesNear < 0.5 && icy === 0) {
+      if (s.night > 0.5 && wavesNear < 0.5 && icy === 0 && (s.rain ?? 0) < 0.3) {
         cricketTimer -= dt;
         if (cricketTimer <= 0) { cricketTimer = 0.35 + Math.random() * 0.5; cricketPulse(); }
+      }
+      // Distant thunder during storms
+      if ((s.rain ?? 0) >= 0.85) {
+        thunderTimer -= dt;
+        if (thunderTimer <= 0) { thunderTimer = 9 + Math.random() * 18; thunderRumble(); }
       }
     }
   }
