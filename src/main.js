@@ -54,7 +54,6 @@ import { initGoods }      from './goods.js';
 import { createCave }     from './cave.js';
 import { createSeasons }  from './seasons.js';
 import { createPlinko }   from './plinko.js';
-import { createFirstSteps } from './firststeps.js';
 import { createMap }      from './map.js';
 import { createJournal }  from './journal.js';
 import { bus }            from './bus.js';
@@ -379,7 +378,6 @@ const plinko      = createPlinko(scene, {
   interact, audio, shells, playerPosition,
   onBroadcast: data => { if (multiplayer.publishPlinko) multiplayer.publishPlinko(data); },
 });
-const firstSteps  = createFirstSteps({ playerPosition, audio, shells });
 const islandMap   = createMap({ playerPosition, getState, isMobile });
 const journal     = createJournal({ tasks, treasure });
 const snowballs   = createSnowballs(scene, {
@@ -794,7 +792,6 @@ function animate() {
   cave.update(dt, now / 1000, playerPosition);
   seasons.update(dt);
   plinko.update(dt, now / 1000);
-  firstSteps.update(dt);
   islandMap.update(dt);
   fishing.setConditions({ night: _night, rain: weather.current().rain });
   updateFeel(dt);
