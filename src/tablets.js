@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { terrainHeight } from './terrain.js';
+import { groundY } from './zones.js';
 import { toast } from './hud.js';
 
 // The Warden tablets — environmental storytelling in nine fragments.
@@ -35,7 +35,7 @@ export function createTablets(scene, { progress, audio, interact, cosmetics }) {
   });
 
   for (const t of TABLETS) {
-    const y = terrainHeight(t.x, t.z);
+    const y = groundY(t.x, t.z);
     const g = new THREE.Group();
     const slab = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.0, 0.28), stoneMat);
     slab.position.y = 1.0;

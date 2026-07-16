@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import { BIOMES, CLEARING_R } from './world.config.js';
 import { ZONE } from './zones.js';
 import { terrainHeight } from './terrain.js';
+import { save, load } from './persistence.js';
+import { toast } from './hud.js';
+import { bus } from './bus.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Biome name lookup — used by the HUD zone indicator
@@ -173,6 +176,7 @@ function buildRuins(scene) {
 export function createBiomes(scene) {
   const icy   = buildIcyPeaks(scene);
   const ruins = buildRuins(scene);
+  let runeTouched = load('rune:touched', false);
 
   function update(dt, playerPos, nowSec) {
     // Snow — only simulated when the player is near the Icy Peaks
@@ -191,6 +195,19 @@ export function createBiomes(scene) {
     // Ruins — rune spin/bob and wisp orbits
     ruins.rune.rotation.y = nowSec * 0.8;
     ruins.rune.position.y = ruins.baseY + 6.4 + Math.sin(nowSec * 1.3) * 0.35;
+
+    // First touch of the floating rune — reachable by climbing the altar
+    if (!runeTouched) {
+      const dxr = playerPos.x - ruins.CX;
+      const dyr = playerPos.y - (ruins.baseY + 6.4);
+      const dzr = playerPos.z - ruins.CZ;
+      if (dxr * dxr + dyr * dyr + dzr * dzr < 2.2 * 2.2) {
+        runeTouched = true;
+        save('rune:touched', true);
+        bus.emit('rune-touched');
+        toast("✨ You touched the Warden's rune — it thrums with old memory.", 5000);
+      }
+    }
     for (const w of ruins.wisps) {
       const a = nowSec * w.speed + w.phase;
       w.mesh.position.set(

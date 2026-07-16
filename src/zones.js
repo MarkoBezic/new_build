@@ -1,4 +1,4 @@
-import { OCEAN } from './world.config.js';
+import { OCEAN, BIOMES } from './world.config.js';
 import { terrainHeight } from './terrain.js';
 
 // ── Surface heights ────────────────────────────────────────────────────────────
@@ -75,9 +75,36 @@ export function updraftAt(x, z, y) {
   return null;
 }
 
+// ── Ancient Ruins central platform — plaza deck and altar tiers are solid ────
+// Heights mirror the meshes in biomes.js buildRuins(): plaza cylinder top at
+// +1.6, altar slabs at +3.0 and +4.2 over the plateau base. Edges are ramped
+// (rubble skirt / worn steps) so the climb is a walk-up, not a teleport pop.
+const RUINS_DECK = 1.6, RUINS_T1 = 3.0, RUINS_T2 = 4.2, RUINS_BEVEL = 0.45;
+
+function ruinsPlatformY(x, z) {
+  const dx = x - BIOMES.ruins.x, dz = z - BIOMES.ruins.z;
+  const d = Math.hypot(dx, dz);
+  if (d > 23) return -Infinity;
+  const base = terrainHeight(BIOMES.ruins.x, BIOMES.ruins.z);
+  const cheb = Math.max(Math.abs(dx), Math.abs(dz));   // altar slabs are square
+  if (cheb <= 2.3 + RUINS_BEVEL) {
+    const t = Math.min(1, (2.3 + RUINS_BEVEL - cheb) / RUINS_BEVEL);
+    return base + RUINS_T1 + (RUINS_T2 - RUINS_T1) * t;
+  }
+  if (cheb <= 3.5 + RUINS_BEVEL) {
+    const t = Math.min(1, (3.5 + RUINS_BEVEL - cheb) / RUINS_BEVEL);
+    return base + RUINS_DECK + (RUINS_T1 - RUINS_DECK) * t;
+  }
+  if (d <= 21) return base + RUINS_DECK;
+  const t = (23 - d) / 2;   // rubble skirt up onto the plaza rim
+  return terrainHeight(x, z) * (1 - t) + (base + RUINS_DECK) * t;
+}
+
 // Returns the walkable surface height at (x, z)
 export function groundY(x, z) {
   if (inIsland(x, z))           return islandHeight(x, z);
+  const rp = ruinsPlatformY(x, z);
+  if (rp > -Infinity)           return rp;
   if (ZONE.building.test(x, z)) return GROUND_Y.building;
   if (ZONE.beach.test(x, z))    return GROUND_Y.beach;
   return terrainHeight(x, z);   // 0 in the flat core, hills beyond

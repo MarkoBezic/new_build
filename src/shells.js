@@ -51,6 +51,7 @@ export function createShells(scene, { audio, playerPosition }) {
   bus.on('ritual',      () => add(8, 'the ritual'));
   bus.on('treasure',    () => add(15, 'daily treasure'));
   bus.on('tasks-done',  () => add(10, 'all daily tasks'));
+  bus.on('rune-touched',() => add(15, 'the ancient rune'));
   let fireCool = 0;
   bus.on('campfire', () => {
     if (fireCool <= 0) { fireCool = 60; add(1, 'tending the fire'); }
