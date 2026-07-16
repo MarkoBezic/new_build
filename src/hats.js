@@ -84,6 +84,28 @@ export const HATS = {
       return halo;
     },
   },
+  echo: {
+    label: 'Echo Circlet', price: null,   // earned from the Singing Stones
+    build() {
+      const g = new THREE.Group();
+      const band = new THREE.Mesh(
+        new THREE.TorusGeometry(0.19, 0.025, 6, 16),
+        new THREE.MeshLambertMaterial({ color: 0x8A80A8 }),
+      );
+      band.rotation.x = Math.PI / 2;
+      g.add(band);
+      const gem = new THREE.MeshStandardMaterial({
+        color: 0xC8B8F0, emissive: 0x9A7CE8, emissiveIntensity: 0.9, roughness: 0.3,
+      });
+      [0, 2.1, 4.2].forEach(a => {
+        const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.045, 0), gem);
+        c.position.set(Math.cos(a) * 0.19, 0.05, Math.sin(a) * 0.19);
+        c.scale.y = 1.8;
+        g.add(c);
+      });
+      return g;
+    },
+  },
   cloud: {
     label: 'Cloud Wisp', price: null,   // found on the highest sky island
     build() {

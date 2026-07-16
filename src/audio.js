@@ -121,6 +121,11 @@ export function createAudio() {
       tone(640, 0.09, { type: 'triangle', vol: 0.06 });
       tone(520, 0.10, { type: 'triangle', vol: 0.04, when: 0.11 });
     },
+    // A singing stone — pure tone with a shimmering octave
+    note(freq, vol = 0.22) {
+      tone(freq, 1.5, { vol });
+      tone(freq * 2.005, 0.9, { vol: vol * 0.35 });
+    },
   };
 
   // ── Wildlife + thunder schedulers ──────────────────────────────────────────

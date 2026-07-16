@@ -200,6 +200,37 @@ function buildMesh(index) {
   return outer;
 }
 
+// ── Sails — a mast and triangular sail on every boat, tinted by the shop ─────
+const _sailClothMat = new THREE.MeshLambertMaterial({ color: 0xC83A3A, side: THREE.DoubleSide });
+const _mastMat      = new THREE.MeshLambertMaterial({ color: 0x6B4A22 });
+
+function buildSail() {
+  const g = new THREE.Group();
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.05, 2.4, 6), _mastMat);
+  mast.position.y = 1.2;
+  g.add(mast);
+  const cloth = new THREE.BufferGeometry();
+  cloth.setAttribute('position', new THREE.Float32BufferAttribute([
+    0, 2.25, 0,   0, 0.6, 0,   0, 0.6, 1.15,
+  ], 3));
+  cloth.computeVertexNormals();
+  g.add(new THREE.Mesh(cloth, _sailClothMat));
+  g.position.set(0, 0.15, 0.25);
+  return g;
+}
+
+// hex → tint the sails on every boat; null → strike them
+export function setSailColor(hex) {
+  for (const rig of _rigs) {
+    if (!rig.userData.sail) {
+      rig.userData.sail = buildSail();
+      rig.add(rig.userData.sail);
+    }
+    rig.userData.sail.visible = hex != null;
+  }
+  if (hex != null) _sailClothMat.color.setHex(hex);
+}
+
 // ── Idle bob & roll — animates the inner rig only, so player.js steering of
 //    the outer group is never overridden ──────────────────────────────────────
 const _rigs = [];

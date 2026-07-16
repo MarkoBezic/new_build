@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { toast } from './hud.js';
 import { buildHumanoid } from './humanoid.js';
 import { HATS, setHatMesh, ownedHats, grantHat, wearHat, wornHat } from './hats.js';
+import { GOODS, ownedGoods, grantGood, activeGood, useGood } from './goods.js';
 
 // Moss's Shell Shop — a driftwood shack on Sunset Shore where seashells buy
 // hats. E opens the stall; number keys (or tapping a row) buy/equip; 0 goes
@@ -60,38 +61,54 @@ export function createShop(scene, { interact, audio, shells }) {
   document.body.appendChild(panel);
   let open = false;
 
-  function rowFor(id, idx) {
-    const def   = HATS[id];
-    const owned = ownedHats().includes(id);
-    const worn  = wornHat() === id;
-    const status = worn ? '· wearing ✓' : owned ? '· owned — equip' : `— ${def.price} 🐚`;
+  const GOOD_KEYS = { KeyZ: 'sailCrimson', KeyX: 'sailTeal', KeyV: 'sailGold',
+                      KeyB: 'flameViolet', KeyN: 'flameEmerald', KeyM: 'flameSapphire' };
+  const GOOD_CAPS = Object.fromEntries(
+    Object.entries(GOOD_KEYS).map(([code, id]) => [id, code.slice(3)]));
+
+  function makeRow(keycap, label, status, active, onPick) {
     const b = document.createElement('button');
-    b.textContent = `${idx}. ${def.label}  ${status}`;
+    b.textContent = `${keycap}. ${label}  ${status}`;
     Object.assign(b.style, {
       display: 'block', width: '100%', textAlign: 'left', margin: '2px 0',
-      background: worn ? 'rgba(143,209,88,0.18)' : 'rgba(255,255,255,0.06)',
-      color: worn ? '#B8E890' : '#F0E4C8', border: 'none', borderRadius: '8px',
+      background: active ? 'rgba(143,209,88,0.18)' : 'rgba(255,255,255,0.06)',
+      color: active ? '#B8E890' : '#F0E4C8', border: 'none', borderRadius: '8px',
       padding: '6px 12px', font: 'inherit', cursor: 'pointer',
     });
-    b.addEventListener('click', () => pick(idx));
+    b.addEventListener('click', onPick);
     return b;
   }
+
+  const hatList = () =>
+    [...STOCK, ...['echo', 'cloud'].filter(id => ownedHats().includes(id))];
 
   function refresh() {
     panel.innerHTML =
       `<div style="font-weight:bold;color:#FFC88A;margin-bottom:6px">🐚 Moss's Shell Shop — you have ${shells.get()} shells</div>`;
-    STOCK.forEach((id, i) => panel.appendChild(rowFor(id, i + 1)));
-    if (ownedHats().includes('cloud')) panel.appendChild(rowFor('cloud', STOCK.length + 1));
+    hatList().forEach((id, i) => {
+      const def = HATS[id], owned = ownedHats().includes(id), worn = wornHat() === id;
+      const status = worn ? '· wearing ✓' : owned ? '· owned — equip' : `— ${def.price} 🐚`;
+      panel.appendChild(makeRow(i + 1, def.label, status, worn, () => pickHat(i + 1)));
+    });
+    const head = document.createElement('div');
+    head.style.cssText = 'font-weight:bold;color:#FFC88A;margin:8px 0 2px';
+    head.textContent = '⛵🔥 Goods';
+    panel.appendChild(head);
+    for (const [id, cap] of Object.entries(GOOD_CAPS)) {
+      const def = GOODS[id], owned = ownedGoods().includes(id);
+      const active = activeGood(def.kind) === id;
+      const status = active ? '· in use ✓' : owned ? '· owned — use' : `— ${def.price} 🐚`;
+      panel.appendChild(makeRow(cap, def.label, status, active, () => pickGood(id)));
+    }
     const foot = document.createElement('div');
     foot.style.cssText = 'margin-top:8px;color:#B8A888;font-size:12px';
-    foot.textContent = 'Press a number (or tap) to buy / wear · 0 = bare head · E to close';
+    foot.textContent = 'Press a key (or tap) to buy / use · 0 = bare head · E to close';
     panel.appendChild(foot);
   }
 
-  function pick(n) {
+  function pickHat(n) {
     if (n === 0) { wearHat(null); audio.sfx.plink(); refresh(); return; }
-    const list = ownedHats().includes('cloud') ? [...STOCK, 'cloud'] : STOCK;
-    const id = list[n - 1];
+    const id = hatList()[n - 1];
     if (!id) return;
     const def = HATS[id];
     if (ownedHats().includes(id)) {
@@ -102,6 +119,23 @@ export function createShop(scene, { interact, audio, shells }) {
       wearHat(id);
       audio.sfx.fanfare();
       toast(`🐚 ${def.label} is yours — worn with pride!`, 3000);
+    } else {
+      audio.sfx.grind();
+      toast(`Not enough shells — ${def.label} costs ${def.price} 🐚`, 2500);
+    }
+    refresh();
+  }
+
+  function pickGood(id) {
+    const def = GOODS[id];
+    if (ownedGoods().includes(id)) {
+      useGood(def.kind, activeGood(def.kind) === id ? null : id);
+      audio.sfx.plink();
+    } else if (shells.spend(def.price)) {
+      grantGood(id);
+      useGood(def.kind, id);
+      audio.sfx.fanfare();
+      toast(`🐚 ${def.label} — fitted and looking sharp!`, 3000);
     } else {
       audio.sfx.grind();
       toast(`Not enough shells — ${def.label} costs ${def.price} 🐚`, 2500);
@@ -122,11 +156,12 @@ export function createShop(scene, { interact, audio, shells }) {
     cb: toggle,
   });
 
-  // Number keys while the shop is open (main routes keys here first)
+  // Number keys pick hats, letter keys pick goods (main routes keys here while open)
   function onKey(e) {
     if (!open) return false;
     const m = e.code.match(/^Digit(\d)$/);
-    if (m) { pick(parseInt(m[1])); return true; }
+    if (m) { pickHat(parseInt(m[1])); return true; }
+    if (GOOD_KEYS[e.code]) { pickGood(GOOD_KEYS[e.code]); return true; }
     return false;
   }
 

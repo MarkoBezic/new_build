@@ -9,7 +9,7 @@ import { createSecrets } from './secrets.js';
 import { createEmotes, EMOTES } from './emotes.js';
 import { createVolleyball } from './volleyball.js';
 import { createTorches } from './torches.js';
-import { createBoat, createDecorativeBoats, updateBoats } from './boat.js';
+import { createBoat, createDecorativeBoats, updateBoats, setSailColor } from './boat.js';
 import { createMinimap } from './minimap.js';
 import { ATMOSPHERE, SPAWN } from './world.config.js';
 import { EntityManager } from './entities.js';
@@ -50,6 +50,9 @@ import { createShop }     from './shop.js';
 import { createIsland }   from './island.js';
 import { createSkyIslands } from './skyislands.js';
 import { initHats, wornHat } from './hats.js';
+import { initGoods }      from './goods.js';
+import { createCave }     from './cave.js';
+import { createSeasons }  from './seasons.js';
 import { bus }            from './bus.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
@@ -276,6 +279,24 @@ let campfireLight, _campfireFlame, _campfireInner;
   scene.add(campfireLight);
 }
 
+// Campfire flame hue — default warm orange, or a shop-bought colour
+function applyFlame(hex) {
+  if (hex == null) {
+    _campfireFlame.material.color.setHex(0xFF5500);
+    _campfireFlame.material.emissive.setHex(0xFF3300);
+    _campfireInner.material.color.setHex(0xFFDD00);
+    _campfireInner.material.emissive.setHex(0xFFAA00);
+    campfireLight.color.setHex(0xFF6600);
+  } else {
+    _campfireFlame.material.color.setHex(hex);
+    _campfireFlame.material.emissive.setHex(hex);
+    const bright = new THREE.Color(hex).lerp(new THREE.Color(0xFFFFFF), 0.45);
+    _campfireInner.material.color.copy(bright);
+    _campfireInner.material.emissive.copy(bright);
+    campfireLight.color.setHex(hex);
+  }
+}
+
 const torches = createTorches(scene);
 
 const { update: npcUpdate, root: npcRoot } = createNPC(scene);
@@ -343,10 +364,13 @@ const shells      = createShells(scene, { audio, playerPosition });
 const shop        = createShop(scene, { interact, audio, shells });
 const island      = createIsland(scene, { interact, audio });
 const skyIsles    = createSkyIslands(scene, { interact, audio, playerPosition });
+const cave        = createCave(scene, { interact, audio, shells });
+const seasons     = createSeasons(scene, { playerPosition });
 initHats({
   getAvatar,
   onChange: id => { if (multiplayer.updateHat) multiplayer.updateHat(id); },
 });
+initGoods({ sail: setSailColor, flame: applyFlame });
 const snowballs   = createSnowballs(scene, {
   camera, playerPosition, biomeAt, audio,
   getTargets:  () => [...multiplayer.getRemotes(), ...ghosts.getRemotes()],
@@ -520,12 +544,12 @@ window.addEventListener('keydown', e => {
     chat.open();
     return;
   }
+  // Shop steals digits and letters while open (everything gets them back after)
+  if (shop.isOpen()) { shop.onKey(e); return; }
   if (e.code === 'KeyC') {
     _ucVisible = !_ucVisible;
     ucEl.style.display = _ucVisible ? 'block' : 'none';
   }
-  // Shop steals the number keys while open (emotes get them back after)
-  if (shop.isOpen()) { shop.onKey(e); return; }
   fishing.onKey(e, playerPosition, getState().ry, isOnBoat());
   emotes.onKey(e);
   volleyball.onKey(e, playerPosition);
@@ -753,6 +777,8 @@ function animate() {
   shop.update(playerPosition);
   island.update(dt, now / 1000);
   skyIsles.update(dt, now / 1000);
+  cave.update(dt, now / 1000, playerPosition);
+  seasons.update(dt);
   fishing.setConditions({ night: _night, rain: weather.current().rain });
   updateFeel(dt);
   shards.update(dt, playerPosition, now / 1000);
