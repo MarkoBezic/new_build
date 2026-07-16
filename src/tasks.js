@@ -19,6 +19,7 @@ const POOL = [
   { id: 'ruins',   label: 'Visit the Ancient Ruins',            poll: p => biomeAt(p.x, p.z) === 'Ancient Ruins' },
   { id: 'shore',   label: 'Walk the Sunset Shore',              poll: p => biomeAt(p.x, p.z) === 'Sunset Shore' },
   { id: 'summit',  label: 'Climb above 40 m',                   poll: p => p.y > 40 },
+  { id: 'plinko',  label: 'Drop a Shellfall chip',              ev: 'plinko' },
 ];
 
 export function createTasks({ playerPosition }) {
@@ -125,6 +126,16 @@ export function createTasks({ playerPosition }) {
     return picks.map(t => `${state.done.includes(t.id) ? '✅' : '⬜'} ${t.label}`).join('  ·  ');
   }
 
+  // Structured view for the unified journal's Daily tab
+  function getPicks() {
+    return picks.map(t => ({
+      label: t.label,
+      done: state.done.includes(t.id),
+      prog: t.need ? `${state.prog[t.id] ?? 0}/${t.need}` : null,
+    }));
+  }
+  const getStreak = () => streakRec.streak;
+
   // ── Poll-based tasks (visit places, altitude) ───────────────────────────────
   let pollTimer = 0;
   function update(dt) {
@@ -136,5 +147,5 @@ export function createTasks({ playerPosition }) {
     }
   }
 
-  return { update, summaryLine };
+  return { update, summaryLine, getPicks, getStreak };
 }

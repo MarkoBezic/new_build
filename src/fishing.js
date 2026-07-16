@@ -5,7 +5,7 @@ import { bus } from './bus.js';
 // ── Catch table ───────────────────────────────────────────────────────────────
 // `cond` gates a species on world state (night, rain) — those fish only bite
 // under the right sky, giving fishing a reason to happen at different times.
-const CATCHES = [
+export const CATCHES = [
   { name: 'Tiny Minnow',    weight: [0.05, 0.18], rarity: 'common',    color: 0xA0C8E0, w: 35 },
   { name: 'Bass',           weight: [0.4,  1.8],  rarity: 'common',    color: 0x7B9B6A, w: 28 },
   { name: 'Catfish',        weight: [0.8,  3.2],  rarity: 'uncommon',  color: 0x5A4A3A, w: 16 },

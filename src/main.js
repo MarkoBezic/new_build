@@ -53,6 +53,10 @@ import { initHats, wornHat } from './hats.js';
 import { initGoods }      from './goods.js';
 import { createCave }     from './cave.js';
 import { createSeasons }  from './seasons.js';
+import { createPlinko }   from './plinko.js';
+import { createFirstSteps } from './firststeps.js';
+import { createMap }      from './map.js';
+import { createJournal }  from './journal.js';
 import { bus }            from './bus.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
@@ -371,6 +375,13 @@ initHats({
   onChange: id => { if (multiplayer.updateHat) multiplayer.updateHat(id); },
 });
 initGoods({ sail: setSailColor, flame: applyFlame });
+const plinko      = createPlinko(scene, {
+  interact, audio, shells, playerPosition,
+  onBroadcast: data => { if (multiplayer.publishPlinko) multiplayer.publishPlinko(data); },
+});
+const firstSteps  = createFirstSteps({ playerPosition, audio, shells });
+const islandMap   = createMap({ playerPosition, getState, isMobile });
+const journal     = createJournal({ tasks, treasure });
 const snowballs   = createSnowballs(scene, {
   camera, playerPosition, biomeAt, audio,
   getTargets:  () => [...multiplayer.getRemotes(), ...ghosts.getRemotes()],
@@ -425,7 +436,8 @@ const chat = createChat({
     ['E',       'Interact · board / exit boat'],
     ['Space ✈', '🪂 Hold in the air to glide (find it at the Icy Peaks summit)'],
     ['G',       '❄️ Throw snowball (in the Icy Peaks)'],
-    ['J',       '📖 Warden journal'],
+    ['J',       '📖 Warden journal (story · collections · daily · records)'],
+    ['M',       '🗺 Island map'],
     ['K',       '📋 Daily tasks'],
     ['P',       '📷 Save a photo'],
     ['B',       'Cycle trail style'],
@@ -544,8 +556,9 @@ window.addEventListener('keydown', e => {
     chat.open();
     return;
   }
-  // Shop steals digits and letters while open (everything gets them back after)
+  // Shop and journal steal digits while open (everything gets them back after)
   if (shop.isOpen()) { shop.onKey(e); return; }
+  if (journal.isOpen()) { journal.onKey(e); return; }
   if (e.code === 'KeyC') {
     _ucVisible = !_ucVisible;
     ucEl.style.display = _ucVisible ? 'block' : 'none';
@@ -597,6 +610,7 @@ showAvatarPicker(overlay, (color, name) => {
       onBallState:   state => volleyball.handleRemoteState(state),
       onSnow:        data => snowballs.spawnRemote(data),
       onFire:        id => ritual.onFeed(id, performance.now() / 1000),
+      onPlinko:      (data, name) => plinko.spawnRemote(data, name),
       onChat: (senderName, text, mesh) => {
         chat.addMessage(senderName, text);
         if (mesh) chat.showBubble(mesh, text);
@@ -779,6 +793,9 @@ function animate() {
   skyIsles.update(dt, now / 1000);
   cave.update(dt, now / 1000, playerPosition);
   seasons.update(dt);
+  plinko.update(dt, now / 1000);
+  firstSteps.update(dt);
+  islandMap.update(dt);
   fishing.setConditions({ night: _night, rain: weather.current().rain });
   updateFeel(dt);
   shards.update(dt, playerPosition, now / 1000);

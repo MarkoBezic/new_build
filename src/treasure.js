@@ -134,5 +134,10 @@ export function createTreasure(scene, { interact, audio, summit, getTasksNote } 
     if (!opened) beam.material.opacity = 0.12 + Math.sin(nowSec * 2.2) * 0.05;
   }
 
-  return { update };
+  function getStatus() {
+    const s = load('treasure:streak', { streak: 0, total: 0 });
+    return { opened, hint: spot.hint, streak: s.streak, total: s.total };
+  }
+
+  return { update, getStatus };
 }

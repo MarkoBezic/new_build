@@ -7,7 +7,7 @@ import { toast } from './hud.js';
 // to the cave; completing the journal wakes the Warden's Beacon there and
 // grants the crown.
 
-const TABLETS = [
+export const TABLETS = [
   { id: 't1', x:    8, z: -172, title: 'The Long Walk',
     text: 'We were the Wardens, and we walked out of the north when the sky was young. This ring of grass is where we first set down our burdens. Rest here, traveller — everyone does.' },
   { id: 't2', x: -142, z:   26, title: 'The Patient Water',
@@ -120,54 +120,8 @@ export function createTablets(scene, { progress, audio, interact, cosmetics }) {
     cosmetics.unlockCrown();
   }
 
-  // ── Journal UI (J key + 📖 button) ─────────────────────────────────────────
-  const journal = document.createElement('div');
-  Object.assign(journal.style, {
-    position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-    maxWidth: '480px', width: '88vw', maxHeight: '70vh', overflowY: 'auto',
-    display: 'none', zIndex: '45', background: 'rgba(16,13,8,0.95)',
-    color: '#EDE3C8', borderRadius: '14px', padding: '20px 26px',
-    border: '1px solid rgba(212,168,90,0.4)', fontFamily: 'Georgia, serif',
-  });
-  document.body.appendChild(journal);
-  let journalOpen = false;
-
-  function renderJournal() {
-    let html = `<div style="color:#D4A85A;font-size:17px;margin-bottom:12px">📖 The Warden Fragments — ${progress.count('tablets')} / ${TABLETS.length}</div>`;
-    for (const t of TABLETS) {
-      if (progress.has('tablets', t.id)) {
-        html += `<div style="margin-bottom:12px"><span style="color:#86E8C8">◈ ${t.title}</span><br><span style="font-size:13px;line-height:1.6">${t.text}</span></div>`;
-      } else {
-        html += `<div style="margin-bottom:12px;opacity:0.45">◈ ??? <span style="font-size:12px">— an unread stone waits somewhere…</span></div>`;
-      }
-    }
-    html += `<div style="font-size:11px;opacity:0.5;margin-top:8px">Press J to close</div>`;
-    journal.innerHTML = html;
-  }
-
-  function toggleJournal(force) {
-    journalOpen = force ?? !journalOpen;
-    if (journalOpen) renderJournal();
-    journal.style.display = journalOpen ? 'block' : 'none';
-  }
-
-  window.addEventListener('keydown', e => {
-    const tag = document.activeElement?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-    if (e.code === 'KeyJ') toggleJournal();
-    if (e.code === 'Escape') toggleJournal(false);
-  });
-
-  const btn = document.createElement('button');
-  btn.textContent = '📖';
-  Object.assign(btn.style, {
-    position: 'fixed', bottom: '20px', right: '72px',
-    width: '44px', height: '44px', borderRadius: '50%',
-    fontSize: '19px', border: 'none', background: 'rgba(0,0,0,0.50)',
-    cursor: 'pointer', zIndex: '40', boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-  });
-  btn.addEventListener('click', () => toggleJournal());
-  document.body.appendChild(btn);
+  // The J-key journal screen now lives in journal.js (unified Warden's
+  // Journal) — tablets keep only the in-world reading panel above.
 
   function update(dt, nowSec) {
     if (panelTimer > 0) {

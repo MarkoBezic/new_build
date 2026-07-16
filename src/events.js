@@ -19,6 +19,17 @@ export function createEvents(scene) {
   document.body.appendChild(banner);
   let bannerText = '';
 
+  // ── Event clock — countdown to the next appointment ─────────────────────────
+  const clock = document.createElement('div');
+  Object.assign(clock.style, {
+    position: 'fixed', top: '70px', left: '50%', transform: 'translateX(-50%)',
+    color: '#C8BDA0', font: '12px/1.5 system-ui, sans-serif',
+    background: 'rgba(0,0,0,0.35)', padding: '3px 12px', borderRadius: '8px',
+    pointerEvents: 'none', zIndex: '14', textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+  });
+  document.body.appendChild(clock);
+  let clockTimer = 0, clockText = '';
+
   // ── Meteor pool ─────────────────────────────────────────────────────────────
   const METEORS = 6;
   const meteors = [];
@@ -61,6 +72,27 @@ export function createEvents(scene) {
       bannerText = text;
       if (text) banner.textContent = text;
       banner.style.opacity = text ? '1' : '0';
+    }
+
+    // Countdown line — hidden while an event banner is showing
+    clockTimer -= dt;
+    if (clockTimer <= 0) {
+      clockTimer = 1;
+      let next = '';
+      if (!text) {
+        const upcoming = [
+          { h: (sunsetH - 0.2 + 24) % 24, label: '🔥 Sunset bonfire' },
+          { h: 22, label: '🌠 Meteor shower' },
+        ].map(ev => ({ ...ev, d: (ev.h - hourEST + 24) % 24 }))
+          .sort((a, b) => a.d - b.d)[0];
+        const hh = Math.floor(upcoming.d), mm = Math.floor((upcoming.d - hh) * 60);
+        next = `${upcoming.label} in ${hh > 0 ? `${hh}h ` : ''}${mm}m`;
+      }
+      if (next !== clockText) {
+        clockText = next;
+        clock.textContent = next;
+        clock.style.display = next ? 'block' : 'none';
+      }
     }
 
     for (const mt of meteors) {
