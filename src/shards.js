@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { terrainHeight } from './terrain.js';
+import { groundY } from './zones.js';
 import { toast } from './hud.js';
 
 // Resonant shards — the collect-a-thon layer. 29 shards in five regional
@@ -14,6 +14,7 @@ const SETS = {
   cave:   { label: 'Cave',         color: 0xA85CF0, beacon: { x: 146,  z: -20 } },
   icy:    { label: 'Icy Peaks',    color: 0x9FE8FF, beacon: { x: 343,  z: -646 } },
   ruins:  { label: 'Ruins',        color: 0xFFD75A, beacon: { x: 650,  z: 150 } },
+  volcano:{ label: 'Ember Isle',   color: 0xFF6A3D, beacon: { x: -700, z: 900 } },
 };
 
 // x, z, set — spread so hunting a set walks you past POIs and landmarks
@@ -39,6 +40,10 @@ const SHARDS = [
   { x: 610, z: 118, s: 'ruins' }, { x: 688, z: 176, s: 'ruins' },
   { x: 650, z:  95, s: 'ruins' }, { x: 598, z: 196, s: 'ruins' },
   { x: 712, z: 122, s: 'ruins' },
+  // Ember Isle (5) — a boat voyage away
+  { x: -700, z: 868, s: 'volcano' }, { x: -668, z: 902, s: 'volcano' },
+  { x: -732, z: 908, s: 'volcano' }, { x: -698, z: 934, s: 'volcano' },
+  { x: -712, z: 884, s: 'volcano' },
 ];
 
 const COLLECT_R = 2.4;
@@ -71,7 +76,7 @@ export function createShards(scene, { progress, audio, cosmetics }) {
     const beam = new THREE.Mesh(beamGeo, beamMats[def.s]);
     beam.position.y = 17;
     g.add(beam);
-    g.position.set(def.x, terrainHeight(def.x, def.z), def.z);
+    g.position.set(def.x, groundY(def.x, def.z), def.z);
     scene.add(g);
     live.push({ id, set: def.s, group: g, crystal, phase: i * 0.7 });
   });
@@ -84,7 +89,7 @@ export function createShards(scene, { progress, audio, cosmetics }) {
       color: def.color, transparent: true, opacity: 0.16,
       side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
     }));
-    m.position.set(def.beacon.x, terrainHeight(def.beacon.x, def.beacon.z) + 63, def.beacon.z);
+    m.position.set(def.beacon.x, groundY(def.beacon.x, def.beacon.z) + 63, def.beacon.z);
     scene.add(m);
   }
 

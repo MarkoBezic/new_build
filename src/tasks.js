@@ -51,6 +51,7 @@ export function createTasks({ playerPosition }) {
       streakRec.streak = streakRec.last === yesterdayKey() ? streakRec.streak + 1 : 1;
       streakRec.last   = today;
       save('tasks:streak', streakRec);
+      bus.emit('tasks-done');
       toast(`📋 All daily tasks complete! Streak: ${streakRec.streak} day${streakRec.streak === 1 ? '' : 's'} 🎉`, 5500);
     } else {
       toast(`📋 Task complete: ${task.label} (${n}/${picks.length})`, 3200);

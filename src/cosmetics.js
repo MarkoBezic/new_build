@@ -12,6 +12,7 @@ export const TRAILS = {
   cave:   { label: 'Violet Trail',  color: 0xA85CF0 },
   icy:    { label: 'Frost Trail',   color: 0x9FE8FF },
   ruins:  { label: 'Gold Trail',    color: 0xFFD75A },
+  volcano:{ label: 'Ember Trail',   color: 0xFF6A3D },
 };
 
 function makeDotTexture() {

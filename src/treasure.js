@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { dailyRng, dayKey, yesterdayKey } from './daily.js';
 import { save, load } from './persistence.js';
-import { terrainHeight } from './terrain.js';
+import { groundY } from './zones.js';
 import { toast } from './hud.js';
+import { bus } from './bus.js';
 
 // Daily treasure hunt — one golden chest spawns somewhere on the island each
 // day, at the same spot for every player (date-seeded). A notice board at
@@ -20,6 +21,7 @@ const SPOTS = [
   { x: -440, z:  616, hint: 'In the belly of the boat the sea gave back.' },
   { x:  242, z:  318, hint: 'Where the forest whispers loudest.' },
   { x:  350, z: -700, hint: 'High in the white silence, past the last cairn.' },
+  { x: -700, z:  880, hint: 'Where the sea hides its fire. Bring a boat.' },
 ];
 
 export function createTreasure(scene, { interact, audio, summit, getTasksNote } = {}) {
@@ -27,7 +29,7 @@ export function createTreasure(scene, { interact, audio, summit, getTasksNote } 
   const rng   = dailyRng('treasure');
   const spots = summit ? [...SPOTS, { x: summit.x, z: summit.z, hint: 'Where the world runs out of up.' }] : SPOTS;
   const spot  = spots[Math.floor(rng() * spots.length)];
-  const gy    = terrainHeight(spot.x, spot.z);
+  const gy    = groundY(spot.x, spot.z);
 
   let opened  = load('treasure:state', {}).openedDay === today;
 
@@ -78,6 +80,7 @@ export function createTreasure(scene, { interact, audio, summit, getTasksNote } 
     save('treasure:streak', s);
     save('treasure:state', { openedDay: today });
     audio.sfx.fanfare();
+    bus.emit('treasure');
     toast(`🏆 Daily treasure found! Streak: ${s.streak} day${s.streak === 1 ? '' : 's'} (${s.total} total)`, 5500);
   }
 

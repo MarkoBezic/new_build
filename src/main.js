@@ -45,6 +45,11 @@ import { createPhoto }    from './photo.js';
 import { createRitual }   from './ritual.js';
 import { createRace }     from './race.js';
 import { createGosling }  from './gosling.js';
+import { createShells }   from './shells.js';
+import { createShop }     from './shop.js';
+import { createIsland }   from './island.js';
+import { createSkyIslands } from './skyislands.js';
+import { initHats, wornHat } from './hats.js';
 import { bus }            from './bus.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass }     from 'three/addons/postprocessing/RenderPass.js';
@@ -334,6 +339,14 @@ const photo       = createPhoto(renderer, { audio, isMobile });
 const ritual      = createRitual(scene, { audio });
 const race        = createRace(scene, { interact, audio, playerPosition });
 const gosling     = createGosling(scene, { interact, audio, playerPosition });
+const shells      = createShells(scene, { audio, playerPosition });
+const shop        = createShop(scene, { interact, audio, shells });
+const island      = createIsland(scene, { interact, audio });
+const skyIsles    = createSkyIslands(scene, { interact, audio, playerPosition });
+initHats({
+  getAvatar,
+  onChange: id => { if (multiplayer.updateHat) multiplayer.updateHat(id); },
+});
 const snowballs   = createSnowballs(scene, {
   camera, playerPosition, biomeAt, audio,
   getTargets:  () => [...multiplayer.getRemotes(), ...ghosts.getRemotes()],
@@ -511,6 +524,8 @@ window.addEventListener('keydown', e => {
     _ucVisible = !_ucVisible;
     ucEl.style.display = _ucVisible ? 'block' : 'none';
   }
+  // Shop steals the number keys while open (emotes get them back after)
+  if (shop.isOpen()) { shop.onKey(e); return; }
   fishing.onKey(e, playerPosition, getState().ry, isOnBoat());
   emotes.onKey(e);
   volleyball.onKey(e, playerPosition);
@@ -553,6 +568,7 @@ showAvatarPicker(overlay, (color, name) => {
   avatarReady = true;                // set before anything that could throw
   try {
     multiplayer = createMultiplayer(scene, getState, color, name, {
+      hat: wornHat(),
       onRemoteEmote: (mesh, id, elapsed) => emotes.applyRemoteEmote(mesh, id, elapsed),
       onBallState:   state => volleyball.handleRemoteState(state),
       onSnow:        data => snowballs.spawnRemote(data),
@@ -733,6 +749,10 @@ function animate() {
   ritual.update(dt, now / 1000);
   race.update(dt, now / 1000);
   gosling.update(dt);
+  shells.update(dt, now / 1000);
+  shop.update(playerPosition);
+  island.update(dt, now / 1000);
+  skyIsles.update(dt, now / 1000);
   fishing.setConditions({ night: _night, rain: weather.current().rain });
   updateFeel(dt);
   shards.update(dt, playerPosition, now / 1000);

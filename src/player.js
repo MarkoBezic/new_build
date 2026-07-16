@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
-import { groundY as zoneGroundY, BEACH_STOP, SHORE } from './zones.js';
+import { groundY as zoneGroundY, BEACH_STOP, SHORE, ISLAND, inIsland, skyFloorY, updraftAt } from './zones.js';
 import { buildHumanoid, animateAvatar } from './humanoid.js';
 
 const WALK_SPEED   = 8;
 const SPRINT_SPEED = 18;
 const BOAT_SPEED   = 4.5;
+const BOAT_OPEN_SPEED = 10;   // wind at your back on the open sea
 const GRAVITY      = -28;
 const JUMP_VEL     = 10;
 const EYE_HEIGHT   = 1.75;
@@ -31,6 +32,16 @@ let _boardCooldown = 0;       // grace period after disembarking before re-board
 const BOARD_COOLDOWN = 1.2;
 export function setBoats(arr) { _boats = arr; }
 export function isOnBoat()    { return _onBoat; }
+
+// Walkable if on the land side of the shore, or anywhere on Ember Isle
+function canWalk(x, z) { return (z - x) <= SHORE || inIsland(x, z); }
+
+// Open sea = past the shore band and clear of the island — boats run fast here
+function boatSpeed(b) {
+  const open = (b.z - b.x) > 1150 &&
+    Math.hypot(b.x - ISLAND.x, b.z - ISLAND.z) > ISLAND.r + 30;
+  return open ? BOAT_OPEN_SPEED : BOAT_SPEED;
+}
 
 // ── Glider state (unlocked at the Icy Peaks summit, see glider.js) ────────────
 let _gliderUnlocked = false;
@@ -186,10 +197,18 @@ function createDesktopPlayer(scene, camera, canvas) {
       _onBoat = false; _hasCastOff = false;
       _boardCooldown = BOARD_COOLDOWN;
       boatHint.style.display = 'none';
-      // Place player on beach side of shore from current boat position
-      const K = _activeBoat.z - _activeBoat.x;
-      const shift = Math.max(0, K - 1092) / 2;  // move toward beach until z−x≈1092
-      const tx = _activeBoat.x + shift, tz = _activeBoat.z - shift;
+      let tx, tz;
+      const di = Math.hypot(_activeBoat.x - ISLAND.x, _activeBoat.z - ISLAND.z);
+      if (di < ISLAND.r + 12) {
+        // Step ashore onto Ember Isle
+        tx = ISLAND.x + ((_activeBoat.x - ISLAND.x) / di) * (ISLAND.r - 2.5);
+        tz = ISLAND.z + ((_activeBoat.z - ISLAND.z) / di) * (ISLAND.r - 2.5);
+      } else {
+        // Place player on beach side of shore from current boat position
+        const K = _activeBoat.z - _activeBoat.x;
+        const shift = Math.max(0, K - 1092) / 2;  // move toward beach until z−x≈1092
+        tx = _activeBoat.x + shift; tz = _activeBoat.z - shift;
+      }
       if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
       else             { camera.position.x = tx; camera.position.z = tz; }
       playerY = floorY(tx, tz);
@@ -208,7 +227,7 @@ function createDesktopPlayer(scene, camera, canvas) {
     if (!document.pointerLockElement) return;
     _boardCooldown = Math.max(0, _boardCooldown - dt);
 
-    const speed = _onBoat ? BOAT_SPEED
+    const speed = _onBoat ? boatSpeed(_activeBoat)
                 : (keys.has('ShiftLeft') || keys.has('ShiftRight') ? SPRINT_SPEED : WALK_SPEED);
     let mx = 0, mz = 0;
     if (keys.has('KeyW') || keys.has('ArrowUp'))    mz -= 1;
@@ -240,10 +259,28 @@ function createDesktopPlayer(scene, camera, canvas) {
           else             { camera.position.x = tx; camera.position.z = tz; }
           playerY = floorY(tx, tz); vy = 0;
         }
+        // Beach on Ember Isle — nose the boat to the rim and step ashore
+        if (_activeBoat) {
+          const di = Math.hypot(_activeBoat.x - ISLAND.x, _activeBoat.z - ISLAND.z);
+          if (di < ISLAND.r + 1) {
+            const ux = (_activeBoat.x - ISLAND.x) / di, uz = (_activeBoat.z - ISLAND.z) / di;
+            _activeBoat.x = ISLAND.x + ux * (ISLAND.r + 2.5);
+            _activeBoat.z = ISLAND.z + uz * (ISLAND.r + 2.5);
+            _activeBoat.mesh.position.set(_activeBoat.x, BOAT_FLOAT_Y, _activeBoat.z);
+            const tx = ISLAND.x + ux * (ISLAND.r - 2.5);
+            const tz = ISLAND.z + uz * (ISLAND.r - 2.5);
+            _onBoat = false; _hasCastOff = false; _activeBoat = null;
+            _boardCooldown = BOARD_COOLDOWN;
+            boatHint.style.display = 'none';
+            if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
+            else             { camera.position.x = tx; camera.position.z = tz; }
+            playerY = floorY(tx, tz); vy = 0;
+          }
+        }
       } else {
         const nx = (thirdPerson ? avatar.position.x : camera.position.x) + dx;
         const nz = (thirdPerson ? avatar.position.z : camera.position.z) + dz;
-        if (nz - nx <= SHORE) {  // block walking into water
+        if (canWalk(nx, nz)) {  // block walking into water (island shores allowed)
           if (thirdPerson) { avatar.position.x = nx; avatar.position.z = nz; }
           else             { camera.position.x = nx; camera.position.z = nz; }
         }
@@ -267,15 +304,17 @@ function createDesktopPlayer(scene, camera, canvas) {
       playerY = BOAT_DECK_Y; vy = 0; grounded = true; airTime = 0; _gliding = false;
     } else {
       vy += GRAVITY * dt;
-      // Hold Space while falling to deploy the Warden's Glider
-      _gliding = _gliderUnlocked && airTime > 0.22 && vy < 0 && keys.has('Space');
+      // Hold Space while falling to deploy the Warden's Glider.
+      // Updraft columns beneath the sky islands lift a deployed glider.
+      const gpx = thirdPerson ? avatar.position.x : camera.position.x;
+      const gpz = thirdPerson ? avatar.position.z : camera.position.z;
+      const draft = _gliderUnlocked ? updraftAt(gpx, gpz, playerY) : null;
+      _gliding = _gliderUnlocked && airTime > 0.22 && keys.has('Space') && (vy < 0 || !!draft);
       if (_gliding) {
-        vy = Math.max(vy, GLIDE_FALL);
-        const gx = -Math.sin(yaw) * GLIDE_SPEED * dt;
-        const gz = -Math.cos(yaw) * GLIDE_SPEED * dt;
-        const nx = (thirdPerson ? avatar.position.x : camera.position.x) + gx;
-        const nz = (thirdPerson ? avatar.position.z : camera.position.z) + gz;
-        if (nz - nx <= SHORE) {
+        vy = draft ? Math.min(vy + 55 * dt, 7) : Math.max(vy, GLIDE_FALL);
+        const nx = gpx - Math.sin(yaw) * GLIDE_SPEED * dt;
+        const nz = gpz - Math.cos(yaw) * GLIDE_SPEED * dt;
+        if (canWalk(nx, nz)) {
           if (thirdPerson) { avatar.position.x = nx; avatar.position.z = nz; }
           else             { camera.position.x = nx; camera.position.z = nz; }
         }
@@ -283,7 +322,7 @@ function createDesktopPlayer(scene, camera, canvas) {
       playerY += vy * dt;
       const px = thirdPerson ? avatar.position.x : camera.position.x;
       const pz = thirdPerson ? avatar.position.z : camera.position.z;
-      const ground = floorY(px, pz);
+      const ground = Math.max(floorY(px, pz), skyFloorY(px, pz, playerY));
       if (playerY <= ground) { playerY = ground; vy = 0; grounded = true; airTime = 0; _gliding = false; }
       else airTime += dt;
     }
@@ -497,7 +536,7 @@ function createMobilePlayer(scene, camera, canvas) {
     if (joyId !== null && Math.hypot(joyDX, joyDY) > DEAD) {
       const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
       const rgtX =  Math.cos(yaw), rgtZ = -Math.sin(yaw);
-      const mSpeed = _onBoat ? BOAT_SPEED : WALK_SPEED;
+      const mSpeed = _onBoat ? boatSpeed(_activeBoat) : WALK_SPEED;
       const dx = (-joyDY * fwdX + joyDX * rgtX) * mSpeed * dt;
       const dz = (-joyDY * fwdZ + joyDX * rgtZ) * mSpeed * dt;
       if (_onBoat) {
@@ -514,9 +553,24 @@ function createMobilePlayer(scene, camera, canvas) {
           _boardCooldown = BOARD_COOLDOWN;
           playerY = floorY(playerX, playerZ); vy = 0;
         }
+        // Beach on Ember Isle — nose the boat to the rim and step ashore
+        if (_activeBoat) {
+          const di = Math.hypot(_activeBoat.x - ISLAND.x, _activeBoat.z - ISLAND.z);
+          if (di < ISLAND.r + 1) {
+            const ux = (_activeBoat.x - ISLAND.x) / di, uz = (_activeBoat.z - ISLAND.z) / di;
+            _activeBoat.x = ISLAND.x + ux * (ISLAND.r + 2.5);
+            _activeBoat.z = ISLAND.z + uz * (ISLAND.r + 2.5);
+            _activeBoat.mesh.position.set(_activeBoat.x, BOAT_FLOAT_Y, _activeBoat.z);
+            playerX = ISLAND.x + ux * (ISLAND.r - 2.5);
+            playerZ = ISLAND.z + uz * (ISLAND.r - 2.5);
+            _onBoat = false; _hasCastOff = false; _activeBoat = null;
+            _boardCooldown = BOARD_COOLDOWN;
+            playerY = floorY(playerX, playerZ); vy = 0;
+          }
+        }
       } else {
         const nx = playerX + dx, nz = playerZ + dz;
-        if (nz - nx <= SHORE) { playerX = nx; playerZ = nz; }
+        if (canWalk(nx, nz)) { playerX = nx; playerZ = nz; }
       }
     }
 
@@ -534,15 +588,16 @@ function createMobilePlayer(scene, camera, canvas) {
       playerY = BOAT_DECK_Y; vy = 0; airTime = 0; _gliding = false;
     } else {
       vy += GRAVITY * dt;
-      _gliding = _gliderUnlocked && airTime > 0.3 && vy < 0;
+      const draft = _gliderUnlocked ? updraftAt(playerX, playerZ, playerY) : null;
+      _gliding = _gliderUnlocked && airTime > 0.3 && (vy < 0 || !!draft);
       if (_gliding) {
-        vy = Math.max(vy, GLIDE_FALL);
+        vy = draft ? Math.min(vy + 55 * dt, 7) : Math.max(vy, GLIDE_FALL);
         const nx = playerX - Math.sin(yaw) * GLIDE_SPEED * dt;
         const nz = playerZ - Math.cos(yaw) * GLIDE_SPEED * dt;
-        if (nz - nx <= SHORE) { playerX = nx; playerZ = nz; }
+        if (canWalk(nx, nz)) { playerX = nx; playerZ = nz; }
       }
       playerY += vy * dt;
-      const ground = floorY(playerX, playerZ);
+      const ground = Math.max(floorY(playerX, playerZ), skyFloorY(playerX, playerZ, playerY));
       if (playerY <= ground) { playerY = ground; vy = 0; airTime = 0; _gliding = false; }
       else airTime += dt;
     }

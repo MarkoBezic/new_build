@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import * as Ably from 'ably';
 import { buildHumanoid, animateAvatar } from './humanoid.js';
+import { setHatMesh } from './hats.js';
 
 const SEND_INTERVAL = 0.05;   // seconds — broadcast at ~20 fps
 const CHANNEL_NAME  = 'world';
@@ -34,19 +35,21 @@ function makeNameLabel(name) {
   return sprite;
 }
 
-function makeAvatar(color, name) {
+function makeAvatar(color, name, hat) {
   const g = buildHumanoid(color);
   const label = makeNameLabel(name);
   if (label) { g.add(label); g.userData.nameLabel = label; }
+  if (hat) setHatMesh(g, hat);
   return g;
 }
 
-export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote, onBallState, onChat, onSnow, onFire } = {}) {
+export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote, onBallState, onChat, onSnow, onFire, hat } = {}) {
   const key = import.meta.env.VITE_ABLY_KEY;
   if (!key || key === 'your_ably_api_key_here') {
     console.warn('Multiplayer disabled — VITE_ABLY_KEY not set');
-    return { update() {}, getRemotes() { return []; }, broadcastEmote() {}, publishBall() {}, sendChat() {}, publishSnow() {}, publishFire() {} };
+    return { update() {}, getRemotes() { return []; }, broadcastEmote() {}, publishBall() {}, sendChat() {}, publishSnow() {}, publishFire() {}, updateHat() {} };
   }
+  let myHat = hat ?? null;
 
   const myId = Math.random().toString(36).slice(2, 10);
   const remotes = new Map();   // clientId → { mesh, color, name, tx, tz, try }
@@ -64,12 +67,14 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     if (member.clientId === myId) return;
     const color = member.data?.color ?? 0xAAAAAA;
     const name  = member.data?.name  ?? '';
+    const rHat  = member.data?.hat   ?? null;
     const r = remotes.get(member.clientId);
     if (r) {
       // A move message arrived before presence — avatar exists but may be grey/unnamed.
       if (r.mesh.userData.bodyMat) r.mesh.userData.bodyMat.color.setHex(color);
       r.color = color;
       r.name  = name;
+      setHatMesh(r.mesh, rHat);
       // Replace name label
       if (r.mesh.userData.nameLabel) {
         const old = r.mesh.userData.nameLabel;
@@ -81,7 +86,7 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
       const label = makeNameLabel(name);
       if (label) { r.mesh.add(label); r.mesh.userData.nameLabel = label; }
     } else {
-      spawnRemote(member.clientId, color, name, 0, 0, 0);
+      spawnRemote(member.clientId, color, name, 0, 0, 0, rHat);
     }
     // Force-broadcast our own position immediately so the new joiner sees us.
     sendTimer = SEND_INTERVAL;
@@ -89,11 +94,12 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
 
   channel.presence.subscribe('present', handleMemberJoin);
   channel.presence.subscribe('enter',   handleMemberJoin);
+  channel.presence.subscribe('update',  handleMemberJoin);   // hat changes
   channel.presence.subscribe('leave',   member => removeRemote(member.clientId));
 
   // Enter then snapshot — 'present' fires for members already in the channel
   // during attach; get() is a safety net in case any were missed due to timing.
-  channel.presence.enter({ color: myColor, name: myName }).then(() => {
+  channel.presence.enter({ color: myColor, name: myName, hat: myHat }).then(() => {
     channel.presence.get().then(members => {
       if (!members) return;
       for (const m of members) {
@@ -164,9 +170,15 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
   });
   function publishFire() { channel.publish('fire', {}); }
 
-  function spawnRemote(id, color, name, x, z, ry) {
+  // Hat change — presence.update re-announces us with the new hat id
+  function updateHat(id) {
+    myHat = id;
+    channel.presence.update({ color: myColor, name: myName, hat: myHat }).catch(() => {});
+  }
+
+  function spawnRemote(id, color, name, x, z, ry, hat = null) {
     if (remotes.has(id)) return;
-    const mesh = makeAvatar(color, name);
+    const mesh = makeAvatar(color, name, hat);
     mesh.position.set(x, 0, z);
     mesh.rotation.y = ry;
     scene.add(mesh);
@@ -222,5 +234,5 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     }
   }
 
-  return { update, getRemotes, broadcastEmote, publishBall, sendChat, publishSnow, publishFire };
+  return { update, getRemotes, broadcastEmote, publishBall, sendChat, publishSnow, publishFire, updateHat };
 }
