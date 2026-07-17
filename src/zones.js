@@ -32,14 +32,19 @@ export const ZONE = {
 // ── Ember Isle — volcanic island far offshore, reachable only by boat ─────────
 export const ISLAND = { x: -700, z: 900, r: 58 };
 
+// Walkable slightly past the rim — a wading shelf so you can always reach a
+// beached boat (without it, the boat sat just outside walkable range and
+// players were stranded on the island).
 export function inIsland(x, z) {
-  return Math.hypot(x - ISLAND.x, z - ISLAND.z) < ISLAND.r;
+  return Math.hypot(x - ISLAND.x, z - ISLAND.z) < ISLAND.r + 3;
 }
 
-// Cone rising from a sandy rim to a crater bowl at the top
+// Cone rising from a sandy rim to a crater bowl at the top, with a flat
+// wet-sand shelf ringing the shore
 export function islandHeight(x, z) {
   const d = Math.hypot(x - ISLAND.x, z - ISLAND.z);
-  if (d >= ISLAND.r) return 0;
+  if (d >= ISLAND.r + 3) return 0;
+  if (d >= ISLAND.r) return 0.15;
   const t = 1 - d / ISLAND.r;
   let h = 0.15 + Math.pow(t, 1.7) * 24;
   const crater = 1 - Math.min(1, d / 10);

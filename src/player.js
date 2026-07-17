@@ -170,9 +170,14 @@ function createDesktopPlayer(scene, camera, canvas) {
       let tx, tz;
       const di = Math.hypot(_activeBoat.x - ISLAND.x, _activeBoat.z - ISLAND.z);
       if (di < ISLAND.r + 12) {
-        // Step ashore onto Ember Isle
-        tx = ISLAND.x + ((_activeBoat.x - ISLAND.x) / di) * (ISLAND.r - 2.5);
-        tz = ISLAND.z + ((_activeBoat.z - ISLAND.z) / di) * (ISLAND.r - 2.5);
+        // Step ashore onto Ember Isle — and pull the boat to the rim so it
+        // stays boardable from the wading shelf, never stranded offshore
+        const ux = (_activeBoat.x - ISLAND.x) / di, uz = (_activeBoat.z - ISLAND.z) / di;
+        _activeBoat.x = ISLAND.x + ux * (ISLAND.r + 1.5);
+        _activeBoat.z = ISLAND.z + uz * (ISLAND.r + 1.5);
+        _activeBoat.mesh.position.set(_activeBoat.x, BOAT_FLOAT_Y, _activeBoat.z);
+        tx = ISLAND.x + ux * (ISLAND.r - 2.5);
+        tz = ISLAND.z + uz * (ISLAND.r - 2.5);
       } else {
         // Place player on beach side of shore from current boat position
         const K = _activeBoat.z - _activeBoat.x;
@@ -234,8 +239,8 @@ function createDesktopPlayer(scene, camera, canvas) {
           const di = Math.hypot(_activeBoat.x - ISLAND.x, _activeBoat.z - ISLAND.z);
           if (di < ISLAND.r + 1) {
             const ux = (_activeBoat.x - ISLAND.x) / di, uz = (_activeBoat.z - ISLAND.z) / di;
-            _activeBoat.x = ISLAND.x + ux * (ISLAND.r + 2.5);
-            _activeBoat.z = ISLAND.z + uz * (ISLAND.r + 2.5);
+            _activeBoat.x = ISLAND.x + ux * (ISLAND.r + 1.5);
+            _activeBoat.z = ISLAND.z + uz * (ISLAND.r + 1.5);
             _activeBoat.mesh.position.set(_activeBoat.x, BOAT_FLOAT_Y, _activeBoat.z);
             const tx = ISLAND.x + ux * (ISLAND.r - 2.5);
             const tz = ISLAND.z + uz * (ISLAND.r - 2.5);
@@ -528,8 +533,8 @@ function createMobilePlayer(scene, camera, canvas) {
           const di = Math.hypot(_activeBoat.x - ISLAND.x, _activeBoat.z - ISLAND.z);
           if (di < ISLAND.r + 1) {
             const ux = (_activeBoat.x - ISLAND.x) / di, uz = (_activeBoat.z - ISLAND.z) / di;
-            _activeBoat.x = ISLAND.x + ux * (ISLAND.r + 2.5);
-            _activeBoat.z = ISLAND.z + uz * (ISLAND.r + 2.5);
+            _activeBoat.x = ISLAND.x + ux * (ISLAND.r + 1.5);
+            _activeBoat.z = ISLAND.z + uz * (ISLAND.r + 1.5);
             _activeBoat.mesh.position.set(_activeBoat.x, BOAT_FLOAT_Y, _activeBoat.z);
             playerX = ISLAND.x + ux * (ISLAND.r - 2.5);
             playerZ = ISLAND.z + uz * (ISLAND.r - 2.5);
