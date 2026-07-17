@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { terrainHeight } from './terrain.js';
 import { BIOMES } from './world.config.js';
 import { toast } from './hud.js';
+import { makeBeam } from './fx.js';
 import { setGliderUnlocked } from './player.js';
 
 // The Warden's Glider — a traversal unlock resting on a cairn at the Icy
@@ -44,13 +45,7 @@ export function createGlider(scene, { progress, interact, audio }) {
   group.add(wing);
 
   // Sky beam — warm orange to stand apart from the icy shard beams
-  const beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.35, 0.35, 46, 6, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: 0xFFB56B, transparent: true, opacity: 0.14,
-      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
-    }),
-  );
+  const beam = makeBeam(0xFFB56B, { rTop: 0.35, h: 46, opacity: 0.14 });
   beam.position.y = 24;
   group.add(beam);
 

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { save, load } from './persistence.js';
-import { toast } from './hud.js';
+import { toast, makeChip } from './hud.js';
 import { bus } from './bus.js';
 import { dailyRng, dayKey } from './daily.js';
 
@@ -16,14 +16,7 @@ export function createShells(scene, { audio, playerPosition }) {
   let count = load('shells:count', 0);
 
   // ── HUD chip under the tasks chip ───────────────────────────────────────────
-  const chip = document.createElement('div');
-  Object.assign(chip.style, {
-    position: 'fixed', top: '72px', right: '14px', zIndex: '15',
-    color: '#FFE0D0', font: '13px/1.6 system-ui, sans-serif',
-    background: 'rgba(0,0,0,0.4)', padding: '4px 12px', borderRadius: '10px',
-    pointerEvents: 'none', textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-  });
-  document.body.appendChild(chip);
+  const chip = makeChip(72, '#FFE0D0');
   const refresh = () => { chip.textContent = `🐚 ${count}`; };
   refresh();
 

@@ -5,6 +5,7 @@ import { bus } from './bus.js';
 import { buildHumanoid } from './humanoid.js';
 import { groundY } from './zones.js';
 import { terrainHeight } from './terrain.js';
+import { makeBeam } from './fx.js';
 
 // The Meadow Circuit — a checkpoint race starting at the warp-gate plaza:
 // pond → south meadow → cave mouth → back to the flag. Your best run is
@@ -59,13 +60,7 @@ export function createRace(scene, { interact, audio, playerPosition }) {
     const torus = new THREE.Mesh(new THREE.TorusGeometry(3, 0.22, 8, 32), dimMat);
     torus.position.y = 3;
     g.add(torus);
-    const beam = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.25, 0.25, 42, 6, 1, true),
-      new THREE.MeshBasicMaterial({
-        color: 0xFFD75A, transparent: true, opacity: 0.14,
-        side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
-      }),
-    );
+    const beam = makeBeam(0xFFD75A, { rTop: 0.25, h: 42, opacity: 0.14 });
     beam.position.y = 22;
     beam.visible = false;
     g.add(beam);

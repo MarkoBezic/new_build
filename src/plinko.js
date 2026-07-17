@@ -3,6 +3,7 @@ import { toast } from './hud.js';
 import { bus } from './bus.js';
 import { save, load } from './persistence.js';
 import { dayKey, mulberry32 } from './daily.js';
+import { makeBeam } from './fx.js';
 
 // Shellfall — the island's own peg-drop attraction, on the boardwalk beside
 // Moss's shop. A chip costs 5 shells (first drop each day is free); where you
@@ -96,14 +97,7 @@ export function createPlinko(scene, { interact, audio, shells, playerPosition, o
   }
 
   // Jackpot celebration pillar
-  const pillar = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.5, 0.7, 60, 8, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: 0xFFD75A, transparent: true, opacity: 0,
-      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
-    }),
-  );
-  pillar.position.set(0, 30, 0);
+  const pillar = makeBeam(0xFFD75A, { rTop: 0.5, rBottom: 0.7, h: 60, opacity: 0 });
   board.add(pillar);
   let pillarT = 0;
 

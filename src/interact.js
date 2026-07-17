@@ -5,6 +5,7 @@
 // E (or the mobile ✦ button) triggers it. Boat boarding/exit keeps priority —
 // prompts are suppressed while on a boat.
 import { isOnBoat } from './player.js';
+import { makeMobileButton } from './hud.js';
 
 export function createInteract(playerPosition, { isMobile } = {}) {
   const spots = [];
@@ -17,19 +18,9 @@ export function createInteract(playerPosition, { isMobile } = {}) {
   }
 
   // ── Mobile button ──────────────────────────────────────────────────────────
-  let btn = null;
-  if (isMobile) {
-    btn = document.createElement('button');
-    btn.textContent = '✦';
-    Object.assign(btn.style, {
-      position: 'fixed', bottom: '150px', right: '20px',
-      width: '56px', height: '56px', borderRadius: '50%',
-      fontSize: '26px', border: 'none', display: 'none',
-      background: 'rgba(80,200,255,0.35)', color: '#fff', zIndex: '30',
-    });
-    btn.addEventListener('touchend', e => { e.preventDefault(); trigger(); });
-    document.body.appendChild(btn);
-  }
+  const btn = isMobile
+    ? makeMobileButton('✦', { bottom: '150px', right: '20px' }, () => trigger(), 'rgba(80,200,255,0.35)')
+    : null;
 
   function trigger() {
     if (!current || cooldown > 0) return;

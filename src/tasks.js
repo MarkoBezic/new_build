@@ -1,6 +1,6 @@
 import { dailyRng, dayKey, yesterdayKey } from './daily.js';
 import { save, load } from './persistence.js';
-import { toast } from './hud.js';
+import { toast, makeChip } from './hud.js';
 import { bus } from './bus.js';
 import { biomeAt } from './biomes.js';
 
@@ -77,14 +77,7 @@ export function createTasks({ playerPosition }) {
   }
 
   // ── Chip under the shard counter ────────────────────────────────────────────
-  const chip = document.createElement('div');
-  Object.assign(chip.style, {
-    position: 'fixed', top: '42px', right: '14px', zIndex: '15',
-    color: '#FFE9B8', font: '13px/1.6 system-ui, sans-serif',
-    background: 'rgba(0,0,0,0.4)', padding: '4px 12px', borderRadius: '10px',
-    pointerEvents: 'none', textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-  });
-  document.body.appendChild(chip);
+  const chip = makeChip(42, '#FFE9B8');
 
   // ── K panel ─────────────────────────────────────────────────────────────────
   const panel = document.createElement('div');

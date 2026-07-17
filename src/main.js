@@ -157,8 +157,8 @@ scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xFFF8E0, 2.0);
 sun.position.set(70, 120, 80);
 sun.castShadow              = true;
-sun.shadow.mapSize.width    = isMobile ? 1024 : 4096;
-sun.shadow.mapSize.height   = isMobile ? 1024 : 4096;
+sun.shadow.mapSize.width    = isMobile ? 1024 : 2048;   // 4096 was ~4× the GPU cost for no visible gain at this frustum size
+sun.shadow.mapSize.height   = isMobile ? 1024 : 2048;
 sun.shadow.camera.left      = -95;
 sun.shadow.camera.right     =  95;
 sun.shadow.camera.top       =  95;
@@ -312,9 +312,11 @@ let myName = '';                                                 // set after av
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 
-// OutlinePass — desktop only, outlines only the NPC group
+// OutlinePass — desktop only, outlines only the NPC group. It costs extra
+// full-screen render passes, so it is switched off whenever the NPC is far.
+let outlinePass = null;
 if (!isMobile) {
-  const outlinePass = new OutlinePass(
+  outlinePass = new OutlinePass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
     scene, camera
   );
@@ -752,6 +754,9 @@ function updateFeel(dt) {
 //  Render loop
 // ─────────────────────────────────────────────────────────────────────────────
 let prevTime = performance.now();
+// Per-frame state objects, allocated once and mutated (see animate)
+const _audioState = {};
+const _fishCond = { night: 0, rain: 0 };
 
 function animate() {
   requestAnimationFrame(animate);
@@ -787,13 +792,20 @@ function animate() {
   gosling.update(dt);
   shells.update(dt, now / 1000);
   shop.update(playerPosition);
-  island.update(dt, now / 1000);
+  island.update(dt, now / 1000, playerPosition);
   skyIsles.update(dt, now / 1000);
   cave.update(dt, now / 1000, playerPosition);
   seasons.update(dt);
   plinko.update(dt, now / 1000);
   islandMap.update(dt);
-  fishing.setConditions({ night: _night, rain: weather.current().rain });
+  if (outlinePass) {
+    outlinePass.enabled =
+      Math.hypot(playerPosition.x - npcRoot.position.x,
+                 playerPosition.z - npcRoot.position.z) < 60;
+  }
+  _fishCond.night = _night;
+  _fishCond.rain  = weather.current().rain;
+  fishing.setConditions(_fishCond);
   updateFeel(dt);
   shards.update(dt, playerPosition, now / 1000);
   tablets.update(dt, now / 1000);
@@ -801,12 +813,17 @@ function animate() {
   worldEvents.update(dt, _hourEST, _sunsetH, _night, camera);
   pois.update(dt, now / 1000, _night);
   cosmetics.update(dt);
-  audio.update(dt, {
-    x: playerPosition.x, z: playerPosition.z, altitude: playerPosition.y,
-    biome: biomeAt(playerPosition.x, playerPosition.z),
-    dayFactor: _dayFactor, night: _night, gliding: isGliding(),
-    rain: weather.current().rain, windBoost: weather.current().wind,
-  });
+  // Reused state object — a fresh 10-field object per frame was GC churn
+  _audioState.x = playerPosition.x;
+  _audioState.z = playerPosition.z;
+  _audioState.altitude = playerPosition.y;
+  _audioState.biome = biomeAt(playerPosition.x, playerPosition.z);
+  _audioState.dayFactor = _dayFactor;
+  _audioState.night = _night;
+  _audioState.gliding = isGliding();
+  _audioState.rain = weather.current().rain;
+  _audioState.windBoost = weather.current().wind;
+  audio.update(dt, _audioState);
   hud.update(dt);
   multiplayer.update(dt);
   // Update counter text only when visible and only when the value changes

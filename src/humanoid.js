@@ -1,5 +1,28 @@
 import * as THREE from 'three';
 
+// ── Floating name label — shared by the player, remotes and ghost NPCs ───────
+export function makeNameLabel(name, suffix = '') {
+  if (!name) return null;
+  const cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 64;
+  const cx = cv.getContext('2d');
+  cx.fillStyle = 'rgba(0,0,0,0.55)';
+  cx.beginPath();
+  cx.roundRect(0, 0, 256, 64, 10);
+  cx.fill();
+  cx.font = 'bold 26px Arial, sans-serif';
+  cx.fillStyle = 'white';
+  cx.textAlign = 'center';
+  cx.textBaseline = 'middle';
+  cx.fillText(`${name.slice(0, 16)}${suffix}`, 128, 34);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(cv), transparent: true,
+  }));
+  sp.scale.set(1.4, 0.35, 1);
+  sp.position.y = 2.1;
+  return sp;
+}
+
 // ── Build a humanoid group with head, torso, arms and legs ───────────────────
 // Limb pivots are stored in g.userData.limbs for animation.
 // The body material is in g.userData.bodyMat for colour changes.

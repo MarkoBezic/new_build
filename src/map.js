@@ -1,4 +1,5 @@
 import { save, load } from './persistence.js';
+import { makeMobileButton } from './hud.js';
 import { OCEAN } from './world.config.js';
 
 // The island map (M) — a hand-drawn-style canvas chart. Geography is always
@@ -137,16 +138,7 @@ export function createMap({ playerPosition, getState, isMobile }) {
   wrap.addEventListener('click', () => toggle(false));
 
   if (isMobile) {
-    const btn = document.createElement('button');
-    btn.textContent = '🗺';
-    Object.assign(btn.style, {
-      position: 'fixed', bottom: '214px', left: '20px',
-      width: '52px', height: '52px', borderRadius: '50%',
-      fontSize: '22px', border: 'none',
-      background: 'rgba(0,0,0,0.45)', color: '#fff', zIndex: '30',
-    });
-    btn.addEventListener('touchend', e => { e.preventDefault(); toggle(); });
-    document.body.appendChild(btn);
+    makeMobileButton('🗺', { bottom: '214px', left: '20px' }, () => toggle()).style.display = 'block';
   }
 
   // ── Discovery + live redraw ─────────────────────────────────────────────────

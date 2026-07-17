@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { groundY } from './zones.js';
-import { toast } from './hud.js';
+import { toast, makeMobileButton } from './hud.js';
 import { bus } from './bus.js';
 import { isMobile } from './player.js';
 
@@ -71,19 +71,9 @@ export function createSnowballs(scene, { camera, playerPosition, biomeAt, audio,
   }
 
   // Mobile ❄️ button — only visible inside the biome
-  let btn = null;
-  if (isMobile) {
-    btn = document.createElement('button');
-    btn.textContent = '❄️';
-    Object.assign(btn.style, {
-      position: 'fixed', bottom: '214px', right: '20px',
-      width: '56px', height: '56px', borderRadius: '50%',
-      fontSize: '24px', border: 'none', display: 'none',
-      background: 'rgba(159,232,255,0.35)', color: '#fff', zIndex: '30',
-    });
-    btn.addEventListener('touchend', e => { e.preventDefault(); throwBall(); });
-    document.body.appendChild(btn);
-  }
+  const btn = isMobile
+    ? makeMobileButton('❄️', { bottom: '214px', right: '20px' }, throwBall, 'rgba(159,232,255,0.35)')
+    : null;
 
   function update(dt) {
     cool = Math.max(0, cool - dt);

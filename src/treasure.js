@@ -3,6 +3,7 @@ import { dailyRng, dayKey, yesterdayKey } from './daily.js';
 import { save, load } from './persistence.js';
 import { groundY } from './zones.js';
 import { toast } from './hud.js';
+import { makeBeam } from './fx.js';
 import { bus } from './bus.js';
 
 // Daily treasure hunt — one golden chest spawns somewhere on the island each
@@ -53,14 +54,7 @@ export function createTreasure(scene, { interact, audio, summit, getTasksNote } 
     chest.add(band);
   }
   // Golden beam — same idiom as shards, so players already read it as "go here"
-  const beam = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.30, 0.30, 40, 6, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: 0xFFD75A, transparent: true, opacity: 0.15,
-      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
-    }),
-  );
-  beam.position.y = 20;
+  const beam = makeBeam(0xFFD75A, { rTop: 0.30, h: 40 });
   chest.add(beam);
   chest.position.set(spot.x, gy, spot.z);
   scene.add(chest);

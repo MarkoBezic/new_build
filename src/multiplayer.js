@@ -1,39 +1,10 @@
 import * as THREE from 'three';
 import * as Ably from 'ably';
-import { buildHumanoid, animateAvatar } from './humanoid.js';
+import { buildHumanoid, animateAvatar, makeNameLabel } from './humanoid.js';
 import { setHatMesh } from './hats.js';
 
 const SEND_INTERVAL = 0.05;   // seconds — broadcast at ~20 fps
 const CHANNEL_NAME  = 'world';
-
-function makeNameLabel(name) {
-  if (!name) return null;
-  const canvas = document.createElement('canvas');
-  canvas.width = 256; canvas.height = 64;
-  const ctx = canvas.getContext('2d');
-
-  ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.beginPath();
-  const r = 10, w = 256, h = 64;
-  ctx.moveTo(r,0); ctx.lineTo(w-r,0); ctx.quadraticCurveTo(w,0,w,r);
-  ctx.lineTo(w,h-r); ctx.quadraticCurveTo(w,h,w-r,h);
-  ctx.lineTo(r,h);   ctx.quadraticCurveTo(0,h,0,h-r);
-  ctx.lineTo(0,r);   ctx.quadraticCurveTo(0,0,r,0);
-  ctx.closePath(); ctx.fill();
-
-  ctx.font = 'bold 28px Arial, sans-serif';
-  ctx.fillStyle = 'white';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(name.slice(0, 16), 128, 34);
-
-  const tex = new THREE.CanvasTexture(canvas);
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(1.4, 0.35, 1);
-  sprite.position.y = 2.1;
-  return sprite;
-}
 
 function makeAvatar(color, name, hat) {
   const g = buildHumanoid(color);
@@ -199,12 +170,21 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     remotes.delete(id);
   }
 
+  // Reused output — called every frame by the minimap; per-remote objects are
+  // mutated in place instead of reallocated.
+  const _out = [];
   function getRemotes() {
-    const out = [];
+    if (_out.length !== remotes.size) _out.length = 0;
+    let i = 0;
     for (const r of remotes.values()) {
-      out.push({ x: r.mesh.position.x, z: r.mesh.position.z, color: r.color, name: r.name });
+      const o = _out[i] ?? (_out[i] = { x: 0, z: 0, color: 0, name: '' });
+      o.x = r.mesh.position.x;
+      o.z = r.mesh.position.z;
+      o.color = r.color;
+      o.name = r.name;
+      i++;
     }
-    return out;
+    return _out;
   }
 
   // ── Per-frame update ──────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { groundY } from './zones.js';
 import { toast } from './hud.js';
+import { makeBeam } from './fx.js';
 
 // The Warden tablets — environmental storytelling in nine fragments.
 // Reading a tablet (E) adds it to the journal (J). The final fragment points
@@ -88,12 +89,7 @@ export function createTablets(scene, { progress, audio, interact, cosmetics }) {
 
   // ── Payoff: the Warden's Beacon wakes in the cave ──────────────────────────
   function spawnBeacon() {
-    const beam = new THREE.Mesh(
-      new THREE.CylinderGeometry(2.6, 3.4, 150, 8, 1, true),
-      new THREE.MeshBasicMaterial({
-        color: 0x86E8C8, transparent: true, opacity: 0.2, side: THREE.DoubleSide,
-        depthWrite: false, blending: THREE.AdditiveBlending,
-      }));
+    const beam = makeBeam(0x86E8C8, { rTop: 2.6, rBottom: 3.4, h: 150, opacity: 0.2 });
     beam.position.set(150, 75, -20);
     scene.add(beam);
     const heart = new THREE.Mesh(

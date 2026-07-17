@@ -260,7 +260,7 @@ export function createMinimap(camera, getRemotes = () => []) {
 
   const found = new Set(progress.get('found'));
   let staticMap = bakeMap(found);
-  let scanTimer = 0;
+  let scanTimer = 0, drawTimer = 0;
 
   // ── M-key toggle — display is only touched here, never inside animate() ───
   let visible = false;
@@ -296,6 +296,10 @@ export function createMinimap(camera, getRemotes = () => []) {
     }
 
     if (!visible) return;
+
+    // 20 Hz is indistinguishable for map dots and third of the redraw cost
+    if (--drawTimer > 0) return;
+    drawTimer = 3;
 
     ctx.clearRect(0, 0, W, H);
     ctx.drawImage(staticMap, 0, 0);

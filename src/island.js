@@ -104,7 +104,9 @@ export function createIsland(scene, { interact, audio }) {
     },
   });
 
-  function update(dt, nowSec) {
+  function update(dt, nowSec, playerPos) {
+    // Fog hides the island beyond ~450 units — no point simulating it
+    if (playerPos && Math.hypot(playerPos.x - ISLAND.x, playerPos.z - ISLAND.z) > 450) return;
     lava.material.emissiveIntensity = 1.4 + Math.sin(nowSec * 1.7) * 0.35;
     lavaLight.intensity = 2.0 + Math.sin(nowSec * 2.3) * 0.5;
     for (let i = 0; i < SMOKE; i++) {

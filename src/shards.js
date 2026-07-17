@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { groundY } from './zones.js';
-import { toast } from './hud.js';
+import { toast, makeChip } from './hud.js';
+import { makeBeam } from './fx.js';
 
 // Resonant shards — the collect-a-thon layer. 29 shards in five regional
 // sets. Each shard is a bright pulsing crystal with a vertical light beam so
@@ -82,13 +83,9 @@ export function createShards(scene, { progress, audio, cosmetics }) {
   });
 
   // ── Permanent set-completion beacons ────────────────────────────────────────
-  const pillarGeo = new THREE.CylinderGeometry(1.6, 2.2, 130, 8, 1, true);
   function igniteBeacon(setId) {
     const def = SETS[setId];
-    const m = new THREE.Mesh(pillarGeo, new THREE.MeshBasicMaterial({
-      color: def.color, transparent: true, opacity: 0.16,
-      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
-    }));
+    const m = makeBeam(def.color, { rTop: 1.6, rBottom: 2.2, h: 130, opacity: 0.16 });
     m.position.set(def.beacon.x, groundY(def.beacon.x, def.beacon.z) + 63, def.beacon.z);
     scene.add(m);
   }
@@ -101,24 +98,19 @@ export function createShards(scene, { progress, audio, cosmetics }) {
   }
 
   // ── HUD counter chip ────────────────────────────────────────────────────────
-  const chip = document.createElement('div');
-  Object.assign(chip.style, {
-    position: 'fixed', top: '12px', right: '14px', zIndex: '15',
-    color: '#DFF6FF', font: '13px/1.6 system-ui, sans-serif',
-    background: 'rgba(0,0,0,0.4)', padding: '4px 12px', borderRadius: '10px',
-    pointerEvents: 'none', textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-  });
-  document.body.appendChild(chip);
+  const chip = makeChip(12);
   const refreshChip = () => { chip.textContent = `✦ ${progress.count('shards')} / ${SHARDS.length}`; };
   refreshChip();
 
   function update(dt, playerPos, nowSec) {
     for (let i = live.length - 1; i >= 0; i--) {
       const s = live[i];
-      s.crystal.rotation.y = nowSec * 1.2 + s.phase;
-      s.crystal.position.y = 1.1 + Math.sin(nowSec * 2 + s.phase) * 0.18;
-
       const d = Math.hypot(playerPos.x - s.group.position.x, playerPos.z - s.group.position.z);
+      // Spin/bob only when close enough to actually see it
+      if (d < 260) {
+        s.crystal.rotation.y = nowSec * 1.2 + s.phase;
+        s.crystal.position.y = 1.1 + Math.sin(nowSec * 2 + s.phase) * 0.18;
+      }
       if (d < COLLECT_R) {
         scene.remove(s.group);
         live.splice(i, 1);

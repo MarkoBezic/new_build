@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { append, save, load } from './persistence.js';
 import { bus } from './bus.js';
+import { toast, makeMobileButton } from './hud.js';
 
 // ── Catch table ───────────────────────────────────────────────────────────────
 // `cond` gates a species on world state (night, rain) — those fish only bite
@@ -86,28 +87,8 @@ function makeHUD() {
   return el;
 }
 
-// ── Toast notification ────────────────────────────────────────────────────────
-let _toastTimer = 0;
-const _toast = (() => {
-  const el = document.createElement('div');
-  Object.assign(el.style, {
-    position: 'fixed', top: '80px', left: '50%',
-    transform: 'translateX(-50%)',
-    color: '#fff', background: 'rgba(0,0,0,0.72)',
-    padding: '8px 22px', borderRadius: '12px',
-    fontSize: '15px', fontFamily: 'Arial, sans-serif',
-    display: 'none', pointerEvents: 'none', zIndex: '25',
-    textAlign: 'center',
-  });
-  document.body.appendChild(el);
-  return el;
-})();
-
-function showToast(msg, durationSec = 4) {
-  _toast.textContent = msg;
-  _toast.style.display = 'block';
-  _toastTimer = durationSec;
-}
+// Toasts go through the shared hud.js system (seconds → ms shim)
+const showToast = (msg, durationSec = 4) => toast(msg, durationSec * 1000);
 
 // ── State machine ─────────────────────────────────────────────────────────────
 const STATE = { IDLE: 0, CAST: 1, WAITING: 2, BITE: 3 };
@@ -181,12 +162,6 @@ export function createFishing(scene) {
   }
 
   function update(dt, playerPos, yaw, onBoat) {
-    // Dismiss toast
-    if (_toastTimer > 0) {
-      _toastTimer -= dt;
-      if (_toastTimer <= 0) _toast.style.display = 'none';
-    }
-
     if (state === STATE.IDLE) return;
 
     // Update line from rod tip to bobber
@@ -234,20 +209,8 @@ export function createFishing(scene) {
     handleAction(playerPos, yaw, onBoat);
   }
 
-  // Mobile cast/reel button
-  const mobileBtn = (() => {
-    const btn = document.createElement('button');
-    btn.textContent = '🎣';
-    Object.assign(btn.style, {
-      position: 'fixed', bottom: '20px', right: '20px',
-      width: '60px', height: '60px', borderRadius: '50%',
-      fontSize: '26px', border: 'none',
-      background: 'rgba(0,0,0,0.45)', color: '#fff',
-      display: 'none', zIndex: '30', cursor: 'pointer',
-    });
-    document.body.appendChild(btn);
-    return btn;
-  })();
+  // Mobile cast/reel button — main.js attaches the tap handler (needs player state)
+  const mobileBtn = makeMobileButton('🎣', { bottom: '20px', right: '20px' }, () => {});
 
   function showMobileBtn(onBoat) {
     mobileBtn.style.display = onBoat ? 'block' : 'none';

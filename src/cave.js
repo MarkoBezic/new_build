@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { toast } from './hud.js';
 import { save, load } from './persistence.js';
 import { grantHat, wearHat } from './hats.js';
+import { makeBeam } from './fx.js';
 import { bus } from './bus.js';
 
 // The Singing Stones — five crystal-tipped stones stand in an arc at the
@@ -49,13 +50,7 @@ export function createCave(scene, { interact, audio, shells }) {
   }
 
   // ── Echo beacon inside the cave — lit once solved ───────────────────────────
-  const beacon = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.8, 1.1, 60, 8, 1, true),
-    new THREE.MeshBasicMaterial({
-      color: 0xA88CF0, transparent: true, opacity: 0.16,
-      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending,
-    }),
-  );
+  const beacon = makeBeam(0xA88CF0, { rTop: 0.8, rBottom: 1.1, h: 60, opacity: 0.16 });
   beacon.position.set(160, 30, -20);
   beacon.visible = solved;
   scene.add(beacon);
@@ -90,6 +85,8 @@ export function createCave(scene, { interact, audio, shells }) {
   }
 
   function update(dt, nowSec, playerPosition) {
+    // Stones are a small feature in one corner — skip the shimmer when far
+    if (Math.hypot(playerPosition.x - 148, playerPosition.z + 20) > 90) return;
     // Glow decay + idle shimmer
     for (const s of stones) {
       s.glow = Math.max(0, s.glow - dt * 1.4);

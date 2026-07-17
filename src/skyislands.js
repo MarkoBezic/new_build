@@ -86,6 +86,8 @@ export function createSkyIslands(scene, { interact, audio, playerPosition }) {
   });
 
   function update(dt, nowSec) {
+    // Sparkle columns are invisible from across the map — skip when far
+    if (Math.hypot(playerPosition.x - 300, playerPosition.z + 540) > 420) return;
     wispDisplay.position.y = peak.top + 1.5 + Math.sin(nowSec * 1.4) * 0.1;
     for (const d of drafts) {
       for (let i = 0; i < d.n; i++) {

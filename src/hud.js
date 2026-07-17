@@ -28,6 +28,33 @@ export function toast(msg, ms = 3200) {
   setTimeout(() => el.remove(), ms);
 }
 
+// ── HUD counter chip (top-right stack) — shared by shards/tasks/shells ──────
+export function makeChip(top, color = '#DFF6FF') {
+  const chip = document.createElement('div');
+  Object.assign(chip.style, {
+    position: 'fixed', top: `${top}px`, right: '14px', zIndex: '15',
+    color, font: '13px/1.6 system-ui, sans-serif',
+    background: 'rgba(0,0,0,0.4)', padding: '4px 12px', borderRadius: '10px',
+    pointerEvents: 'none', textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+  });
+  document.body.appendChild(chip);
+  return chip;
+}
+
+// ── Round mobile action button — shared by interact/fishing/snow/photo/map ──
+export function makeMobileButton(emoji, pos, onTap, background = 'rgba(0,0,0,0.45)') {
+  const btn = document.createElement('button');
+  btn.textContent = emoji;
+  Object.assign(btn.style, {
+    position: 'fixed', width: '54px', height: '54px', borderRadius: '50%',
+    fontSize: '24px', border: 'none', display: 'none',
+    background, color: '#fff', zIndex: '30', ...pos,
+  });
+  btn.addEventListener('touchend', e => { e.preventDefault(); onTap(); });
+  document.body.appendChild(btn);
+  return btn;
+}
+
 // HUD overlay — compass strip (top centre), current biome name, a biome
 // banner that flashes on zone change, and a contextual hint line.
 export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, getInteractPrompt, isMobile }) {
@@ -118,11 +145,17 @@ export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, g
     ctx.fill();
   }
 
+  let _lastBearing = -999;
+
   function update(dt) {
-    // Compass — heading from the camera's world direction (−Z = north)
+    // Compass — redrawn only when the heading actually moves (canvas redraws
+    // at 60 fps for a still camera were pure waste)
     camera.getWorldDirection(_dir);
     const bearing = ((Math.atan2(_dir.x, -_dir.z) * 180 / Math.PI) % 360 + 360) % 360;
-    drawCompass(bearing);
+    if (Math.abs(bearing - _lastBearing) > 0.3) {
+      _lastBearing = bearing;
+      drawCompass(bearing);
+    }
 
     // Zone label + banner (throttled)
     zoneTimer -= dt;

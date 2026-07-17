@@ -1,5 +1,4 @@
-import * as THREE from 'three';
-import { buildHumanoid, animateAvatar } from './humanoid.js';
+import { buildHumanoid, animateAvatar, makeNameLabel } from './humanoid.js';
 import { groundY } from './zones.js';
 
 // Client-side "ghost player" simulation — a handful of named avatars that
@@ -26,26 +25,6 @@ const REGIONS = [
 const GRAVITY = -28, JUMP_VEL = 9;
 const EMOTE_IDS = ['wave', 'cheer', 'point'];
 
-function makeNameLabel(name) {
-  const cv = document.createElement('canvas');
-  cv.width = 256; cv.height = 64;
-  const cx = cv.getContext('2d');
-  cx.fillStyle = 'rgba(0,0,0,0.55)';
-  cx.beginPath();
-  cx.roundRect(0, 0, 256, 64, 10);
-  cx.fill();
-  cx.font = 'bold 24px Arial, sans-serif';
-  cx.fillStyle = 'white';
-  cx.textAlign = 'center'; cx.textBaseline = 'middle';
-  cx.fillText(`${name} (NPC)`, 128, 34);
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: new THREE.CanvasTexture(cv), transparent: true,
-  }));
-  sp.scale.set(1.4, 0.35, 1);
-  sp.position.y = 2.1;
-  return sp;
-}
-
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 function pickTarget(regionIdx) {
@@ -56,7 +35,7 @@ function pickTarget(regionIdx) {
 export function createGhosts(scene, { applyEmote } = {}) {
   const ghosts = ROSTER.map((def, i) => {
     const mesh = buildHumanoid(def.color);
-    mesh.add(makeNameLabel(def.name));
+    mesh.add(makeNameLabel(def.name, ' (NPC)'));
     const region = i % REGIONS.length;
     const start  = pickTarget(region);
     mesh.position.set(start.x, groundY(start.x, start.z), start.z);
@@ -123,10 +102,15 @@ export function createGhosts(scene, { applyEmote } = {}) {
     }
   }
 
+  // Reused output — getRemotes is called every frame (minimap, snowball
+  // targets); rebuilding four fresh objects per call was pure GC churn.
+  const _out = ghosts.map(g => ({ x: 0, z: 0, color: g.color, name: `${g.name} (NPC)` }));
   function getRemotes() {
-    return ghosts.map(g => ({
-      x: g.mesh.position.x, z: g.mesh.position.z, color: g.color, name: `${g.name} (NPC)`,
-    }));
+    for (let i = 0; i < ghosts.length; i++) {
+      _out[i].x = ghosts[i].mesh.position.x;
+      _out[i].z = ghosts[i].mesh.position.z;
+    }
+    return _out;
   }
 
   return { update, getRemotes };
