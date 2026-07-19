@@ -16,6 +16,7 @@ export function biomeAt(x, z) {
   if (Math.hypot(x - BIOMES.icy.x,   z - BIOMES.icy.z)   < BIOMES.icy.r)   return 'Icy Peaks';
   if (Math.hypot(x - BIOMES.ruins.x, z - BIOMES.ruins.z) < BIOMES.ruins.r) return 'Ancient Ruins';
   if (Math.max(Math.abs(x + 120), Math.abs(z + 520)) < 60) return 'Northkeep Castle';
+  if (Math.hypot(x + 400, z + 150) < 60) return 'The Hamlet';
   if (Math.hypot(x, z) < CLEARING_R + 15) return 'Starting Valley';
   return 'Whispering Forest';
 }

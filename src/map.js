@@ -26,6 +26,7 @@ const POIS = [
   { id: 'seacave',  x: -560, z: 700,  icon: '🕳', label: 'Sea Cave' },
   { id: 'volcano',  x: -700, z: 900,  icon: '🌋', label: 'Ember Isle' },
   { id: 'castle',   x: -120, z: -520, icon: '🏰', label: 'Northkeep Castle' },
+  { id: 'hamlet',   x: -400, z: -150, icon: '🏘', label: 'The Hamlet' },
 ];
 
 const EXTENT = 1000;   // world units mapped edge-to-edge (covers Ember Isle)

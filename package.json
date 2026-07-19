@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "ably": "^2.23.0",
+    "firebase": "^12.16.0",
     "three": "^0.176.0"
   },
   "devDependencies": {

@@ -54,6 +54,7 @@ import { initGoods }      from './goods.js';
 import { createCave }     from './cave.js';
 import { createSeasons }  from './seasons.js';
 import { createCastle }   from './castle.js';
+import { createHomestead } from './homestead.js';
 import { createPlinko }   from './plinko.js';
 import { createMap }      from './map.js';
 import { createJournal }  from './journal.js';
@@ -386,6 +387,11 @@ const skyIsles    = createSkyIslands(scene, { interact, audio, playerPosition })
 const cave        = createCave(scene, { interact, audio, shells });
 const seasons     = createSeasons(scene, { playerPosition });
 const castle      = createCastle(scene, { interact, audio, shells, progress });
+const homestead   = createHomestead(scene, {
+  interact, audio, shells, playerPosition, getState, isMobile,
+  getName: () => myName,
+  onBroadcast: data => { if (multiplayer.publishHome) multiplayer.publishHome(data); },
+});
 initHats({
   getAvatar,
   onChange: id => { if (multiplayer.updateHat) multiplayer.updateHat(id); },
@@ -452,6 +458,7 @@ const chat = createChat({
     ['Space ✈', '🪂 Hold in the air to glide (find it at the Icy Peaks summit)'],
     ['G',       '❄️ Throw snowball (in the Icy Peaks)'],
     ['🏰',      'Explore Northkeep Castle in the north forest'],
+    ['🏘',      'Claim a homestead plot in the Hamlet (west forest) and build'],
     ['J',       '📖 Warden journal (story · collections · daily · records)'],
     ['M',       '🗺 Island map'],
     ['K',       '📋 Daily tasks'],
@@ -572,7 +579,8 @@ window.addEventListener('keydown', e => {
     chat.open();
     return;
   }
-  // Shop and journal steal digits while open (everything gets them back after)
+  // Build mode, shop and journal steal keys while active
+  if (homestead.isBuilding() && homestead.onKey(e)) return;
   if (shop.isOpen()) { shop.onKey(e); return; }
   if (journal.isOpen()) { journal.onKey(e); return; }
   if (e.code === 'KeyC') {
@@ -627,6 +635,7 @@ showAvatarPicker(overlay, (color, name) => {
       onSnow:        data => snowballs.spawnRemote(data),
       onFire:        id => ritual.onFeed(id, performance.now() / 1000),
       onPlinko:      (data, name) => plinko.spawnRemote(data, name),
+      onHome:        data => homestead.receive(data),
       onChat: (senderName, text, mesh) => {
         chat.addMessage(senderName, text);
         if (mesh) chat.showBubble(mesh, text);
@@ -813,6 +822,7 @@ function animate() {
   cave.update(dt, now / 1000, playerPosition);
   seasons.update(dt);
   castle.update(dt, now / 1000, playerPosition);
+  homestead.update();
   rampartRace.update(dt, now / 1000);
   plinko.update(dt, now / 1000);
   islandMap.update(dt);

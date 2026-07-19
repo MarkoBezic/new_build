@@ -84,5 +84,14 @@ export function terrainHeight(x, z) {
     }
   }
 
+  // The Hamlet — flattened homestead meadow in the west forest
+  {
+    const d = Math.hypot(x + 400, z + 150);
+    if (d < 70) {
+      const m = 1 - smoothstep(48, 70, d);
+      h = h * (1 - m) + 4 * m;
+    }
+  }
+
   return h;
 }

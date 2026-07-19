@@ -14,11 +14,11 @@ function makeAvatar(color, name, hat) {
   return g;
 }
 
-export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote, onBallState, onChat, onSnow, onFire, onPlinko, hat } = {}) {
+export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote, onBallState, onChat, onSnow, onFire, onPlinko, onHome, hat } = {}) {
   const key = import.meta.env.VITE_ABLY_KEY;
   if (!key || key === 'your_ably_api_key_here') {
     console.warn('Multiplayer disabled — VITE_ABLY_KEY not set');
-    return { update() {}, getRemotes() { return []; }, broadcastEmote() {}, publishBall() {}, sendChat() {}, publishSnow() {}, publishFire() {}, updateHat() {}, publishPlinko() {} };
+    return { update() {}, getRemotes() { return []; }, broadcastEmote() {}, publishBall() {}, sendChat() {}, publishSnow() {}, publishFire() {}, updateHat() {}, publishPlinko() {}, publishHome() {} };
   }
   let myHat = hat ?? null;
 
@@ -148,6 +148,13 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
   });
   function publishPlinko(data) { channel.publish('plinko', data); }
 
+  // Homestead live-share — { plot, doc } full plot state on change
+  channel.subscribe('home', msg => {
+    if (msg.clientId === myId) return;
+    if (onHome) onHome(msg.data);
+  });
+  function publishHome(data) { channel.publish('home', data); }
+
   // Hat change — presence.update re-announces us with the new hat id
   function updateHat(id) {
     myHat = id;
@@ -221,5 +228,5 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     }
   }
 
-  return { update, getRemotes, broadcastEmote, publishBall, sendChat, publishSnow, publishFire, updateHat, publishPlinko };
+  return { update, getRemotes, broadcastEmote, publishBall, sendChat, publishSnow, publishFire, updateHat, publishPlinko, publishHome };
 }

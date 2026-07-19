@@ -24,6 +24,8 @@ export const LANDMARKS = {
   spawn: { x: 0, z: -165, exclR: 24, label: '' },
   // Northkeep Castle grounds — walls, moat and approach stay clear
   castle: { x: -120, z: -520, exclR: 72, label: '' },
+  // The Hamlet — player homestead meadow
+  hamlet: { x: -400, z: -150, exclR: 72, label: '' },
 };
 
 // ── Atmosphere ────────────────────────────────────────────────────────────────

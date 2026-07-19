@@ -26,6 +26,7 @@ jobs:
       - run: npm run build
         env:
           VITE_ABLY_KEY: ${{ secrets.VITE_ABLY_KEY }}
+          VITE_FIREBASE_CONFIG: ${{ secrets.VITE_FIREBASE_CONFIG }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
