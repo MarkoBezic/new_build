@@ -41,10 +41,10 @@ export const LETTERS = [
 
 // Brazier order for the vault: wind → ember → tide → stone
 const BRAZIERS = [
-  { id: 0, label: 'Wind',  color: 0xBFE8FF, dx: -14, dz: 0 },
-  { id: 1, label: 'Ember', color: 0xFF8A3D, dx: 14,  dz: -12 },
-  { id: 2, label: 'Tide',  color: 0x3D7BE8, dx: 14,  dz: 0 },
-  { id: 3, label: 'Stone', color: 0xB0A898, dx: -14, dz: -12 },
+  { id: 0, label: 'Wind',  color: 0xBFE8FF, dx: -12.5, dz: 0 },
+  { id: 1, label: 'Ember', color: 0xFF8A3D, dx: 14,    dz: -12 },
+  { id: 2, label: 'Tide',  color: 0x3D7BE8, dx: 14,    dz: 0 },
+  { id: 3, label: 'Stone', color: 0xB0A898, dx: -12.5, dz: -12 },
 ];
 
 export function createCastle(scene, { interact, audio, shells, progress }) {
@@ -314,8 +314,11 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
   solid(K.x0, K.x0 + 1, K.z0, -9, 4, F_ROOF, M.stone, true);
   solid(K.x0, K.x0 + 1, -6, K.z1, 4, F_ROOF, M.stone, true);
   solid(K.x0, K.x0 + 1, -9, -6, 8.8, F_ROOF, M.stone);
-  // east wall
-  solid(K.x1 - 1, K.x1, K.z0, K.z1, 4, F_ROOF, M.stone, true);
+  // east wall — notched to 0.4 below the roof where the exterior stair's
+  // arrival bridge crosses it, so the capsule clears with real margin
+  solid(K.x1 - 1, K.x1, K.z0, -6, 4, F_ROOF, M.stone, true);
+  solid(K.x1 - 1, K.x1, -3, K.z1, 4, F_ROOF, M.stone, true);
+  solid(K.x1 - 1, K.x1, -6, -3, 4, F_ROOF - 0.4, M.stone);
   // window insets on the outer faces at each storey (visual, warm at night)
   for (const wy of [F_HALL + 2.5, F_THRONE + 2.5, F_BED + 2.5]) {
     for (const wx of [-12, -5, 5, 12]) windowPane(wx - 1.2, wx + 1.2, K.z1 - 0.15, K.z1 + 0.15, wy, wy + 3.4);
@@ -333,25 +336,45 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
   deck(14.2, K.x1 - 1, K.z0 + 1, -6, F_THRONE);
   deck(14.2, K.x1 - 1, 6, K.z1 - 1, F_THRONE);
   deck(-14.2, K.x1 - 1, K.z0 + 1, K.z1 - 1, F_BED);                        // chamber floor
-  deck(K.x0 + 1, -14.2, K.z0 + 1, -6, F_BED);
-  deck(K.x0 + 1, -14.2, 6, K.z1 - 1, F_BED);
+  deck(K.x0 + 1, -14.2, K.z0 + 1, -12, F_BED);
+  deck(K.x0 + 1, -14.2, 0, K.z1 - 1, F_BED);
   deck(K.x0 + 1, 14.2, K.z0 + 1, K.z1 - 1, F_ROOF, M.dark);                // roof deck
-  deck(14.2, K.x1 - 1, K.z0 + 1, -13, F_ROOF, M.dark);
-  deck(14.2, K.x1 - 1, -3, K.z1 - 1, F_ROOF, M.dark);
-  // roof parapet
+  deck(14.2, K.x1 - 1, -5.5, K.z1 - 1, F_ROOF, M.dark);
+  // roof parapet — the east rim leaves a gap where the exterior stair arrives
   solid(K.x0, K.x1, K.z0, K.z0 + 0.5, F_ROOF, F_ROOF + 1.2, M.dark);
   solid(K.x0, K.x1, K.z1 - 0.5, K.z1, F_ROOF, F_ROOF + 1.2, M.dark);
   solid(K.x0, K.x0 + 0.5, K.z0, K.z1, F_ROOF, F_ROOF + 1.2, M.dark);
-  solid(K.x1 - 0.5, K.x1, K.z0, K.z1, F_ROOF, F_ROOF + 1.2, M.dark);
+  solid(K.x1 - 0.5, K.x1, K.z0, -6, F_ROOF, F_ROOF + 1.2, M.dark);
+  solid(K.x1 - 0.5, K.x1, -3, K.z1, F_ROOF, F_ROOF + 1.2, M.dark);
 
-  // stairs: front steps, hall→throne (E), throne→chambers (W), chambers→roof (E)
+  // stairs: front steps, hall→throne (E), throne→chambers (W, kept clear of
+  // the library partition), chambers→roof (E, entry at the bedroom's north
+  // end so no partition crosses the run)
   stair(-3, 3, 11, 17, 'z', F_HALL, CASTLE.yard);
   stair(14.5, 17, -6, 6, 'z', F_THRONE, F_HALL);
-  stair(-17, -14.5, -6, 6, 'z', F_BED, F_THRONE);
-  stair(14.5, 17, -13, -3, 'z', F_ROOF, F_BED);
+  stair(-17, -14.5, -12, 0, 'z', F_BED, F_THRONE);
+  deck(14.5, 17, -14, -12.7, F_BED);                       // flat boarding pad —
+  stair(14.5, 17, -12.7, -5.5, 'z', F_BED, F_ROOF);        // entered flush from the west
   solid(14.2, 14.5, -6, 6, F_HALL, F_BED, M.stone);        // stairwell guards
-  solid(-14.5, -14.2, -6, 6, F_THRONE, F_ROOF, M.stone);
-  solid(14.2, 14.5, -13, -3, F_BED, F_ROOF, M.stone);
+  solid(-14.5, -14.2, -12, 0, F_THRONE, F_ROOF, M.stone);
+  solid(14.2, 14.5, -12.7, -5.5, F_BED, F_ROOF, M.stone);
+
+  // Exterior switchback staircase — courtyard to the keep roof up the east
+  // face: two lanes side by side (inner z-runs at different heights, outer
+  // return lane), landings at each turn, balustrade on the outside, and an
+  // arrival bridge over the east wall through a gap in the roof parapet.
+  stair(18, 19.9, -6, 10, 'z', 15.5, CASTLE.yard);         // flight 1 (inner, up northward)
+  deck(18, 21.8, -7, -6, 15.5, M.dark);                    // north landing
+  stair(19.9, 21.8, -6, 10, 'z', 15.5, 25);                // flight 2 (outer, up southward)
+  deck(18, 21.8, 10, 13, 25, M.dark);                      // south landing
+  stair(18, 19.9, -6, 10, 'z', F_ROOF, 25);                // flight 3 (inner, up northward)
+  deck(17, 19.9, -6, -3, F_ROOF, M.dark);                  // arrival bridge — wide overlap
+                                                           // with the solid roof strip
+  solid(21.8, 22.1, -7, 13, 6, F_ROOF + 1, M.dark);        // outer balustrade
+  solid(18, 22.1, -7.3, -7, 6, F_ROOF + 1, M.dark);        // north end wall
+  solid(18, 22.1, 13, 13.3, 16, F_ROOF + 1, M.dark);       // south end (open below: entry)
+  mesh(20.6, 21.6, -6.5, -5.5, 3, 15.2, M.stone, true);    // support piers
+  mesh(20.6, 21.6, 11.5, 12.5, 3, 24.7, M.stone, true);
 
   // interior partitions (4-wide, 3.6-tall doorways)
   solid(-9.3, -8.7, K.z0 + 1, -3, F_HALL, F_THRONE, M.stone);              // kitchen wall
