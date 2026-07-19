@@ -197,11 +197,14 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
     D(30, 40, 30, 37, T_ROOF);
     D(30, 31, 37, 40, T_ROOF);
     D(39, 40, 37, 40, T_ROOF);
-    // roof parapet
+    // roof parapet — the NE (spiral) tower leaves a gap in its outer-u rim
+    // where the spiral stair begins, or the stair would be unreachable
+    const spiralTower = sx === 1 && sz === -1;
     S(30, 40, 39.5, 40, T_ROOF, T_ROOF + 1.4, M.dark);
     S(30, 40, 30, 30.5, T_ROOF, T_ROOF + 1.4, M.dark);
     S(30, 30.5, 30.5, 39.5, T_ROOF, T_ROOF + 1.4, M.dark);
-    S(39.5, 40, 30.5, 39.5, T_ROOF, T_ROOF + 1.4, M.dark);
+    if (spiralTower) S(39.5, 40, 33, 39.5, T_ROOF, T_ROOF + 1.4, M.dark);
+    else             S(39.5, 40, 30.5, 39.5, T_ROOF, T_ROOF + 1.4, M.dark);
     // guard-room dressing
     {
       const [a, b, c, d] = R(36, 39, 32, 33.2);
@@ -301,7 +304,10 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
   // south wall: grand door (y 10..14) + balcony door (y 26..29.5)
   solid(K.x0, -3, K.z1 - 1, K.z1, 4, F_ROOF, M.stone, true);
   solid(3, K.x1, K.z1 - 1, K.z1, 4, F_ROOF, M.stone, true);
-  solid(-3, 3, K.z1 - 1, K.z1, 4, F_HALL, M.stone);
+  // riser under the grand door stops 0.4 below the sill: climbers on the
+  // steps arrive with feet a touch below floor height, and the collision
+  // capsule's radius would otherwise clip this wall and jam the doorway
+  solid(-3, 3, K.z1 - 1, K.z1, 4, F_HALL - 0.4, M.stone);
   solid(-3, 3, K.z1 - 1, K.z1, 14, F_BED, M.stone);
   solid(-3, 3, K.z1 - 1, K.z1, 29.5, F_ROOF, M.stone);
   // west wall with the cellar door (z −9..−6, y 6..8.8)
@@ -319,8 +325,10 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
     }
   }
 
-  // storey slabs (holes over the stairwells)
-  deck(K.x0 + 1, K.x1 - 1, K.z0 + 1, K.z1 - 1, F_HALL);                    // hall floor / cellar ceiling
+  // storey slabs (holes over the stairwells). The hall slab extends THROUGH
+  // the south doorway band (to K.z1) — without a floor in the door band,
+  // players fell at the threshold and wedged inside the riser wall.
+  deck(K.x0 + 1, K.x1 - 1, K.z0 + 1, K.z1, F_HALL);                        // hall floor / cellar ceiling
   deck(K.x0 + 1, 14.2, K.z0 + 1, K.z1 - 1, F_THRONE);                      // throne floor
   deck(14.2, K.x1 - 1, K.z0 + 1, -6, F_THRONE);
   deck(14.2, K.x1 - 1, 6, K.z1 - 1, F_THRONE);
@@ -362,8 +370,9 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
     mesh(-1.0, -0.8, bz - 0.07, bz + 0.07, 6, 8.6, M.iron);
   }
 
-  // balcony off the solar (south face)
-  deck(-4, 4, 11, 14.5, F_BED, M.dark);
+  // balcony off the solar (south face) — deck reaches back through the
+  // doorway band so the threshold has a floor
+  deck(-4, 4, 10.5, 14.5, F_BED, M.dark);
   solid(-4, 4, 14.1, 14.5, F_BED, F_BED + 1.1, M.dark);
   solid(-4, -3.6, 11, 14.5, F_BED, F_BED + 1.1, M.dark);
   solid(3.6, 4, 11, 14.5, F_BED, F_BED + 1.1, M.dark);
@@ -448,7 +457,7 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
   solid(-5, 5, -22, -21.3, F_THRONE, F_BED, M.stone, true);
   solid(-5, -4.3, -21.3, K.z0, F_THRONE, F_BED, M.stone, true);
   solid(4.3, 5, -21.3, K.z0, F_THRONE, F_BED, M.stone, true);
-  deck(-5, 5, -22, K.z0 + 0.2, F_THRONE, M.dark);
+  deck(-5, 5, -22, K.z0 + 1, F_THRONE, M.dark);   // through the vault doorway band
   mesh(-5, 5, -22, K.z0 + 0.2, F_BED - 0.3, F_BED, M.stone);               // vault ceiling
   for (const [gx, gz, s] of [[-2.5, -19, 0.9], [0, -20, 1.2], [2.4, -18.8, 0.8], [1.2, -17.4, 0.6]]) {
     const pile = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), M.gold);
