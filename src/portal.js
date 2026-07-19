@@ -17,6 +17,10 @@ const DEFS = [
   { x:  343, z: -646, rotY: Math.PI * 0.5,   c: 0x9FE8FF, e: 0x2E9BC0, label: 'Starting Valley', dest: { x: 24,   z: -128 } },
   { x:  -17, z: -128, rotY: 0,               c: 0xFFC46B, e: 0xB86A10, label: 'Ancient Ruins',   dest: { x: 648,  z: 196 } },
   { x:  650, z:  204, rotY: 0,               c: 0xFFC46B, e: 0xB86A10, label: 'Starting Valley', dest: { x: -24,  z: -128 } },
+  // Beach ⇄ Northkeep — arrives on the moat's far bank so the approach,
+  // drawbridge and facade still play out (the outer lever is right there)
+  { x: -488, z:  583, rotY: Math.PI * 0.85,  c: 0x7A8CE8, e: 0x2038A0, label: 'Northkeep Castle', dest: { x: -126, z: -464 } },
+  { x: -126, z: -468, rotY: 0,               c: 0x7A8CE8, e: 0x2038A0, label: 'Sunset Shore',     dest: { x: -485, z: 579 } },
 ];
 
 function makeLabelSprite(text, colorHex) {
