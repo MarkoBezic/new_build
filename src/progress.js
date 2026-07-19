@@ -11,15 +11,24 @@ const state = Object.assign(
 
 function persist() { save(KEY, state); }
 
+// Lazily create any list the first time it's used, so new collections
+// (letters, and whatever comes next) need no edit here.
+function list(name) {
+  let l = state[name];
+  if (!Array.isArray(l)) l = state[name] = [];
+  return l;
+}
+
 export const progress = {
-  has:   (list, id) => state[list].includes(id),
-  add(list, id) {
-    if (state[list].includes(id)) return false;
-    state[list].push(id);
+  has:   (name, id) => list(name).includes(id),
+  add(name, id) {
+    const l = list(name);
+    if (l.includes(id)) return false;
+    l.push(id);
     persist();
     return true;
   },
-  count: (list) => state[list].length,
+  count: (name) => list(name).length,
   get:   (k) => state[k],
   set(k, v) { state[k] = v; persist(); },
 };

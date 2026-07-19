@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { groundY as zoneGroundY, BEACH_STOP, SHORE, ISLAND, inIsland, skyFloorY, updraftAt } from './zones.js';
+import { resolveMove, structureFloorY } from './collision.js';
 import { buildHumanoid, animateAvatar, makeNameLabel } from './humanoid.js';
 
 const WALK_SPEED   = 8;
@@ -253,11 +254,13 @@ function createDesktopPlayer(scene, camera, canvas) {
           }
         }
       } else {
-        const nx = (thirdPerson ? avatar.position.x : camera.position.x) + dx;
-        const nz = (thirdPerson ? avatar.position.z : camera.position.z) + dz;
+        const cx = thirdPerson ? avatar.position.x : camera.position.x;
+        const cz = thirdPerson ? avatar.position.z : camera.position.z;
+        const nx = cx + dx, nz = cz + dz;
         if (canWalk(nx, nz)) {  // block walking into water (island shores allowed)
-          if (thirdPerson) { avatar.position.x = nx; avatar.position.z = nz; }
-          else             { camera.position.x = nx; camera.position.z = nz; }
+          const rm = resolveMove(cx, cz, nx, nz, playerY);   // solid walls slide
+          if (thirdPerson) { avatar.position.x = rm.x; avatar.position.z = rm.z; }
+          else             { camera.position.x = rm.x; camera.position.z = rm.z; }
         }
       }
     }
@@ -290,14 +293,15 @@ function createDesktopPlayer(scene, camera, canvas) {
         const nx = gpx - Math.sin(yaw) * GLIDE_SPEED * dt;
         const nz = gpz - Math.cos(yaw) * GLIDE_SPEED * dt;
         if (canWalk(nx, nz)) {
-          if (thirdPerson) { avatar.position.x = nx; avatar.position.z = nz; }
-          else             { camera.position.x = nx; camera.position.z = nz; }
+          const rm = resolveMove(gpx, gpz, nx, nz, playerY);
+          if (thirdPerson) { avatar.position.x = rm.x; avatar.position.z = rm.z; }
+          else             { camera.position.x = rm.x; camera.position.z = rm.z; }
         }
       }
       playerY += vy * dt;
       const px = thirdPerson ? avatar.position.x : camera.position.x;
       const pz = thirdPerson ? avatar.position.z : camera.position.z;
-      const ground = Math.max(floorY(px, pz), skyFloorY(px, pz, playerY));
+      const ground = Math.max(floorY(px, pz), skyFloorY(px, pz, playerY), structureFloorY(px, pz, playerY));
       if (playerY <= ground) { playerY = ground; vy = 0; grounded = true; airTime = 0; _gliding = false; }
       else airTime += dt;
     }
@@ -545,7 +549,10 @@ function createMobilePlayer(scene, camera, canvas) {
         }
       } else {
         const nx = playerX + dx, nz = playerZ + dz;
-        if (canWalk(nx, nz)) { playerX = nx; playerZ = nz; }
+        if (canWalk(nx, nz)) {
+          const rm = resolveMove(playerX, playerZ, nx, nz, playerY);
+          playerX = rm.x; playerZ = rm.z;
+        }
       }
     }
 
@@ -569,10 +576,13 @@ function createMobilePlayer(scene, camera, canvas) {
         vy = draft ? Math.min(vy + 55 * dt, 7) : Math.max(vy, GLIDE_FALL);
         const nx = playerX - Math.sin(yaw) * GLIDE_SPEED * dt;
         const nz = playerZ - Math.cos(yaw) * GLIDE_SPEED * dt;
-        if (canWalk(nx, nz)) { playerX = nx; playerZ = nz; }
+        if (canWalk(nx, nz)) {
+          const rm = resolveMove(playerX, playerZ, nx, nz, playerY);
+          playerX = rm.x; playerZ = rm.z;
+        }
       }
       playerY += vy * dt;
-      const ground = Math.max(floorY(playerX, playerZ), skyFloorY(playerX, playerZ, playerY));
+      const ground = Math.max(floorY(playerX, playerZ), skyFloorY(playerX, playerZ, playerY), structureFloorY(playerX, playerZ, playerY));
       if (playerY <= ground) { playerY = ground; vy = 0; airTime = 0; _gliding = false; }
       else airTime += dt;
     }

@@ -68,5 +68,21 @@ export function terrainHeight(x, z) {
   // Ancient Ruins — flatten the plateau so columns sit level
   h *= 1 - ruinsMask(x, z) * 0.9;
 
+  // Northkeep Castle — a raised square plateau (motte) with a carved moat
+  // ring. Square (Chebyshev) bands so the ditch parallels the curtain walls.
+  {
+    const cheb = Math.max(Math.abs(x + 120), Math.abs(z + 520));
+    if (cheb < 62) {
+      const MOAT_IN = 37.5, MOAT_OUT = 46, YARD = 6;
+      let target = YARD;
+      if (cheb > MOAT_IN && cheb < MOAT_OUT) {
+        const t = (cheb - MOAT_IN) / (MOAT_OUT - MOAT_IN);
+        target = YARD - Math.sin(Math.min(1, t * 1.15) * Math.PI) * 2.8;   // ditch floor ≈ 3.2
+      }
+      const m = 1 - smoothstep(46, 62, cheb);
+      h = h * (1 - m) + target * m;
+    }
+  }
+
   return h;
 }

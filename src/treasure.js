@@ -23,6 +23,7 @@ const SPOTS = [
   { x:  242, z:  318, hint: 'Where the forest whispers loudest.' },
   { x:  350, z: -700, hint: 'High in the white silence, past the last cairn.' },
   { x: -700, z:  880, hint: 'Where the sea hides its fire. Bring a boat.' },
+  { x: -120, z: -500, hint: 'In the courtyard of a wealthy, empty crown.' },
 ];
 
 export function createTreasure(scene, { interact, audio, summit, getTasksNote } = {}) {

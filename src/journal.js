@@ -1,6 +1,7 @@
 import { load } from './persistence.js';
 import { progress } from './progress.js';
 import { TABLETS } from './tablets.js';
+import { LETTERS } from './castle.js';
 import { CATCHES } from './fishing.js';
 import { HATS, ownedHats } from './hats.js';
 import { TRAILS } from './cosmetics.js';
@@ -36,6 +37,12 @@ export function createJournal({ tasks, treasure }) {
         : `<div style="margin-bottom:11px">${dim('◈ ??? — an unread stone waits somewhere…')}</div>`;
     }
     if (progress.get('crown')) h += `<div style="color:#FFD75A">👑 You wear the Warden's Crown.</div>`;
+    h += head(`Royal Letters of Northkeep — ${progress.count('letters')} / ${LETTERS.length}`);
+    for (const l of LETTERS) {
+      h += progress.has('letters', l.id)
+        ? `<div style="margin-bottom:11px"><span style="color:#E8C23A">✒ ${l.title}</span><br><span style="font-size:13px;line-height:1.6">${l.text}</span></div>`
+        : `<div style="margin-bottom:11px">${dim('✒ ??? — an unread letter waits in the castle…')}</div>`;
+    }
     return h;
   }
 
@@ -80,6 +87,7 @@ export function createJournal({ tasks, treasure }) {
     const log = load('fishing:log', []);
     const big = log.reduce((a, c) => (c.kg > (a?.kg ?? 0) ? c : a), null);
     const race = load('race:best', null);
+    const rampart = load('race:rampart', null);
     const plinko = load('plinko:stats', { jackpots: 0 });
     const fmt = s => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`;
     const rows = [
@@ -87,6 +95,7 @@ export function createJournal({ tasks, treasure }) {
       ['✦ Shards', `${progress.count('shards')} / 34`],
       ['🪨 Best stone skip', `${load('stoneBest', 0)} skips`],
       ['🏁 Meadow Circuit best', race ? fmt(race.time) : '—'],
+      ['🏰 Rampart Run best', rampart ? fmt(rampart.time) : '—'],
       ['🎣 Biggest catch', big ? `${big.name}, ${big.kg} kg` : '—'],
       ['🎣 Fish caught', log.length >= 50 ? '50+' : log.length],
       ['🪙 Shellfall jackpots', plinko.jackpots],

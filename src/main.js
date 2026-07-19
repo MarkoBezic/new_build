@@ -53,6 +53,7 @@ import { initHats, wornHat } from './hats.js';
 import { initGoods }      from './goods.js';
 import { createCave }     from './cave.js';
 import { createSeasons }  from './seasons.js';
+import { createCastle }   from './castle.js';
 import { createPlinko }   from './plinko.js';
 import { createMap }      from './map.js';
 import { createJournal }  from './journal.js';
@@ -364,6 +365,19 @@ const treasure    = createTreasure(scene, {
 const photo       = createPhoto(renderer, { audio, isMobile });
 const ritual      = createRitual(scene, { audio });
 const race        = createRace(scene, { interact, audio, playerPosition });
+// Rampart Run — a second circuit along the castle wall-walk (y ≈ 13.2)
+const RAMP_Y = 6 + 13.2 - 6;   // wall-walk height above yard, absolute y = 13.2
+const rampartRace = createRace(scene, { interact, audio, playerPosition, config: {
+  key: 'race:rampart', label: 'Rampart Run',
+  heightAt: () => 13.2,
+  start:  { x: -120, z: -484 },   // south wall-walk by the gatehouse
+  course: [
+    { x: -156, z: -520 },   // west corner tower
+    { x: -120, z: -556 },   // north wall-walk
+    { x:  -84, z: -520 },   // east corner tower
+    { x: -120, z: -484 },   // back to the gate
+  ],
+} });
 const gosling     = createGosling(scene, { interact, audio, playerPosition });
 const shells      = createShells(scene, { audio, playerPosition });
 const shop        = createShop(scene, { interact, audio, shells });
@@ -371,6 +385,7 @@ const island      = createIsland(scene, { interact, audio });
 const skyIsles    = createSkyIslands(scene, { interact, audio, playerPosition });
 const cave        = createCave(scene, { interact, audio, shells });
 const seasons     = createSeasons(scene, { playerPosition });
+const castle      = createCastle(scene, { interact, audio, shells, progress });
 initHats({
   getAvatar,
   onChange: id => { if (multiplayer.updateHat) multiplayer.updateHat(id); },
@@ -436,6 +451,7 @@ const chat = createChat({
     ['E',       'Interact · board / exit boat'],
     ['Space ✈', '🪂 Hold in the air to glide (find it at the Icy Peaks summit)'],
     ['G',       '❄️ Throw snowball (in the Icy Peaks)'],
+    ['🏰',      'Explore Northkeep Castle in the north forest'],
     ['J',       '📖 Warden journal (story · collections · daily · records)'],
     ['M',       '🗺 Island map'],
     ['K',       '📋 Daily tasks'],
@@ -733,7 +749,7 @@ function updateFeel(dt) {
       audio.sfx.step(
         b === 'Icy Peaks' ? 'snow'
         : b === 'Sunset Shore' ? 'sand'
-        : (b === 'Ancient Ruins' || b === 'OpenText Campus') ? 'stone'
+        : (b === 'Ancient Ruins' || b === 'OpenText Campus' || b === 'Northkeep Castle') ? 'stone'
         : 'grass');
     }
   } else if (hSpeed <= 2) {
@@ -796,6 +812,8 @@ function animate() {
   skyIsles.update(dt, now / 1000);
   cave.update(dt, now / 1000, playerPosition);
   seasons.update(dt);
+  castle.update(dt, now / 1000, playerPosition);
+  rampartRace.update(dt, now / 1000);
   plinko.update(dt, now / 1000);
   islandMap.update(dt);
   if (outlinePass) {

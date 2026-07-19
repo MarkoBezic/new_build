@@ -25,6 +25,7 @@ const POIS = [
   { id: 'wreck',    x: -440, z: 620,  icon: '⚓', label: 'Shipwreck' },
   { id: 'seacave',  x: -560, z: 700,  icon: '🕳', label: 'Sea Cave' },
   { id: 'volcano',  x: -700, z: 900,  icon: '🌋', label: 'Ember Isle' },
+  { id: 'castle',   x: -120, z: -520, icon: '🏰', label: 'Northkeep Castle' },
 ];
 
 const EXTENT = 1000;   // world units mapped edge-to-edge (covers Ember Isle)
@@ -88,6 +89,12 @@ export function createMap({ playerPosition, getState, isMobile }) {
     circle(-160, 20, 22, '#5D8FB8');                  // pond
     circle(-700, 900, 58, '#5A4A45');                 // Ember Isle
     circle(-700, 900, 12, '#D85A2A');                 // crater
+    // Northkeep — square moat ring + keep
+    ctx.strokeStyle = '#5D8FB8'; ctx.lineWidth = 4;
+    ctx.strokeRect(mx(-120) - (46 / (EXTENT * 2)) * SIZE, mz(-520) - (46 / (EXTENT * 2)) * SIZE,
+      (92 / (EXTENT * 2)) * SIZE, (92 / (EXTENT * 2)) * SIZE);
+    ctx.fillStyle = '#9A9488';
+    ctx.fillRect(mx(-134) - 1, mz(-532) - 1, (28 / (EXTENT * 2)) * SIZE, (20 / (EXTENT * 2)) * SIZE);
 
     // Discovered POI markers
     ctx.textAlign = 'center';

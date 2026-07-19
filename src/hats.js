@@ -84,6 +84,30 @@ export const HATS = {
       return halo;
     },
   },
+  crownnorth: {
+    label: 'Crown of the North', price: null,   // from Northkeep's royal vault
+    build() {
+      const g = new THREE.Group();
+      const band = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.19, 0.19, 0.14, 12, 1, true),
+        new THREE.MeshStandardMaterial({ color: 0xE8C23A, emissive: 0x6A4A08, emissiveIntensity: 0.4, roughness: 0.3, metalness: 0.7, side: THREE.DoubleSide }),
+      );
+      band.position.y = 0.07;
+      g.add(band);
+      const pointMat = new THREE.MeshStandardMaterial({ color: 0xF0D040, emissive: 0x8A6010, emissiveIntensity: 0.5, roughness: 0.3, metalness: 0.7 });
+      const jewelMat = new THREE.MeshStandardMaterial({ color: 0x4088E8, emissive: 0x2050A0, emissiveIntensity: 0.8, roughness: 0.2 });
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        const p = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 4), pointMat);
+        p.position.set(Math.cos(a) * 0.19, 0.2, Math.sin(a) * 0.19);
+        g.add(p);
+        const j = new THREE.Mesh(new THREE.OctahedronGeometry(0.035, 0), jewelMat);
+        j.position.set(Math.cos(a) * 0.19, 0.09, Math.sin(a) * 0.19);
+        g.add(j);
+      }
+      return g;
+    },
+  },
   echo: {
     label: 'Echo Circlet', price: null,   // earned from the Singing Stones
     build() {

@@ -7,32 +7,41 @@ import { groundY } from './zones.js';
 import { terrainHeight } from './terrain.js';
 import { makeBeam } from './fx.js';
 
-// The Meadow Circuit — a checkpoint race starting at the warp-gate plaza:
-// pond → south meadow → cave mouth → back to the flag. Your best run is
-// recorded (10 Hz position samples in localStorage) and replayed as a
-// translucent ice-blue ghost to race against. No backend, feels multiplayer.
+// Checkpoint races — record your run at 10 Hz, replay it as a translucent
+// ghost to race against. No backend, feels multiplayer. Parameterised so any
+// number of courses share this one system: the Meadow Circuit (default) runs
+// on terrain, the Rampart Run threads the castle battlements via heightAt.
 
-const START  = { x: 8, z: -136 };
-const COURSE = [
-  { x: -150, z: 12 },    // the pond
-  { x: 30,   z: 130 },   // the south meadow
-  { x: 152,  z: -18 },   // the cave mouth
-  { x: 8,    z: -136 },  // back to the flag
-];
+const DEFAULT = {
+  key:   'race:best',
+  label: 'Meadow Circuit',
+  start: { x: 8, z: -136 },
+  course: [
+    { x: -150, z: 12 },    // the pond
+    { x: 30,   z: 130 },   // the south meadow
+    { x: 152,  z: -18 },   // the cave mouth
+    { x: 8,    z: -136 },  // back to the flag
+  ],
+};
 const RING_R  = 6;
 const SAMPLE  = 0.1;     // ghost recording interval (s)
 const TIMEOUT = 300;
 
 const fmt = s => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`;
 
-export function createRace(scene, { interact, audio, playerPosition }) {
+export function createRace(scene, { interact, audio, playerPosition, config = DEFAULT }) {
+  const { key, label, start: START, course: COURSE } = config;
+  // Ring/flag/ghost heights: terrain by default, or a caller-supplied surface
+  // (the battlements sit at a fixed y the heightmap knows nothing about).
+  const heightAt = config.heightAt || ((x, z) => terrainHeight(x, z));
+  const gy = config.heightAt || ((x, z) => groundY(x, z));
   // ── Start flag — checkered canvas on a pole ────────────────────────────────
   {
     const pole = new THREE.Mesh(
       new THREE.CylinderGeometry(0.06, 0.08, 3.2, 6),
       new THREE.MeshLambertMaterial({ color: 0xCCCCCC }),
     );
-    pole.position.set(START.x, terrainHeight(START.x, START.z) + 1.6, START.z);
+    pole.position.set(START.x, heightAt(START.x, START.z) + 1.6, START.z);
     scene.add(pole);
     const cv = document.createElement('canvas');
     cv.width = cv.height = 32;
@@ -45,7 +54,7 @@ export function createRace(scene, { interact, audio, playerPosition }) {
       new THREE.PlaneGeometry(1.1, 0.7),
       new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(cv), side: THREE.DoubleSide }),
     );
-    flag.position.set(START.x + 0.6, terrainHeight(START.x, START.z) + 2.8, START.z);
+    flag.position.set(START.x + 0.6, heightAt(START.x, START.z) + 2.8, START.z);
     scene.add(flag);
   }
 
@@ -64,7 +73,7 @@ export function createRace(scene, { interact, audio, playerPosition }) {
     beam.position.y = 22;
     beam.visible = false;
     g.add(beam);
-    g.position.set(cp.x, terrainHeight(cp.x, cp.z), cp.z);
+    g.position.set(cp.x, heightAt(cp.x, cp.z), cp.z);
     g.visible = false;
     scene.add(g);
     return { group: g, torus, beam };
@@ -78,7 +87,7 @@ export function createRace(scene, { interact, audio, playerPosition }) {
   function spawnGhost() {
     ghost = buildHumanoid(0xBFE8FF);
     ghost.traverse(o => { if (o.isMesh) o.material = ghostMat; });
-    ghost.position.set(START.x, groundY(START.x, START.z), START.z);
+    ghost.position.set(START.x, gy(START.x, START.z), START.z);
     scene.add(ghost);
   }
   function removeGhost() {
@@ -100,7 +109,7 @@ export function createRace(scene, { interact, audio, playerPosition }) {
   let state = 'idle';    // idle | count | run
   let t = 0, countT = 0, cpIdx = 0;
   let rec = [], recT = 0;
-  let best = load('race:best', null);
+  let best = load(key, null);
 
   function setActiveRing(i) {
     rings.forEach((r, j) => {
@@ -135,7 +144,7 @@ export function createRace(scene, { interact, audio, playerPosition }) {
     bus.emit('race', t);
     if (isBest) {
       best = { time: +t.toFixed(2), replay: rec };
-      save('race:best', best);
+      save(key, best);
     }
     reset();
   }
@@ -143,7 +152,7 @@ export function createRace(scene, { interact, audio, playerPosition }) {
   interact.register({
     x: START.x, z: START.z, r: 5,
     label: () => state === 'idle'
-      ? `🏁 Race the Meadow Circuit${best ? ` (best ${fmt(best.time)})` : ''}`
+      ? `🏁 Race the ${label}${best ? ` (best ${fmt(best.time)})` : ''}`
       : '🏁 Restart the race',
     cb: start,
   });
@@ -181,7 +190,7 @@ export function createRace(scene, { interact, audio, playerPosition }) {
       const gz = rp[i0 * 2 + 1] + (rp[i1 * 2 + 1] - rp[i0 * 2 + 1]) * f;
       const dx = gx - ghost.position.x, dz = gz - ghost.position.z;
       if (Math.hypot(dx, dz) > 0.02) ghost.rotation.y = Math.atan2(dx, dz);
-      ghost.position.set(gx, groundY(gx, gz), gz);
+      ghost.position.set(gx, gy(gx, gz), gz);
     }
 
     hud.textContent = `⏱ ${fmt(t)} · ring ${cpIdx + 1}/${COURSE.length}`;
