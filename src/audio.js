@@ -155,8 +155,11 @@ export function createAudio() {
     if (ctx.state !== 'running') return;
 
     const icy = s.biome === 'Icy Peaks' ? 1 : 0;
-    // Gliding gets a rushing-air boost on top of the altitude wind
-    wind.target = Math.min(0.16, 0.045 + s.altitude * 0.0035 + icy * 0.07) + (s.gliding ? 0.10 : 0);
+    // Wind is silent at ground level (a constant 0.045 floor here was heard
+    // as permanent white-noise hiss) — it fades in with altitude, the peaks,
+    // and gliding, and stays out of the mix everywhere else.
+    wind.target = Math.min(0.14, 0.01 + Math.max(0, s.altitude - 8) * 0.003 + icy * 0.06)
+                + (s.gliding ? 0.10 : 0);
     wind.filter.frequency.value = 450 + s.altitude * 8 + icy * 250 + (s.gliding ? 350 : 0);
 
     const shoreDist = Math.max(0, SHORE - (s.z - s.x));       // 0 at waterline
@@ -179,7 +182,7 @@ export function createAudio() {
     }
 
     if (!muted) {
-      if (s.dayFactor > 0.35 && s.biome !== 'Open Water' && icy === 0 && (s.rain ?? 0) < 0.3) {
+      if (s.dayFactor > 0.35 && s.biome !== 'Open Water' && icy === 0 && (s.rain ?? 0) < 0.3 && s.altitude > 0) {
         birdTimer -= dt;
         if (birdTimer <= 0) { birdTimer = 4 + Math.random() * 9; birdChirp(); }
       }

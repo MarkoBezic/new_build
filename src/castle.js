@@ -101,11 +101,12 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
     mesh(x0, x1, z0, z1, y0, y1, M.glass);
   }
 
-  // ═══ Moat water sheet (visible only in the carved ditch)
+  // ═══ Moat water sheet — waterline 0.85 below the yard fills the ditch
+  //     bank to bank instead of a thin strip at the bottom
   {
     const w = new THREE.Mesh(new THREE.PlaneGeometry(97, 97), M.water);
     w.rotation.x = -Math.PI / 2;
-    w.position.set(CX, 4.35, CZ);
+    w.position.set(CX, 5.15, CZ);
     group.add(w);
   }
 
@@ -577,6 +578,150 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
     });
   }
 
+  // ═══ The Undercroft — a dungeon complex larger than the keep, dug beneath
+  //     the courtyard (floor −6, ceilings at +4: ten-metre vaults). Reached by
+  //     a grand stair descending from a stone mouth in the west yard. Uses the
+  //     collision engine's basement volumes: inside them the terrain heightmap
+  //     releases the player, which is what makes true underground rooms
+  //     possible. Every outer boundary is solid — beyond the basement volume
+  //     the surface would reclaim you.
+  const UD = { f: -6, c: 4 };   // floor / ceiling
+  function uwall(x0, x1, z0, z1, mat = M.dark) { solid(x0, x1, z0, z1, UD.f, UD.c, mat); }
+
+  // one floor slab under the whole complex + ceiling pieces (notched over the
+  // stair shaft so descending heads clear), all casting shadow so the sun
+  // never reaches the deep
+  deck(-34, 34, -30, 32, UD.f, M.dark);
+  mesh(-34, -27, -30, 32, UD.c, UD.c + 0.5, M.dark, true);
+  mesh(-23, 34, -30, 32, UD.c, UD.c + 0.5, M.dark, true);
+  mesh(-27, -23, -30, -2, UD.c, UD.c + 0.5, M.dark, true);
+  mesh(-27, -23, 14, 32, UD.c, UD.c + 0.5, M.dark, true);
+
+  // ── entry: stone stair-mouth in the west yard, grand run down (16 m) ──────
+  stair(-27, -23, -2, 14, 'z', UD.f, CASTLE.yard);
+  solid(-27.6, -27, -2, 14, UD.f, 6, M.dark);              // shaft side walls
+  solid(-23, -22.4, -2, 14, UD.f, 6, M.dark);
+  // stepped stone fill under the ramp — without it the cavity beneath the
+  // stairs was walkable from the vault and ended in a surface-pop through
+  // solid ground past the stair mouth
+  solid(-27, -23, 2, 6, UD.f, -3.3, M.dark);
+  solid(-27, -23, 6, 10, UD.f, -0.3, M.dark);
+  solid(-27, -23, 10, 14, UD.f, 2.7, M.dark);
+  solid(-27.6, -27, 10, 14.3, 6, 7.1, M.dark);             // yard rails at the mouth
+  solid(-23, -22.4, 10, 14.3, 6, 7.1, M.dark);
+  solid(-27.6, -22.4, 9.7, 10, 6, 7.1, M.dark);            // rail across the downhill end
+  for (const px of [-27.3, -22.7]) {                       // stairhead arch
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3.2, 0.5), M.stone);
+    post.position.set(CX + px, 7.6, CZ + 14);
+    group.add(post);
+  }
+  mesh(-27.6, -22.4, 13.7, 14.3, 9, 9.7, M.stone);
+
+  // ── Grand Vault — 40×24, ten-metre ceiling, two ranks of great pillars ────
+  uwall(-32.6, 8.6, -26.6, -26);                           // north
+  uwall(-32.6, -27, -2, -1.4);                             // south (gaps: shaft, corridor)
+  uwall(-23, -13, -2, -1.4);
+  uwall(-7, 8.6, -2, -1.4);
+  uwall(-32.6, -32, -26, -2);                              // west
+  uwall(8, 8.6, -26, -14);                                 // east (gap: gallery)
+  uwall(8, 8.6, -10, -2);
+  for (const px of [-26, -18, -10, -2]) {
+    for (const pz of [-20, -8]) {
+      solid(px - 0.8, px + 0.8, pz - 0.8, pz + 0.8, UD.f, UD.c, M.stone, true);
+      mesh(px - 1.1, px + 1.1, pz - 1.1, pz + 1.1, UD.f, UD.f + 0.5, M.stone);      // plinth
+      mesh(px - 1.1, px + 1.1, pz - 1.1, pz + 1.1, UD.c - 0.5, UD.c, M.stone);      // capital
+    }
+  }
+
+  // ── Gallery east to the Crypt ─────────────────────────────────────────────
+  uwall(8, 14, -14.6, -14);
+  uwall(8, 14, -10, -9.4);
+
+  // ── Crypt — sarcophagi niches and the deep coffer ─────────────────────────
+  uwall(14, 14.6, -18, -14);
+  uwall(14, 14.6, -10, 2);
+  uwall(14, 32.6, -18.6, -18);
+  uwall(32, 32.6, -18, 2);
+  uwall(14, 19, 2, 2.6);
+  uwall(25, 32.6, 2, 2.6);
+  for (const sz of [-16, -11, -6, -1]) {                   // sarcophagi
+    mesh(29, 31.5, sz - 1, sz + 1, UD.f, UD.f + 1.1, M.stone);
+    mesh(15, 17.5, sz - 1, sz + 1, UD.f, UD.f + 1.1, M.stone);
+  }
+  mesh(21.5, 24.5, -9.5, -6.5, UD.f, UD.f + 0.9, M.stone); // central bier
+  // corridor south to the Cistern
+  uwall(18.4, 19, 2, 8);
+  uwall(25, 25.6, 2, 8);
+
+  // ── Flooded Cistern — pillared, knee-deep, echoing ────────────────────────
+  uwall(7.4, 19, 8, 8.6);
+  uwall(25, 32.6, 8, 8.6);
+  uwall(7.4, 8, 8, 30);
+  uwall(32, 32.6, 8, 30);
+  uwall(7.4, 32.6, 30, 30.6);
+  for (const px of [14, 26]) for (const pz of [14, 24]) {
+    solid(px - 0.8, px + 0.8, pz - 0.8, pz + 0.8, UD.f, UD.c, M.stone, true);
+  }
+  mesh(8, 32, 8.6, 30, UD.f + 0.38, UD.f + 0.45, M.water); // standing water
+
+  // ── Cell Block — corridor with barred cells either side, and the Deep Door ─
+  uwall(-32.6, -13, 4, 4.6);                               // north (gap: corridor to vault)
+  uwall(-7, -6, 4, 4.6);
+  uwall(-32.6, -32, 4, 24);                                // west
+  uwall(-6.6, -6, 4, 24);                                  // east
+  uwall(-32.6, -6, 24, 24.6);                              // south
+  for (const px of [-24, -16]) {                           // cell partitions + stubs
+    uwall(px, px + 0.6, 4, 12);
+    uwall(px, px + 0.6, 16, 24);
+  }
+  for (let bx = -31; bx < -7; bx += 1.1) {                 // bars along the corridor
+    if ((bx > -24.8 && bx < -22.8) || (bx > -16.8 && bx < -14.8)) continue;  // cell doors
+    mesh(bx - 0.06, bx + 0.06, 11.7, 11.85, UD.f, UD.f + 3, M.iron);
+    mesh(bx - 0.06, bx + 0.06, 16.15, 16.3, UD.f, UD.f + 3, M.iron);
+  }
+  const deepDoor = mesh(-32.45, -32, 12.5, 15.5, UD.f, UD.f + 4.2, M.iron);
+  // corridor connecting Cell Block to the Grand Vault
+  uwall(-13.6, -13, -2, 4);
+  uwall(-7, -6.4, -2, 4);
+
+  // ── torch dressing throughout ─────────────────────────────────────────────
+  for (const [tx, tz] of [[-26, -14], [-10, -14], [-2, -14], [-18, -14],
+    [11, -12], [23, -18.2], [16, 2.2], [28, 2.2], [20, 9], [-19.7, 14], [-25, -1.6]]) {
+    mesh(tx - 0.1, tx + 0.1, tz - 0.1, tz + 0.1, UD.f + 1.6, UD.f + 2.5, M.iron);
+    mesh(tx - 0.16, tx + 0.16, tz - 0.16, tz + 0.16, UD.f + 2.5, UD.f + 2.9, M.flame);
+  }
+
+  // ── lore + loot ───────────────────────────────────────────────────────────
+  interact.register({
+    x: CX - 25, z: CZ - 3.5, r: 3.5,
+    label: '📜 Read the mason\'s mark',
+    when: () => _lastPlayerY < 2,
+    cb: () => {
+      audio.sfx.bell();
+      toast('The Undercroft — "We built deeper than we ever told the King. Stone remembers what courts forget. Do not knock on the western door."', 8000);
+    },
+  });
+  interact.register({
+    x: CX + 23, z: CZ - 8, r: 3,
+    label: '⚰️ Open the deep coffer',
+    when: () => _lastPlayerY < 0 && !load('castle:deeploot', false),
+    cb: () => {
+      save('castle:deeploot', true);
+      shells.add(30, 'the deep coffer');
+      audio.sfx.fanfare();
+      toast('⚰️ Under the bier lid: shells, and a note — "for whoever was brave enough."', 5000);
+    },
+  });
+  interact.register({
+    x: CX - 32, z: CZ + 14, r: 3.5,
+    label: '🚪 The Deep Door',
+    when: () => _lastPlayerY < 0,
+    cb: () => {
+      audio.sfx.grind();
+      toast('Iron, older than the castle. It does not move. Something on the other side is patient.', 5000);
+    },
+  });
+
   // ═══ Lights — gated by distance; the castle costs nothing from afar
   const lights = [];
   function addLight(color, intensity, dist, x, y, z) {
@@ -592,12 +737,21 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
   addLight(0xFFC080, 1.2, 22, -6, F_BED + 3, -9);
   addLight(0xFF8030, 1.3, 26, 14, CASTLE.yard + 2.4, 21);
   addLight(0xFFD75A, 1.5, 16, 0, F_THRONE + 2.5, -18.5);
+  addLight(0xFF8A30, 1.7, 38, -12, UD.f + 7, -14);   // Undercroft: grand vault
+  addLight(0xFFB868, 1.2, 26, 23, UD.f + 5, -8);     // crypt
+  addLight(0x5A88C8, 1.1, 28, 20, UD.f + 5, 19);     // cistern (cold water light)
 
   function playerAbove(y) { return _lastPlayerY > y; }
   let _lastPlayerY = 0;
 
-  // ═══ Register with the shared collision engine
-  addStructure({ x: CX, z: CZ, r: 100, walls, floors, ramps });
+  // ═══ Register with the shared collision engine. The basement volumes let
+  //     players exist below the terrain: the stair mouth releases the surface
+  //     right at yard level, the complex only once you are properly beneath it.
+  addStructure({ x: CX, z: CZ, r: 100, walls, floors, ramps, basements: [
+    { x0: CX - 27, x1: CX - 23, z0: CZ + 10, z1: CZ + 14, top: 6.3 },   // stair mouth
+    { x0: CX - 27, x1: CX - 23, z0: CZ - 2,  z1: CZ + 10, top: 5.7 },   // stair run
+    { x0: CX - 34, x1: CX + 34, z0: CZ - 30, z1: CZ + 32, top: 4.6 },   // the Undercroft
+  ] });
 
   function update(dt, nowSec, playerPos) {
     _lastPlayerY = playerPos.y;

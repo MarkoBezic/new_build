@@ -17,10 +17,25 @@ const STEP = 0.55;          // max ledge the player can step up without stairs
 const BODY_R = 0.35;        // player capsule radius for wall tests
 const structures = [];
 
-export function addStructure({ x, z, r, walls = [], floors = [], ramps = [] }) {
-  const s = { x, z, r, walls, floors, ramps };
+// basements: { x0,x1,z0,z1, top } — inside the rect with feet below `top`,
+// the terrain heightmap stops claiming the player, so stairs can descend
+// beneath the ground into true underground rooms (which must be fully
+// walled: outside a basement volume the terrain floor snaps players back
+// to the surface).
+export function addStructure({ x, z, r, walls = [], floors = [], ramps = [], basements = [] }) {
+  const s = { x, z, r, walls, floors, ramps, basements };
   structures.push(s);
   return s;
+}
+
+export function terrainSuppressed(x, z, feetY) {
+  nearStructures(x, z, _near);
+  for (const s of _near) {
+    for (const b of s.basements) {
+      if (feetY < b.top && x >= b.x0 && x <= b.x1 && z >= b.z0 && z <= b.z1) return true;
+    }
+  }
+  return false;
 }
 
 function nearStructures(x, z, out) {

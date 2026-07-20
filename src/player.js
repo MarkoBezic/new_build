@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { groundY as zoneGroundY, BEACH_STOP, SHORE, ISLAND, inIsland, skyFloorY, updraftAt } from './zones.js';
-import { resolveMove, structureFloorY } from './collision.js';
+import { resolveMove, structureFloorY, terrainSuppressed } from './collision.js';
 import { buildHumanoid, animateAvatar, makeNameLabel } from './humanoid.js';
 
 const WALK_SPEED   = 8;
@@ -301,7 +301,8 @@ function createDesktopPlayer(scene, camera, canvas) {
       playerY += vy * dt;
       const px = thirdPerson ? avatar.position.x : camera.position.x;
       const pz = thirdPerson ? avatar.position.z : camera.position.z;
-      const ground = Math.max(floorY(px, pz), skyFloorY(px, pz, playerY), structureFloorY(px, pz, playerY));
+      const terrainG = terrainSuppressed(px, pz, playerY) ? -Infinity : floorY(px, pz);
+      const ground = Math.max(terrainG, skyFloorY(px, pz, playerY), structureFloorY(px, pz, playerY));
       if (playerY <= ground) { playerY = ground; vy = 0; grounded = true; airTime = 0; _gliding = false; }
       else airTime += dt;
     }
@@ -582,7 +583,8 @@ function createMobilePlayer(scene, camera, canvas) {
         }
       }
       playerY += vy * dt;
-      const ground = Math.max(floorY(playerX, playerZ), skyFloorY(playerX, playerZ, playerY), structureFloorY(playerX, playerZ, playerY));
+      const terrainG = terrainSuppressed(playerX, playerZ, playerY) ? -Infinity : floorY(playerX, playerZ);
+      const ground = Math.max(terrainG, skyFloorY(playerX, playerZ, playerY), structureFloorY(playerX, playerZ, playerY));
       if (playerY <= ground) { playerY = ground; vy = 0; airTime = 0; _gliding = false; }
       else airTime += dt;
     }
