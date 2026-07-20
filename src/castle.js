@@ -597,25 +597,30 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
   mesh(-27, -23, -30, -2, UD.c, UD.c + 0.5, M.dark, true);
   mesh(-27, -23, 14, 32, UD.c, UD.c + 0.5, M.dark, true);
 
-  // ── entry: stone stair-mouth in the west yard, grand run down (16 m) ──────
-  stair(-27, -23, -2, 14, 'z', UD.f, CASTLE.yard);
-  solid(-27.6, -27, -2, 14, UD.f, 6, M.dark);              // shaft side walls
-  solid(-23, -22.4, -2, 14, UD.f, 6, M.dark);
-  // stepped stone fill under the ramp — without it the cavity beneath the
-  // stairs was walkable from the vault and ended in a surface-pop through
-  // solid ground past the stair mouth
+  // ── entry: an open trench carved into the west yard (see terrain.js — the
+  //    ground mesh itself dips, so the mouth is visible from across the
+  //    courtyard), handing off at its floor to a covered stone stair down
+  stair(-27, -23, -2, 10, 'z', UD.f, 3.0);
+  solid(-27.6, -27, -2, 10, UD.f, 6, M.dark);              // covered-run side walls
+  solid(-23, -22.4, -2, 10, UD.f, 6, M.dark);
+  mesh(-27.6, -22.4, -2, 10, 5.2, 5.7, M.dark, true);      // covered-run ceiling
+  // stepped stone fill under the ramp — the cavity beneath the stairs was
+  // walkable from the vault and ended in a surface-pop through solid ground
   solid(-27, -23, 2, 6, UD.f, -3.3, M.dark);
   solid(-27, -23, 6, 10, UD.f, -0.3, M.dark);
-  solid(-27, -23, 10, 14, UD.f, 2.7, M.dark);
-  solid(-27.6, -27, 10, 14.3, 6, 7.1, M.dark);             // yard rails at the mouth
-  solid(-23, -22.4, 10, 14.3, 6, 7.1, M.dark);
-  solid(-27.6, -22.4, 9.7, 10, 6, 7.1, M.dark);            // rail across the downhill end
-  for (const px of [-27.3, -22.7]) {                       // stairhead arch
+  // trench rails along the open cut + a lip rail so yard walkers north of
+  // the covered section can't drop 3 m into the mouth (descenders pass under)
+  solid(-27.6, -27, 10, 20, 2.8, 7.2, M.dark);
+  solid(-23, -22.4, 10, 20, 2.8, 7.2, M.dark);
+  solid(-27.6, -22.4, 9.7, 10, 6, 7.2, M.dark);
+  for (const px of [-27.3, -22.7]) {                       // stairhead arch at the yard lip
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3.2, 0.5), M.stone);
-    post.position.set(CX + px, 7.6, CZ + 14);
+    post.position.set(CX + px, 7.6, CZ + 20);
     group.add(post);
   }
-  mesh(-27.6, -22.4, 13.7, 14.3, 9, 9.7, M.stone);
+  mesh(-27.6, -22.4, 19.7, 20.3, 9, 9.7, M.stone);
+  // dark portal face where the covered stair swallows the trench
+  mesh(-27, -23, 9.9, 10.1, 3, 5.2, M.iron);
 
   // ── Grand Vault — 40×24, ten-metre ceiling, two ranks of great pillars ────
   uwall(-32.6, 8.6, -26.6, -26);                           // north
@@ -748,9 +753,16 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
   //     players exist below the terrain: the stair mouth releases the surface
   //     right at yard level, the complex only once you are properly beneath it.
   addStructure({ x: CX, z: CZ, r: 100, walls, floors, ramps, basements: [
-    { x0: CX - 27, x1: CX - 23, z0: CZ + 10, z1: CZ + 14, top: 6.3 },   // stair mouth
-    { x0: CX - 27, x1: CX - 23, z0: CZ - 2,  z1: CZ + 10, top: 5.7 },   // stair run
-    { x0: CX - 34, x1: CX + 34, z0: CZ - 30, z1: CZ + 32, top: 4.6 },   // the Undercroft
+    // (the open trench itself is real carved terrain — no suppression there)
+    { x0: CX - 27, x1: CX - 23, z0: CZ - 2,  z1: CZ + 10, top: 5.7 },   // covered stair run
+    // the Undercroft, minus the trench column above the cells — its floor
+    // dips below the normal 4.6 threshold, so that column suppresses only
+    // near dungeon depth (players in the trench must keep their terrain)
+    { x0: CX - 34, x1: CX - 31, z0: CZ - 30, z1: CZ + 32, top: 4.6 },
+    { x0: CX - 19, x1: CX + 34, z0: CZ - 30, z1: CZ + 32, top: 4.6 },
+    { x0: CX - 31, x1: CX - 19, z0: CZ - 30, z1: CZ + 8,  top: 4.6 },
+    { x0: CX - 31, x1: CX - 19, z0: CZ + 22, z1: CZ + 32, top: 4.6 },
+    { x0: CX - 31, x1: CX - 19, z0: CZ + 8,  z1: CZ + 22, top: 0.5 },
   ] });
 
   function update(dt, nowSec, playerPos) {

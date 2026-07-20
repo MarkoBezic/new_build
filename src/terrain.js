@@ -81,6 +81,16 @@ export function terrainHeight(x, z) {
       }
       const m = 1 - smoothstep(46, 62, cheb);
       h = h * (1 - m) + target * m;
+
+      // Undercroft entrance — an open trench carved into the west yard, wide
+      // enough for the coarse ground mesh to actually render it. Its floor
+      // descends 6 → 3 and hands off to the stone staircase underground.
+      const lx = x + 120, lz = z + 520;
+      if (lx > -31 && lx < -19 && lz > 10 && lz < 21) {
+        const along = Math.min(1, Math.max(0, (lz - 10) / 10));   // 1 at the yard end
+        const lat   = 1 - smoothstep(2.0, 5.5, Math.abs(lx + 25));
+        h -= 3.0 * (1 - along) * lat;
+      }
     }
   }
 
