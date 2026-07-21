@@ -695,13 +695,21 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
   mesh(8, 32, 8.6, 30, UD.f + 0.38, UD.f + 0.45, M.water); // standing water
 
   // ── Cell Block — corridor with barred cells either side, and the Deep Door ─
-  uwall(-32.6, -13, 4, 4.6);                               // north (gap: corridor to vault)
+  // The north wall is split around the stair shaft (x −27.6..−22.4): it used
+  // to run unbroken across the descent and WAS the "dead end" — a
+  // floor-to-ceiling underground wall directly in the stairway, low enough
+  // to see the vault over from the upper steps.
+  uwall(-32.6, -27.6, 4, 4.6);
+  uwall(-22.4, -13, 4, 4.6);                               // (gap at −13..−7: corridor to vault)
   uwall(-7, -6, 4, 4.6);
   uwall(-32.6, -32, 4, 24);                                // west
   uwall(-6.6, -6, 4, 24);                                  // east
   uwall(-32.6, -6, 24, 24.6);                              // south
-  for (const px of [-24, -16]) {                           // cell partitions + stubs
-    uwall(px, px + 0.6, 4, 12);
+  // North-row west partition removed: it sat inside the stair shaft and its
+  // top poked above the carved trench floor, clipping feet on the east side
+  // of the descent. That cell pair is now one L-shaped cell around the shaft.
+  uwall(-16, -15.4, 4, 12);
+  for (const px of [-24, -16]) {                           // south-row partitions
     uwall(px, px + 0.6, 16, 24);
   }
   for (let bx = -31; bx < -7; bx += 1.1) {                 // bars along the corridor
