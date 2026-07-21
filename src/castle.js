@@ -101,10 +101,31 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
     mesh(x0, x1, z0, z1, y0, y1, M.glass);
   }
 
-  // ═══ Moat water sheet — waterline 0.85 below the yard fills the ditch
-  //     bank to bank instead of a thin strip at the bottom
+  // ═══ Moat water sheet — a square RING, not a solid square. A plain plane
+  //     here was a full 97×97 sheet with no hole: it was invisible under the
+  //     dry courtyard (which sits above the waterline) but flooded straight
+  //     across the dungeon trench, whose carved floor dips below it — hence
+  //     "water filling the stairs." The hole matches the courtyard's own
+  //     square (Chebyshev) footprint from terrain.js, with margin so the
+  //     water still meets the ditch walls with no dry gap, and still washes
+  //     up to the drawbridge exactly as before (that crossing is well outside
+  //     the hole radius).
   {
-    const w = new THREE.Mesh(new THREE.PlaneGeometry(97, 97), M.water);
+    const outerHalf = 48.5, innerHalf = 36;
+    const shape = new THREE.Shape();
+    shape.moveTo(-outerHalf, -outerHalf);
+    shape.lineTo(outerHalf, -outerHalf);
+    shape.lineTo(outerHalf, outerHalf);
+    shape.lineTo(-outerHalf, outerHalf);
+    shape.closePath();
+    const hole = new THREE.Path();
+    hole.moveTo(-innerHalf, -innerHalf);
+    hole.lineTo(-innerHalf, innerHalf);
+    hole.lineTo(innerHalf, innerHalf);
+    hole.lineTo(innerHalf, -innerHalf);
+    hole.closePath();
+    shape.holes.push(hole);
+    const w = new THREE.Mesh(new THREE.ShapeGeometry(shape), M.water);
     w.rotation.x = -Math.PI / 2;
     w.position.set(CX, 5.15, CZ);
     group.add(w);
@@ -619,8 +640,12 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
     group.add(post);
   }
   mesh(-27.6, -22.4, 19.7, 20.3, 9, 9.7, M.stone);
-  // dark portal face where the covered stair swallows the trench
-  mesh(-27, -23, 9.9, 10.1, 3, 5.2, M.iron);
+  // NOTE: there was a decorative "portal face" plate here — a full-width,
+  // full-height opaque panel meant to read as shadow at the doorway. It
+  // wasn't collidable (visual only), but it filled the entire opening and
+  // looked exactly like a wall, reading as a dead end. Removed; the
+  // passage now reads correctly as an opening into darkness, with the
+  // Undercroft's own torches and lights visible glowing beyond.
 
   // ── Grand Vault — 40×24, ten-metre ceiling, two ranks of great pillars ────
   uwall(-32.6, 8.6, -26.6, -26);                           // north
