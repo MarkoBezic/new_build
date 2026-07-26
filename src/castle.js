@@ -47,7 +47,7 @@ const BRAZIERS = [
   { id: 3, label: 'Stone', color: 0xB0A898, dx: -12.5, dz: -12 },
 ];
 
-export function createCastle(scene, { interact, audio, shells, progress }) {
+export function createCastle(scene, { interact, audio, shells, progress, teleport }) {
   const group = new THREE.Group();
   scene.add(group);
 
@@ -489,6 +489,28 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
     const wellR = new THREE.Mesh(new THREE.ConeGeometry(1.5, 1, 8), M.roof);
     wellR.position.set(CX + 14, CASTLE.yard + 2.6, CZ + 21);
     group.add(wellR);
+    // Rope down the well — a shortcut that only exists once you have found the
+    // Undercroft the long way, so the discovery still has to be earned
+    for (const [ry, y0, y1] of [[0, CASTLE.yard + 0.4, CASTLE.yard + 2.4]]) {
+      const rope = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, y1 - y0, 5), M.wood);
+      rope.position.set(CX + 14, (y0 + y1) / 2, CZ + 21 + ry);
+      group.add(rope);
+    }
+    const ropeBottom = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 4, 5), M.wood);
+    ropeBottom.position.set(CX + 14, CASTLE.yard - 8, CZ + 21);
+    group.add(ropeBottom);
+    interact.register({
+      x: CX + 14, z: CZ + 21, r: 3.2,
+      label: '🪣 Climb down the well rope',
+      when: () => _underSeen && _lastPlayerY > 3,
+      cb: () => { audio.sfx.grind(); teleport?.(CX + 14, CZ + 23.5, UD.f); },
+    });
+    interact.register({
+      x: CX + 14, z: CZ + 23.5, r: 3.2,
+      label: '🪢 Climb the well rope back up',
+      when: () => _lastPlayerY < 0 && _lastPlayerY > -14,
+      cb: () => { audio.sfx.grind(); teleport?.(CX + 14, CZ + 24.5, CASTLE.yard); },
+    });
     mesh(-1.5, 1.5, 17, 30.5, CASTLE.yard + 0.01, CASTLE.yard + 0.03, M.dark);
     for (const bx of [-5.5, 5.5]) {
       const ban = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 3.6), new THREE.MeshLambertMaterial({ color: 0x2A4A9A, side: THREE.DoubleSide }));
@@ -798,6 +820,7 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
 
   function playerAbove(y) { return _lastPlayerY > y; }
   let _lastPlayerY = 0;
+  let _underSeen = !!load('castle:undercroft', false);   // unlocks the well rope
 
   // ═══ Register with the shared collision engine. The basement volumes let
   //     players exist below the terrain: the stair mouth releases the surface
@@ -817,6 +840,12 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
 
   function update(dt, nowSec, playerPos) {
     _lastPlayerY = playerPos.y;
+    if (!_underSeen && playerPos.y < 0 && playerPos.y > -14 &&
+        Math.hypot(playerPos.x - CX, playerPos.z - CZ) < 60) {
+      _underSeen = true;
+      save('castle:undercroft', true);
+      toast('🪣 You spot daylight through a shaft overhead — the well runs down here.', 5000);
+    }
     const target = bridgeDown ? 1 : 0;
     if (bridgeAnim !== target) {
       bridgeAnim += (target - bridgeAnim) * Math.min(1, dt * 2.2);

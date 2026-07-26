@@ -60,7 +60,7 @@ export function createDeepHalls(scene, { interact, audio, shells, playerPosition
   // claiming the player, which is what lets these rooms exist underground.
   // `top` sits just above each area's floor so the surface is untouched.
   basement(-57, -31, -19, 19, -1.2);      // entry passage + stairwell
-  basement(-70, 70, -64, 64, -8);         // the Deep Halls proper
+  basement(-70, 70, -84, 64, -8);         // the Deep Halls + the Deep Road
 
   // ── One continuous floor slab: nobody can ever fall into the void ─────────
   deck(-68, 68, -62, 62, F, M.floor, 0.6);
@@ -174,7 +174,8 @@ export function createDeepHalls(scene, { interact, audio, shells, playerPosition
 
   // ═══ Tunnels + chambers ═════════════════════════════════════════════════
   tunnel(-24, -18, -34, -26);  room(GROTTO,  [{ side: 's', a: -24, b: -18 }], C_ROOM, M.dark);
-  tunnel(14, 20, -34, -26);    room(GALLERY, [{ side: 's', a: 14,  b: 20 }]);
+  tunnel(14, 20, -34, -26);    room(GALLERY, [{ side: 's', a: 14, b: 20 },
+                                              { side: 'n', a: 34, b: 42 }]);  // the Deep Road
   tunnel(28, 40, -10, -4);     room(FORGE,   [{ side: 'w', a: -10, b: -4 }]);
   tunnel(28, 38, 20, 26);      room(ARCHIVE, [{ side: 'w', a: 20,  b: 26 }]);
   tunnel(10, 16, 26, 34);      room(REST,    [{ side: 'n', a: 10,  b: 16 }]);
@@ -219,8 +220,45 @@ export function createDeepHalls(scene, { interact, audio, shells, playerPosition
     rub.rotation.set(Math.random(), Math.random(), Math.random());
     B.group.add(rub);
   }
-  solid(20, 56, -62, -58, F, C_ROOM, M.rock);          // the cave-in itself
-  mesh(20, 44, -58.4, -56, F, F + 7, M.pillar);        // spill of fallen stone
+  // The cave-in — heaving the middle aside opens the Deep Road, the tunnel
+  // the Deepwardens used before the roof came down
+  solid(20, 34, -62, -58, F, C_ROOM, M.rock);
+  solid(42, 56, -62, -58, F, C_ROOM, M.rock);
+  const roadBox = {
+    x0: CASTLE.x + 34, x1: CASTLE.x + 42,
+    z0: CASTLE.z - 62, z1: CASTLE.z - 58, y0: F, y1: C_ROOM,
+  };
+  const roadMesh = mesh(34, 42, -62, -58, F, C_ROOM, M.rock, true);
+  let roadOpen = !!load('deep:road', false);
+  if (roadOpen) roadMesh.visible = false;
+  else B.walls.push(roadBox);
+  mesh(20, 33, -58.4, -56, F, F + 7, M.pillar);        // spill of fallen stone
+
+  // Beyond it: a short tunnel to the ley chamber at the road's head
+  deck(30, 46, -82, -60, F, M.floor, 0.6);
+  tunnel(34, 42, -70, -58);
+  room([30, 46, -80, -70], [{ side: 's', a: 34, b: 42 }]);
+  roof([30, 46, -80, -70]);
+  for (const [tx, tz] of [[32, -74], [44, -74]]) {
+    mesh(tx - 0.1, tx + 0.1, tz - 0.1, tz + 0.1, F + 1.7, F + 2.7, M.iron);
+    mesh(tx - 0.17, tx + 0.17, tz - 0.17, tz + 0.17, F + 2.7, F + 3.15, M.flame);
+  }
+
+  interact.register({
+    x: CASTLE.x + 38, z: CASTLE.z - 60, r: 4,
+    label: '⛏ Heave the fallen stone aside',
+    when: () => playerPosition.y < -14 && !roadOpen,
+    cb: () => {
+      roadOpen = true;
+      save('deep:road', true);
+      const i = B.walls.indexOf(roadBox);
+      if (i >= 0) B.walls.splice(i, 1);
+      roadMesh.visible = false;
+      audio.sfx.grind();
+      audio.sfx.fanfare();
+      toast('The rubble gives. Behind it a worked tunnel runs on into the dark —\nthe Deep Road, and a standing stone at the head of it.', 8000);
+    },
+  });
 
   // ── The Forge — banked coals, work left half-finished ───────────────────
   mesh(62, 67, -14, -8, F, F + 2.4, M.dark);                       // hearth

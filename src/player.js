@@ -388,8 +388,10 @@ function createDesktopPlayer(scene, camera, canvas) {
     return { x: pos.x, z: pos.z, ry: yaw };
   }
 
-  function teleport(x, z) {
-    playerY = floorY(x, z);
+  // `y` is optional — underground destinations (ley stones, well ropes) must
+  // set it explicitly, since floorY only knows the surface heightmap
+  function teleport(x, z, y) {
+    playerY = y ?? floorY(x, z);
     if (thirdPerson) {
       avatar.position.set(x, playerY, z);
     } else {
@@ -649,10 +651,10 @@ function createMobilePlayer(scene, camera, canvas) {
     return { x: playerX, z: playerZ, ry: yaw };
   }
 
-  function teleport(x, z) {
+  function teleport(x, z, y) {
     playerX = x;
     playerZ = z;
-    playerY = floorY(x, z);
+    playerY = y ?? floorY(x, z);
     vy = 0;
   }
 

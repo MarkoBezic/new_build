@@ -57,6 +57,7 @@ import { createCave }     from './cave.js';
 import { createSeasons }  from './seasons.js';
 import { createCastle }   from './castle.js';
 import { createDeepHalls } from './deephalls.js';
+import { createLeylines } from './leylines.js';
 import { createHomestead } from './homestead.js';
 import { createPlinko }   from './plinko.js';
 import { createMap }      from './map.js';
@@ -381,8 +382,9 @@ const island      = createIsland(scene, { interact, audio });
 const skyIsles    = createSkyIslands(scene, { interact, audio, playerPosition });
 const cave        = createCave(scene, { interact, audio, shells });
 const seasons     = createSeasons(scene, { playerPosition });
-const castle      = createCastle(scene, { interact, audio, shells, progress });
+const castle      = createCastle(scene, { interact, audio, shells, progress, teleport });
 const deepHalls   = createDeepHalls(scene, { interact, audio, shells, playerPosition });
+const leylines    = createLeylines(scene, { interact, audio, playerPosition, teleport });
 const homestead   = createHomestead(scene, {
   interact, audio, shells, playerPosition, getState, isMobile, teleport,
   getName: () => myName,
@@ -579,6 +581,7 @@ window.addEventListener('keydown', e => {
   // Build mode, shop and journal steal keys while active
   if (homestead.isBuilding() && homestead.onKey(e)) return;
   if (shop.isOpen()) { shop.onKey(e); return; }
+  if (leylines.isOpen()) { leylines.onKey(e); return; }
   if (journal.isOpen()) { journal.onKey(e); return; }
   if (e.code === 'KeyC') {
     _ucVisible = !_ucVisible;
@@ -820,6 +823,7 @@ function animate() {
   seasons.update(dt);
   castle.update(dt, now / 1000, playerPosition);
   deepHalls.update();
+  leylines.update(dt, now / 1000);
   homestead.update();
   rampartRace.update(dt, now / 1000);
   skyRace.update(dt, now / 1000);
