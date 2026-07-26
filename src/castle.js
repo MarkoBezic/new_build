@@ -702,7 +702,10 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
   uwall(-32.6, -27.6, 4, 4.6);
   uwall(-22.4, -13, 4, 4.6);                               // (gap at −13..−7: corridor to vault)
   uwall(-7, -6, 4, 4.6);
-  uwall(-32.6, -32, 4, 24);                                // west
+  // West wall, split around the Deep Door so the doorway is a real opening
+  uwall(-32.6, -32, 4, 12.5);
+  uwall(-32.6, -32, 15.5, 24);
+  solid(-32.6, -32, 12.5, 15.5, UD.f + 4.2, UD.c, M.dark);   // lintel over the door
   uwall(-6.6, -6, 4, 24);                                  // east
   uwall(-32.6, -6, 24, 24.6);                              // south
   // North-row west partition removed: it sat inside the stair shaft and its
@@ -717,7 +720,15 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
     mesh(bx - 0.06, bx + 0.06, 11.7, 11.85, UD.f, UD.f + 3, M.iron);
     mesh(bx - 0.06, bx + 0.06, 16.15, 16.3, UD.f, UD.f + 3, M.iron);
   }
-  const deepDoor = mesh(-32.45, -32, 12.5, 15.5, UD.f, UD.f + 4.2, M.iron);
+  // The Deep Door — sealed iron. Knocking opens it onto the Deep Halls
+  // (deephalls.js builds everything beyond this plane).
+  const deepDoorMesh = mesh(-32.45, -32, 12.5, 15.5, UD.f, UD.f + 4.2, M.iron);
+  const deepDoorBox = {
+    x0: CX - 32.6, x1: CX - 32, z0: CZ + 12.5, z1: CZ + 15.5, y0: UD.f, y1: UD.f + 4.2,
+  };
+  let deepOpen = !!load('castle:deepdoor', false);
+  if (deepOpen) deepDoorMesh.visible = false;
+  else walls.push(deepDoorBox);
   // corridor connecting Cell Block to the Grand Vault
   uwall(-13.6, -13, -2, 4);
   uwall(-7, -6.4, -2, 4);
@@ -752,11 +763,17 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
   });
   interact.register({
     x: CX - 32, z: CZ + 14, r: 3.5,
-    label: '🚪 The Deep Door',
-    when: () => _lastPlayerY < 0,
+    label: '🚪 Knock on the Deep Door',
+    when: () => _lastPlayerY < 0 && !deepOpen,
     cb: () => {
+      deepOpen = true;
+      save('castle:deepdoor', true);
+      const i = walls.indexOf(deepDoorBox);
+      if (i >= 0) walls.splice(i, 1);
+      deepDoorMesh.visible = false;
       audio.sfx.grind();
-      toast('Iron, older than the castle. It does not move. Something on the other side is patient.', 5000);
+      audio.sfx.bell();
+      toast('You knock. Something answers.\nThe Deep Door grinds inward, and cold air climbs out of the dark.', 8000);
     },
   });
 
@@ -806,7 +823,9 @@ export function createCastle(scene, { interact, audio, shells, progress }) {
       if (Math.abs(bridgeAnim - target) < 0.01) bridgeAnim = target;
       bridge.rotation.x = -(1 - bridgeAnim) * 1.45;
     }
-    const near = Math.hypot(playerPos.x - CX, playerPos.z - CZ) < 150;
+    // Below −14 the player is in the Deep Halls, which light themselves —
+    // switching these off keeps the active light count bounded down there
+    const near = Math.hypot(playerPos.x - CX, playerPos.z - CZ) < 150 && playerPos.y > -14;
     for (const l of lights) l.visible = near;
     if (near) hearthL.intensity = 1.7 + Math.sin(nowSec * 7.1) * 0.25 + Math.sin(nowSec * 13.7) * 0.12;
   }

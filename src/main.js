@@ -56,6 +56,7 @@ import { initGoods }      from './goods.js';
 import { createCave }     from './cave.js';
 import { createSeasons }  from './seasons.js';
 import { createCastle }   from './castle.js';
+import { createDeepHalls } from './deephalls.js';
 import { createHomestead } from './homestead.js';
 import { createPlinko }   from './plinko.js';
 import { createMap }      from './map.js';
@@ -380,6 +381,7 @@ const skyIsles    = createSkyIslands(scene, { interact, audio, playerPosition })
 const cave        = createCave(scene, { interact, audio, shells });
 const seasons     = createSeasons(scene, { playerPosition });
 const castle      = createCastle(scene, { interact, audio, shells, progress });
+const deepHalls   = createDeepHalls(scene, { interact, audio, shells, playerPosition });
 const homestead   = createHomestead(scene, {
   interact, audio, shells, playerPosition, getState, isMobile,
   getName: () => myName,
@@ -815,6 +817,7 @@ function animate() {
   cave.update(dt, now / 1000, playerPosition);
   seasons.update(dt);
   castle.update(dt, now / 1000, playerPosition);
+  deepHalls.update();
   homestead.update();
   rampartRace.update(dt, now / 1000);
   plinko.update(dt, now / 1000);
