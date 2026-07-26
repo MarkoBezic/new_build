@@ -28,6 +28,44 @@ export function addStructure({ x, z, r, walls = [], floors = [], ramps = [], bas
   return s;
 }
 
+// ── Camera raycast ───────────────────────────────────────────────────────────
+// Fraction [0..1] along the segment (from → to) at which the first solid box
+// is struck; 1 means the path is clear. The chase camera uses this to pull in
+// short of walls instead of clipping through them. Floors count too (as thin
+// boxes), so the camera cannot sink through a storey slab.
+function raySlab(ax, ay, az, dx, dy, dz, x0, x1, y0, y1, z0, z1) {
+  let t0 = 0, t1 = 1;
+  const axes = [[ax, dx, x0, x1], [ay, dy, y0, y1], [az, dz, z0, z1]];
+  for (const [o, d, lo, hi] of axes) {
+    if (Math.abs(d) < 1e-9) {
+      if (o < lo || o > hi) return 1;
+    } else {
+      let ta = (lo - o) / d, tb = (hi - o) / d;
+      if (ta > tb) { const t = ta; ta = tb; tb = t; }
+      if (ta > t0) t0 = ta;
+      if (tb < t1) t1 = tb;
+      if (t0 > t1) return 1;
+    }
+  }
+  return t0 > 0 ? t0 : 1;   // starting inside a box → treat as clear
+}
+
+export function cameraBlock(ax, ay, az, bx, by, bz) {
+  nearStructures(ax, az, _near);
+  if (_near.length === 0) return 1;
+  const dx = bx - ax, dy = by - ay, dz = bz - az;
+  let t = 1;
+  for (const s of _near) {
+    for (const w of s.walls) {
+      t = Math.min(t, raySlab(ax, ay, az, dx, dy, dz, w.x0, w.x1, w.y0, w.y1, w.z0, w.z1));
+    }
+    for (const f of s.floors) {
+      t = Math.min(t, raySlab(ax, ay, az, dx, dy, dz, f.x0, f.x1, f.top - 0.45, f.top, f.z0, f.z1));
+    }
+  }
+  return t;
+}
+
 export function terrainSuppressed(x, z, feetY) {
   nearStructures(x, z, _near);
   for (const s of _near) {

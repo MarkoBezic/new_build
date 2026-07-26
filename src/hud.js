@@ -1,7 +1,15 @@
 import * as THREE from 'three';
 
-// ── Toast notifications — standalone, usable by any module ──────────────────
+// ── Notification lanes ───────────────────────────────────────────────────────
+// Three deliberately distinct channels so the world doesn't say everything at
+// the same volume:
+//   toast()    — the standard lane: meaningful events, capped so they can't pile up
+//   ceremony() — the rare lane: the handful of once-ever moments, big and central
+//   floatUp()  — the ambient lane: a tiny "+n" that rises off a HUD chip, no toast
 let _toastBox = null;
+let _toastLive = 0;
+const TOAST_CAP = 3;   // never stack more than this — older ones expire first
+
 export function toast(msg, ms = 3200) {
   if (!_toastBox) {
     _toastBox = document.createElement('div');
@@ -12,6 +20,11 @@ export function toast(msg, ms = 3200) {
       fontFamily: 'system-ui, -apple-system, sans-serif',
     });
     document.body.appendChild(_toastBox);
+  }
+  // Cap the stack — drop the oldest so a busy moment can't bury the screen
+  while (_toastLive >= TOAST_CAP && _toastBox.firstChild) {
+    _toastBox.firstChild.remove();
+    _toastLive--;
   }
   const el = document.createElement('div');
   el.textContent = msg;
@@ -24,8 +37,53 @@ export function toast(msg, ms = 3200) {
     whiteSpace: 'pre-line', textAlign: 'center', maxWidth: '80vw',
   });
   _toastBox.appendChild(el);
+  _toastLive++;
   setTimeout(() => { el.style.opacity = '0'; }, ms - 500);
+  setTimeout(() => { el.remove(); _toastLive--; }, ms);
+}
+
+// A once-in-a-while moment: larger, centred, gently announced. Reserve it for
+// the genuinely rare — a crown, a network waking, a first dive.
+export function ceremony(msg, ms = 5200) {
+  const el = document.createElement('div');
+  el.textContent = msg;
+  Object.assign(el.style, {
+    position: 'fixed', top: '38%', left: '50%', transform: 'translate(-50%,-50%) scale(0.85)',
+    color: '#FFF0C8', font: '600 22px/1.4 Georgia, serif',
+    background: 'radial-gradient(ellipse at center, rgba(40,28,8,0.82), rgba(20,14,4,0.5))',
+    padding: '20px 40px', borderRadius: '16px', textAlign: 'center', whiteSpace: 'pre-line',
+    border: '1px solid rgba(255,210,120,0.5)', maxWidth: '70vw',
+    textShadow: '0 2px 10px rgba(0,0,0,0.9)', pointerEvents: 'none', zIndex: '47',
+    opacity: '0', transition: 'opacity 0.6s ease, transform 0.6s ease',
+  });
+  document.body.appendChild(el);
+  requestAnimationFrame(() => {
+    el.style.opacity = '1';
+    el.style.transform = 'translate(-50%,-50%) scale(1)';
+  });
+  setTimeout(() => { el.style.opacity = '0'; }, ms - 600);
   setTimeout(() => el.remove(), ms);
+}
+
+// A small "+n" that floats up from a HUD element and fades — the ambient lane
+// for currency and micro-rewards that would otherwise spam the toast channel.
+export function floatUp(anchorEl, text, color = '#FFE0D0') {
+  if (!anchorEl) return;
+  const r = anchorEl.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.textContent = text;
+  Object.assign(el.style, {
+    position: 'fixed', left: `${r.left + r.width / 2}px`, top: `${r.top}px`,
+    transform: 'translate(-50%,0)', color, font: 'bold 14px system-ui, sans-serif',
+    textShadow: '0 1px 3px rgba(0,0,0,0.9)', pointerEvents: 'none', zIndex: '26',
+    transition: 'transform 0.9s ease-out, opacity 0.9s ease-out', opacity: '1',
+  });
+  document.body.appendChild(el);
+  requestAnimationFrame(() => {
+    el.style.transform = 'translate(-50%,-28px)';
+    el.style.opacity = '0';
+  });
+  setTimeout(() => el.remove(), 950);
 }
 
 // ── HUD counter chip (top-right stack) — shared by shards/tasks/shells ──────
@@ -57,7 +115,7 @@ export function makeMobileButton(emoji, pos, onTap, background = 'rgba(0,0,0,0.4
 
 // HUD overlay — compass strip (top centre), current biome name, a biome
 // banner that flashes on zone change, and a contextual hint line.
-export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, getInteractPrompt, isMobile }) {
+export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, getInteractPrompt, getContextKeys, isMobile }) {
   const mk = (styles) => {
     const el = document.createElement('div');
     Object.assign(el.style, {
@@ -98,6 +156,16 @@ export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, g
     textShadow: '0 1px 3px rgba(0,0,0,0.8)', transition: 'opacity 0.4s ease',
     whiteSpace: 'nowrap',
   });
+  // Contextual key strip — shows only the few keys that matter right where you
+  // are (on a boat, in the peaks, near the court), so nobody memorises the map.
+  // Desktop only; mobile surfaces its actions as situational buttons instead.
+  const keysEl = isMobile ? null : mk({
+    bottom: '12px', left: '50%', transform: 'translateX(-50%)',
+    color: 'rgba(255,255,255,0.62)', fontSize: '12px',
+    padding: '3px 12px', textShadow: '0 1px 3px rgba(0,0,0,0.85)',
+    transition: 'opacity 0.4s ease', whiteSpace: 'nowrap', opacity: '0',
+  });
+  let _lastKeys = '';
 
   const TIPS = isMobile
     ? ['Drag left side to move, right side to look', 'Walk into a glowing portal to warp',
@@ -194,6 +262,16 @@ export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, g
       hintEl.style.opacity = '1';
     } else {
       hintEl.style.opacity = '0';
+    }
+
+    // Contextual key strip
+    if (keysEl) {
+      const keys = getContextKeys ? getContextKeys() : '';
+      if (keys !== _lastKeys) {
+        _lastKeys = keys;
+        if (keys) keysEl.innerHTML = keys;
+        keysEl.style.opacity = keys ? '1' : '0';
+      }
     }
   }
 

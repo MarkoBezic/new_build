@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SKY_ISLANDS, UPDRAFTS } from './zones.js';
 import { terrainHeight } from './terrain.js';
-import { toast } from './hud.js';
+import { toast, ceremony } from './hud.js';
 import { grantHat, wearHat, ownedHats } from './hats.js';
 
 // Sky islands — three floating rocks stepping up from the Icy Peaks, linked
@@ -81,7 +81,7 @@ export function createSkyIslands(scene, { interact, audio, playerPosition }) {
       wearHat('cloud');
       wispDisplay.visible = false;
       audio.sfx.fanfare();
-      toast('☁️ The Cloud Wisp settles on your head — proof you walked the sky.', 6000);
+      ceremony('☁️ The Cloud Wisp\nProof you walked the sky.');
     },
   });
 

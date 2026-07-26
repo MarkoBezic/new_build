@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { addStructure } from './collision.js';
-import { toast } from './hud.js';
+import { toast, ceremony } from './hud.js';
 import { save, load } from './persistence.js';
 import { grantHat, wearHat } from './hats.js';
 import { bus } from './bus.js';
@@ -597,7 +597,7 @@ export function createCastle(scene, { interact, audio, shells, progress, telepor
       grantHat('crownnorth');
       wearHat('crownnorth');
       audio.sfx.fanfare();
-      toast('👑 The Crown of the North is yours — worn by kings, kept for you.', 6500);
+      ceremony('👑 The Crown of the North\nWorn by kings — and now kept for you.');
     },
   });
 

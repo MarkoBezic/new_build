@@ -1,3 +1,4 @@
+import { settings } from './settings.js';
 // Fully procedural soundscape — WebAudio only, zero asset files.
 // Ambient beds: wind (rises with altitude, howls in the Icy Peaks), ocean
 // wash near the shore, campfire crackle. Day birdsong and night crickets.
@@ -12,8 +13,22 @@ export function createAudio() {
   let muted = false;
 
   const master = ctx.createGain();
-  master.gain.value = 0.5;
+  master.gain.value = settings.get('volMaster');
   master.connect(ctx.destination);
+
+  // Two sub-buses so ambience and effects can be balanced independently
+  const ambienceBus = ctx.createGain();
+  const effectsBus  = ctx.createGain();
+  ambienceBus.gain.value = settings.get('volAmbience');
+  effectsBus.gain.value  = settings.get('volEffects');
+  ambienceBus.connect(master);
+  effectsBus.connect(master);
+
+  settings.onChange((k, v) => {
+    if (k === 'volMaster')   master.gain.value = v;
+    if (k === 'volAmbience') ambienceBus.gain.value = v;
+    if (k === 'volEffects')  effectsBus.gain.value = v;
+  });
 
   // Browsers gate audio behind a user gesture — resume on the first input
   const resume = () => { if (ctx.state === 'suspended') ctx.resume(); };
@@ -34,7 +49,7 @@ export function createAudio() {
     filter.type = type; filter.frequency.value = freq; filter.Q.value = q;
     const gain = ctx.createGain();
     gain.gain.value = 0;
-    src.connect(filter); filter.connect(gain); gain.connect(master);
+    src.connect(filter); filter.connect(gain); gain.connect(ambienceBus);
     src.start();
     return { gain, filter, target: 0 };
   }
@@ -53,7 +68,7 @@ export function createAudio() {
     const g = ctx.createGain();
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(master);
+    o.connect(g); g.connect(effectsBus);
     o.start(t); o.stop(t + dur);
   }
 
@@ -68,7 +83,7 @@ export function createAudio() {
     const g = ctx.createGain();
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f); f.connect(g); g.connect(master);
+    src.connect(f); f.connect(g); g.connect(effectsBus);
     src.start(t); src.stop(t + dur);
   }
 

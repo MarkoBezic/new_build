@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { terrainHeight } from './terrain.js';
-import { toast } from './hud.js';
+import { toast, ceremony } from './hud.js';
 import { save, load } from './persistence.js';
 import { islandHeight, inIsland } from './zones.js';
 
@@ -78,7 +78,7 @@ export function createLeylines(scene, { interact, audio, playerPosition, telepor
     save('ley:awake', true);
     audio.sfx.fanfare();
     audio.sfx.bell();
-    toast('✦ The stones answer each other across the island.\nThe ley network is awake — step into any standing stone to travel.', 9000);
+    ceremony('✦ The ley network wakes\nThe stones answer each other across the island.\nStep into any standing stone to travel.', 7500);
   }
 
   // ── Travel panel ───────────────────────────────────────────────────────────

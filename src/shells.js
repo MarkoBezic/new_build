@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { save, load } from './persistence.js';
-import { toast, makeChip } from './hud.js';
+import { toast, makeChip, floatUp } from './hud.js';
 import { bus } from './bus.js';
 import { dailyRng, dayKey } from './daily.js';
 
@@ -20,12 +20,15 @@ export function createShells(scene, { audio, playerPosition }) {
   const refresh = () => { chip.textContent = `🐚 ${count}`; };
   refresh();
 
-  function add(n, reason) {
+  // Big awards (quests, the vault) still earn a full toast; the steady drip of
+  // small pickups floats quietly off the chip so it can't spam the toast lane
+  function add(n, reason, { loud = n >= 15 } = {}) {
     if (n <= 0) return;
     count += n;
     save('shells:count', count);
     refresh();
-    toast(`🐚 +${n}${reason ? ` — ${reason}` : ''}`, 2000);
+    if (loud) toast(`🐚 +${n}${reason ? ` — ${reason}` : ''}`, 2400);
+    else floatUp(chip, `+${n} 🐚`);
   }
 
   function spend(n) {

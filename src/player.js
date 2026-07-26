@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 import { groundY as zoneGroundY, BEACH_STOP, SHORE, ISLAND, inIsland, skyFloorY, updraftAt } from './zones.js';
-import { resolveMove, structureFloorY, terrainSuppressed } from './collision.js';
+import { resolveMove, structureFloorY, terrainSuppressed, cameraBlock } from './collision.js';
+import { settings } from './settings.js';
 import { buildHumanoid, animateAvatar, makeNameLabel } from './humanoid.js';
 
 const WALK_SPEED   = 8;
@@ -93,6 +94,25 @@ function floorY(x, z) {
   return zoneGroundY(x, z);
 }
 
+// ── Camera helpers (shared by desktop & mobile third-person) ─────────────────
+// Boom length after pulling in short of the first wall/slab on the way out
+function clampedCamDist(lx, ly, lz, yaw, pitch) {
+  const ix = lx + Math.sin(yaw) * Math.cos(pitch) * CAM_DIST;
+  const iy = ly + Math.sin(pitch) * CAM_DIST;
+  const iz = lz + Math.cos(yaw) * Math.cos(pitch) * CAM_DIST;
+  const t = cameraBlock(lx, ly, lz, ix, iy, iz);
+  return t >= 1 ? CAM_DIST : Math.max(0.6, CAM_DIST * t - 0.3);
+}
+// On open ground the camera must not sink into a hillside behind the player
+// (underground the heightmap is suppressed, so dungeon cameras are exempt)
+function guardCameraAboveTerrain(camera) {
+  if (_swimming) return;
+  const cx = camera.position.x, cz = camera.position.z;
+  if (terrainSuppressed(cx, cz, camera.position.y)) return;
+  const g = zoneGroundY(cx, cz) + 0.35;
+  if (camera.position.y < g) camera.position.y = g;
+}
+
 export function createPlayer(scene, camera, canvas) {
   return isMobile
     ? createMobilePlayer(scene, camera, canvas)
@@ -145,8 +165,10 @@ function createDesktopPlayer(scene, camera, canvas) {
   // ── Mouse look ──────────────────────────────────────────────────────────────
   document.addEventListener('mousemove', e => {
     if (!document.pointerLockElement) return;
-    yaw   -= e.movementX * MOUSE_S;
-    pitch -= e.movementY * MOUSE_S;
+    const sens = settings.get('sensitivity');
+    const inv  = settings.get('invertY') ? -1 : 1;
+    yaw   -= e.movementX * MOUSE_S * sens;
+    pitch -= e.movementY * MOUSE_S * sens * inv;
     pitch  = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitch));
   });
 
@@ -378,11 +400,14 @@ function createDesktopPlayer(scene, camera, canvas) {
       const ly = playerY + 1.2;   // look-at height on avatar
       const lz = avatar.position.z;
 
-      // Orbit camera behind and above avatar based on yaw + pitch
-      camera.position.x = lx + Math.sin(yaw) * Math.cos(pitch) * CAM_DIST;
-      camera.position.y = ly + Math.sin(pitch) * CAM_DIST;
-      camera.position.z = lz + Math.cos(yaw) * Math.cos(pitch) * CAM_DIST;
+      // Orbit camera behind and above avatar — pulled in short of any wall or
+      // slab between it and the avatar, so interiors never swallow the view
+      const camDist = clampedCamDist(lx, ly, lz, yaw, pitch);
+      camera.position.x = lx + Math.sin(yaw) * Math.cos(pitch) * camDist;
+      camera.position.y = ly + Math.sin(pitch) * camDist;
+      camera.position.z = lz + Math.cos(yaw) * Math.cos(pitch) * camDist;
       if (!_swimming && camera.position.y < 0.1) camera.position.y = 0.1;   // the diving camera must go under
+      guardCameraAboveTerrain(camera);
       camera.lookAt(lx, ly, lz);
 
       playerPosition.set(lx, ly, lz);
@@ -540,8 +565,10 @@ function createMobilePlayer(scene, camera, canvas) {
         joyKnob.style.transform =
           `translate(calc(-50% + ${joyDX * JOY_R}px), calc(-50% + ${joyDY * JOY_R}px))`;
       } else if (t.identifier === lookId) {
-        yaw   -= (t.clientX - lookPX) * LOOK_S;
-        pitch -= (t.clientY - lookPY) * LOOK_S;
+        const sens = settings.get('sensitivity');
+        const inv  = settings.get('invertY') ? -1 : 1;
+        yaw   -= (t.clientX - lookPX) * LOOK_S * sens;
+        pitch -= (t.clientY - lookPY) * LOOK_S * sens * inv;
         pitch  = Math.max(PITCH_MIN, Math.min(PITCH_MAX, pitch));
         lookPX = t.clientX; lookPY = t.clientY;
       }
@@ -586,9 +613,10 @@ function createMobilePlayer(scene, camera, canvas) {
       avatar.position.set(playerX, playerY, playerZ);
       avatar.rotation.y = yaw;
       const lx0 = playerX, ly0 = playerY + 1.2, lz0 = playerZ;
-      camera.position.x = lx0 + Math.sin(yaw) * Math.cos(pitch) * CAM_DIST;
-      camera.position.y = ly0 + Math.sin(pitch) * CAM_DIST;
-      camera.position.z = lz0 + Math.cos(yaw) * Math.cos(pitch) * CAM_DIST;
+      const swimCamD = clampedCamDist(lx0, ly0, lz0, yaw, pitch);
+      camera.position.x = lx0 + Math.sin(yaw) * Math.cos(pitch) * swimCamD;
+      camera.position.y = ly0 + Math.sin(pitch) * swimCamD;
+      camera.position.z = lz0 + Math.cos(yaw) * Math.cos(pitch) * swimCamD;
       camera.lookAt(lx0, ly0, lz0);
       playerPosition.set(lx0, ly0, lz0);
       animateAvatar(avatar, dt, moving);
@@ -691,14 +719,16 @@ function createMobilePlayer(scene, camera, canvas) {
     avatar.position.set(playerX, playerY, playerZ);
     avatar.rotation.y = yaw;
 
-    // 3rd-person camera orbit (same formula as desktop)
+    // 3rd-person camera orbit (same formula as desktop, same wall pull-in)
     const lx = playerX;
     const ly = playerY + 1.2;
     const lz = playerZ;
-    camera.position.x = lx + Math.sin(yaw) * Math.cos(pitch) * CAM_DIST;
-    camera.position.y = ly + Math.sin(pitch) * CAM_DIST;
-    camera.position.z = lz + Math.cos(yaw) * Math.cos(pitch) * CAM_DIST;
+    const camDist = clampedCamDist(lx, ly, lz, yaw, pitch);
+    camera.position.x = lx + Math.sin(yaw) * Math.cos(pitch) * camDist;
+    camera.position.y = ly + Math.sin(pitch) * camDist;
+    camera.position.z = lz + Math.cos(yaw) * Math.cos(pitch) * camDist;
     if (!_swimming && camera.position.y < 0.1) camera.position.y = 0.1;   // the diving camera must go under
+    guardCameraAboveTerrain(camera);
     camera.lookAt(lx, ly, lz);
 
     playerPosition.set(lx, ly, lz);

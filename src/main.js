@@ -3,7 +3,7 @@ import { buildWorld }      from './world.js';
 import { buildBuilding }   from './building.js';
 import { buildSite }       from './site.js';
 import { buildLandmarks }  from './landmarks.js';
-import { createPlayer, isMobile, setBoats, isOnBoat, isGliding } from './player.js';
+import { createPlayer, isMobile, setBoats, isOnBoat, isGliding, isSwimming } from './player.js';
 import { createFishing } from './fishing.js';
 import { createSecrets } from './secrets.js';
 import { createEmotes, EMOTES } from './emotes.js';
@@ -60,6 +60,8 @@ import { createDeepHalls } from './deephalls.js';
 import { createLeylines } from './leylines.js';
 import { createWardensGame } from './wardensgame.js';
 import { createDiving }    from './diving.js';
+import { settings, createSettingsPanel } from './settings.js';
+import { createWhispers }  from './whispers.js';
 import { createHomestead } from './homestead.js';
 import { createPlinko }   from './plinko.js';
 import { createMap }      from './map.js';
@@ -393,6 +395,7 @@ const wardensGame = createWardensGame(scene, {
 const diving      = createDiving(scene, {
   audio, playerPosition, teleport, getState, isMobile, shells,
 });
+const whispers    = createWhispers({ playerPosition });
 const homestead   = createHomestead(scene, {
   interact, audio, shells, playerPosition, getState, isMobile, teleport,
   getName: () => myName,
@@ -439,10 +442,27 @@ window.addEventListener('keydown', e => {
   toast(audio.toggleMute() ? '🔇 Sound muted' : '🔊 Sound on', 1500);
 });
 
+// Contextual key strip — the two or three keys that matter right here, so the
+// full control map never has to be memorised. Situation-ordered: the most
+// specific state wins.
+const K = (k, d) => `<b style="color:#FFD580">${k}</b> ${d}`;
+function contextKeys() {
+  if (isSwimming()) return [K('Look', 'swim'), K('Space', 'rise'), K('Z', 'surface')].join('  ·  ');
+  if (isGliding())  return K('Look', 'steer your glide');
+  if (isOnBoat())   return [K('F', 'fish'), K('Z', 'dive'), K('E', 'go ashore')].join('  ·  ');
+  const b = biomeAt(playerPosition.x, playerPosition.z);
+  if (b === 'Icy Peaks') return [K('G', 'snowball'), K('Space', 'glide (in the air)')].join('  ·  ');
+  // Near the volleyball court?
+  if (Math.hypot(playerPosition.x - (-457), playerPosition.z - 597) < 14)
+    return K('H', 'hit the volleyball');
+  return '';
+}
+
 const hud = createHUD({
   camera, playerPosition, biomeAt,
   getNearestPortal: portals.getNearest,
-  getInteractPrompt: interact.getPrompt, isMobile,
+  getInteractPrompt: interact.getPrompt,
+  getContextKeys: contextKeys, isMobile,
 });
 const chat = createChat({
   onSend: text => {
@@ -454,46 +474,39 @@ const chat = createChat({
 
 // ── Controls help panel ───────────────────────────────────────────────────────
 ;(() => {
-  const ROWS_DESKTOP = [
-    ['WASD',    'Move'],
-    ['Mouse',   'Look around'],
-    ['V',       'Toggle 1st / 3rd person'],
-    ['Shift',   'Sprint'],
-    ['Space',   'Jump'],
-    ['E',       'Interact · board / exit boat'],
-    ['Space ✈', '🪂 Hold in the air to glide (find it at the Icy Peaks summit)'],
-    ['G',       '❄️ Throw snowball (in the Icy Peaks)'],
-    ['🏰',      'Explore Northkeep Castle in the north forest'],
-    ['🏘',      'Claim a homestead plot in the Hamlet (west forest) and build'],
-    ['J',       '📖 Warden journal (story · collections · daily · records)'],
-    ['M',       '🗺 Island map'],
-    ['R',       '🔥 Hearthstone — return to your homestead'],
-    ['Z',       '🤿 Dive / surface (from a boat in deep water)'],
-    ['K',       '📋 Daily tasks'],
-    ['P',       '📷 Save a photo'],
-    ['B',       'Cycle trail style'],
-    ['U',       'Mute / unmute sound'],
-    ['F',       'Cast / reel fishing rod (on boat)'],
-    ['H',       'Hit volleyball (near court)'],
-    ['T / Enter', '💬 Chat with other players'],
-    ['1',       '👋 Wave'],
-    ['2',       '🎉 Cheer'],
-    ['3',       '👉 Point'],
-    ['4',       '🪑 Sit (press again to stand)'],
-    ['C',       'Toggle player count'],
-    ['Esc',     'Release cursor / close overlay'],
+  // Grouped by activity so the map is scannable rather than one long list.
+  // A section is [title, [[key, desc], …]].
+  const GROUPS_DESKTOP = [
+    ['Getting around', [
+      ['WASD', 'Move'], ['Mouse', 'Look around'], ['Shift', 'Sprint'], ['Space', 'Jump'],
+      ['V', 'Toggle 1st / 3rd person'], ['E', 'Interact · board / exit boat'],
+      ['Space ✈', 'Hold in the air to glide'], ['R', '🔥 Hearthstone — home to your plot'],
+    ]],
+    ['On the water', [
+      ['E', 'Board / leave a boat'], ['F', 'Cast / reel the fishing rod'],
+      ['Z', '🤿 Dive & surface (deep water)'],
+    ]],
+    ['Play & make', [
+      ['G', '❄️ Throw a snowball (Icy Peaks)'], ['H', 'Hit the volleyball (near court)'],
+      ['🏘', 'Claim a Hamlet plot and build'], ['B', 'Cycle trail style'], ['P', '📷 Save a photo'],
+    ]],
+    ['Menus', [
+      ['J', '📖 Journal'], ['M', '🗺 Map'], ['K', '📋 Daily tasks'],
+      ['?', 'This panel'], ['Esc', 'Release cursor / close'],
+    ]],
+    ['Social', [
+      ['T / Enter', '💬 Chat'], ['1 2 3 4', '👋🎉👉🪑 Emotes'],
+      ['C', 'Toggle player count'], ['U', 'Mute / unmute'],
+    ]],
   ];
-  const ROWS_MOBILE = [
-    ['Joystick', 'Move'],
-    ['💬',       'Chat with other players (bottom left)'],
-    ['👋🎉👉🪑', 'Emotes (bottom centre)'],
-    ['🎣',       'Cast / reel (on boat, bottom right)'],
-    ['🏐',       'Hit volleyball (near court, right)'],
-    ['❄️',       'Throw snowball (in the Icy Peaks)'],
-    ['📷',       'Save a photo (left side)'],
+  const GROUPS_MOBILE = [
+    ['Getting around', [['Joystick', 'Move / look'], ['🔥', 'Hearthstone home (once you own a plot)']]],
+    ['On the water', [['🎣', 'Cast / reel (on a boat)'], ['🤿', 'Dive (on a boat, deep water)']]],
+    ['Play & make', [['🏐', 'Volleyball (near court)'], ['❄️', 'Snowball (Icy Peaks)'], ['📷', 'Photo']]],
+    ['Menus', [['🗺', 'Map'], ['📖', 'Journal']]],
+    ['Social', [['💬', 'Chat'], ['👋🎉👉🪑', 'Emotes']]],
   ];
-
-  const rows = isMobile ? ROWS_MOBILE : ROWS_DESKTOP;
+  const groups = isMobile ? GROUPS_MOBILE : GROUPS_DESKTOP;
 
   // Panel
   const panel = document.createElement('div');
@@ -502,40 +515,44 @@ const chat = createChat({
     background: 'rgba(12,10,8,0.93)', color: '#F0E4C8',
     borderRadius: '12px', padding: '14px 18px',
     fontFamily: 'Arial, sans-serif', fontSize: '13px',
-    lineHeight: '1.75', display: 'none', zIndex: '40',
+    lineHeight: '1.7', display: 'none', zIndex: '40',
     border: '1px solid rgba(180,140,60,0.35)',
-    minWidth: '240px', pointerEvents: 'none',
+    minWidth: '250px', maxHeight: '76vh', overflowY: 'auto', pointerEvents: 'auto',
   });
 
   const title = document.createElement('div');
   title.textContent = '⌨️  Controls';
   Object.assign(title.style, {
-    fontWeight: 'bold', fontSize: '14px', color: '#D4A85A',
-    marginBottom: '8px',
+    fontWeight: 'bold', fontSize: '14px', color: '#D4A85A', marginBottom: '6px',
   });
   panel.appendChild(title);
 
-  const grid = document.createElement('div');
-  Object.assign(grid.style, {
-    display: 'grid',
-    gridTemplateColumns: 'auto 1fr',
-    columnGap: '14px',
-  });
-  rows.forEach(([key, desc]) => {
-    const k = document.createElement('span');
-    k.textContent = key;
-    Object.assign(k.style, {
-      background: 'rgba(255,255,255,0.12)', borderRadius: '4px',
-      padding: '0 6px', fontFamily: 'monospace', fontSize: '12px',
-      color: '#FFD580', whiteSpace: 'nowrap', alignSelf: 'center',
+  for (const [heading, rows] of groups) {
+    const h = document.createElement('div');
+    h.textContent = heading;
+    Object.assign(h.style, {
+      color: '#B89A5A', fontSize: '11px', fontWeight: 'bold', letterSpacing: '0.08em',
+      textTransform: 'uppercase', margin: '10px 0 3px',
     });
-    const d = document.createElement('span');
-    d.textContent = desc;
-    d.style.color = '#D8CDB4';
-    grid.appendChild(k);
-    grid.appendChild(d);
-  });
-  panel.appendChild(grid);
+    panel.appendChild(h);
+    const grid = document.createElement('div');
+    Object.assign(grid.style, { display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: '12px', rowGap: '1px' });
+    for (const [key, desc] of rows) {
+      const k = document.createElement('span');
+      k.textContent = key;
+      Object.assign(k.style, {
+        background: 'rgba(255,255,255,0.12)', borderRadius: '4px',
+        padding: '0 6px', fontFamily: 'monospace', fontSize: '12px',
+        color: '#FFD580', whiteSpace: 'nowrap', alignSelf: 'center', justifySelf: 'start',
+      });
+      const d = document.createElement('span');
+      d.textContent = desc;
+      d.style.color = '#D8CDB4';
+      grid.appendChild(k);
+      grid.appendChild(d);
+    }
+    panel.appendChild(grid);
+  }
   document.body.appendChild(panel);
 
   // Toggle button
@@ -556,6 +573,19 @@ const chat = createChat({
     btn.style.background = open ? 'rgba(180,140,60,0.55)' : 'rgba(0,0,0,0.50)';
   });
   document.body.appendChild(btn);
+
+  // ⚙ Settings — its own button beside the ? button
+  const settingsPanel = createSettingsPanel();
+  const sbtn = document.createElement('button');
+  sbtn.textContent = '⚙';
+  Object.assign(sbtn.style, {
+    position: 'fixed', bottom: '20px', right: '124px',   // ?:20 · 📖:72 · ⚙:124
+    width: '44px', height: '44px', borderRadius: '50%',
+    fontSize: '19px', border: 'none', background: 'rgba(0,0,0,0.50)',
+    color: '#D4A85A', cursor: 'pointer', zIndex: '40', boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+  });
+  sbtn.addEventListener('click', () => settingsPanel.toggle());
+  document.body.appendChild(sbtn);
 })();
 
 // Emote broadcast wired after multiplayer initialises in avatar picker callback
@@ -775,10 +805,13 @@ function updateFeel(dt) {
     _stepAcc = 0;
   }
 
-  // FOV kick — subtle wide-angle stretch at sprint and glide speeds
-  const fovT = BASE_FOV
-    + Math.min(1, Math.max(0, (hSpeed - 9) / 9)) * 6
-    + (isGliding() ? 4 : 0);
+  // FOV kick — subtle wide-angle stretch at sprint and glide speeds. Base FOV
+  // is a setting; reduced-motion holds it steady (the kick is the main comfort
+  // offender for motion-sensitive players).
+  const base = settings.get('fov');
+  const kick = settings.get('reducedMotion') ? 0
+    : Math.min(1, Math.max(0, (hSpeed - 9) / 9)) * 6 + (isGliding() ? 4 : 0);
+  const fovT = base + kick;
   if (Math.abs(camera.fov - fovT) > 0.01) {
     camera.fov += (fovT - camera.fov) * Math.min(1, dt * 5);
     camera.updateProjectionMatrix();
@@ -836,6 +869,7 @@ function animate() {
   leylines.update(dt, now / 1000);
   wardensGame.update(dt);
   diving.update(dt);
+  whispers.update(dt);
   homestead.update();
   rampartRace.update(dt, now / 1000);
   skyRace.update(dt, now / 1000);

@@ -108,6 +108,29 @@ export function createTreasure(scene, { interact, audio, summit, getTasksNote } 
   board.rotation.y = -Math.PI / 3;   // face the spawn circle
   scene.add(board);
 
+  // "Have you tried…" — points a new player at one thing they haven't done yet,
+  // chosen from saved state so it never suggests something already discovered
+  const SUGGESTIONS = [
+    { text: 'Have you tried: reading a Warden tablet? They glow faintly near the pond and the old places.',
+      done: () => (load('progress', {}).tablets || []).length > 0 },
+    { text: 'Have you tried: sailing out on a boat from Sunset Shore? Deep water hides more than fish.',
+      done: () => load('whispers:seen', []).includes('boat') },
+    { text: 'Have you tried: claiming a homestead in the Hamlet, west of here, and building on it?',
+      done: () => !!load('home:mine', null) },
+    { text: 'Have you tried: the glider? It waits at the very summit of the Icy Peaks.',
+      done: () => load('progress', {}).glider },
+    { text: 'Have you tried: knocking about Northkeep Castle in the north forest? Its cellars run deep.',
+      done: () => load('whispers:seen', []).includes('castle') },
+    { text: 'Have you tried: diving beneath the waves? Press Z from a boat in deep water.',
+      done: () => load('dive:found', false) },
+  ];
+  function suggestion() {
+    const undone = SUGGESTIONS.filter(s => !s.done());
+    if (!undone.length) return '';
+    // Rotate daily so it isn't the same line every visit
+    return `\n${undone[Math.floor(Date.now() / 86400000) % undone.length].text}`;
+  }
+
   interact.register({
     x: 10, z: -152, r: 5,
     label: '📜 Read the notice board',
@@ -117,7 +140,7 @@ export function createTreasure(scene, { interact, audio, summit, getTasksNote } 
         ? `Today's treasure: found ✓`
         : `Today's treasure: “${spot.hint}”`;
       const note = getTasksNote ? `\n📋 ${getTasksNote()}` : '';
-      toast(`${clue}${note}`, 7000);
+      toast(`${clue}${note}${suggestion()}`, 8500);
     },
   });
 

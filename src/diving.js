@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { makeBuilder } from './build.js';
-import { toast, makeMobileButton } from './hud.js';
+import { toast, makeMobileButton, ceremony } from './hud.js';
 import { save, load } from './persistence.js';
 import { bus } from './bus.js';
 import { isOnBoat, isSwimming, setSwimming, SEABED } from './player.js';
@@ -221,7 +221,7 @@ export function createDiving(scene, { audio, playerPosition, teleport, getState,
       found = true;
       save('dive:found', true);
       audio.sfx.bell();
-      toast('⛲ Columns rise out of the gloom beneath you — a city, drowned and waiting.', 7000);
+      ceremony('⛲ A city, drowned and waiting\nColumns rise out of the gloom beneath you.');
     }
   }
 

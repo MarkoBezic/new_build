@@ -111,6 +111,12 @@
         /* Bottom safe area for notch phones */
         #hud { bottom: max(12px, env(safe-area-inset-bottom)); }
       }
+
+      /* Accessibility: "Larger text" bumps the reading surfaces (journal,
+         letters, tablet text) without disturbing HUD chrome. Panels opt in
+         by carrying serif reading copy; we scale by root class. */
+      :root.big-text { --read-scale: 1.18; }
+      :root.big-text [style*="Georgia"] { font-size: 1.06em; }
     </style>
   </head>
   <body>

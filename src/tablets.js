@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { groundY } from './zones.js';
-import { toast } from './hud.js';
+import { toast, ceremony } from './hud.js';
 import { makeBeam } from './fx.js';
 
 // The Warden tablets — environmental storytelling in nine fragments.
@@ -112,7 +112,7 @@ export function createTablets(scene, { progress, audio, interact, cosmetics }) {
     audio.sfx.fanfare();
     audio.sfx.bell();
     beaconHeart = spawnBeacon();
-    toast('◈ The Warden’s Beacon wakes beneath the hollow hill…', 6000);
+    ceremony('◈ The Warden’s Beacon wakes\nbeneath the hollow hill…');
     cosmetics.unlockCrown();
   }
 

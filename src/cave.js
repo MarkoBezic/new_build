@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toast } from './hud.js';
+import { toast, ceremony } from './hud.js';
 import { save, load } from './persistence.js';
 import { grantHat, wearHat } from './hats.js';
 import { makeBeam } from './fx.js';
@@ -81,7 +81,7 @@ export function createCave(scene, { interact, audio, shells }) {
     grantHat('echo');
     wearHat('echo');
     bus.emit('cave-solved');
-    toast('🎵 The hollow hill answers — the Echo Crystal wakes!\nThe Echo Circlet is yours.', 6500);
+    ceremony('🎵 The hollow hill answers\nThe Echo Crystal wakes, and the Echo Circlet is yours.');
   }
 
   function update(dt, nowSec, playerPosition) {

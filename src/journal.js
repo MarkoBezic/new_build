@@ -11,7 +11,23 @@ import { TRAILS } from './cosmetics.js';
 // for the undiscovered) · Daily (tasks, treasure, streaks) · Records.
 // Digits 1–4 switch tabs while open; tabs are tappable on mobile.
 
-const TABS = ['📖 Story', '🐟 Collections', '📋 Daily', '🏆 Records'];
+const TABS = ['📖 Story', '🐟 Collections', '📋 Daily', '🏆 Records', '🧭 Beginnings'];
+
+// The opt-in checklist: things worth trying, each auto-ticking off the moment
+// its evidence appears in saved state. For players who want a thread to pull
+// without a banner nagging them (see whispers.js for the in-world hints).
+const BEGINNINGS = [
+  { label: 'Read a Warden tablet', done: () => (load('progress', {}).tablets || []).length > 0 },
+  { label: 'Collect 3 resonant shards', done: () => (load('progress', {}).shards || []).length >= 3 },
+  { label: 'Catch a fish', done: () => load('fishing:log', []).length > 0 },
+  { label: 'Skip a stone across the pond', done: () => load('stoneBest', 0) > 0 },
+  { label: 'Sail out on a boat', done: () => load('whispers:seen', []).includes('boat') },
+  { label: 'Find the glider at the Icy Peaks summit', done: () => load('progress', {}).glider },
+  { label: 'Explore Northkeep Castle', done: () => load('whispers:seen', []).includes('castle') },
+  { label: 'Dive to the Sunken Ruins', done: () => load('dive:found', false) },
+  { label: 'Claim a homestead in the Hamlet', done: () => !!load('home:mine', null) },
+  { label: 'Wake the ley network at the standing stones', done: () => load('ley:awake', false) },
+];
 
 export function createJournal({ tasks, treasure }) {
   const panel = document.createElement('div');
@@ -107,15 +123,26 @@ export function createJournal({ tasks, treasure }) {
       rows.map(([k, v]) => `${k}: <span style="color:#FFE9B8">${v}</span>`).join('<br>') + `</div>`;
   }
 
+  function beginningsTab() {
+    const done = BEGINNINGS.filter(b => b.done()).length;
+    let h = head(`Beginnings — ${done} / ${BEGINNINGS.length}`);
+    h += `<div style="font-size:12px;opacity:0.7;margin-bottom:6px">Things worth trying. No rush — the island keeps.</div>`;
+    h += `<div style="font-size:13px;line-height:2">` + BEGINNINGS.map(b => {
+      const d = b.done();
+      return `<div style="color:${d ? '#8FD158' : '#D8CDB4'}">${d ? '✅' : '⬜'} ${b.label}</div>`;
+    }).join('') + `</div>`;
+    return h;
+  }
+
   function render() {
     const tabsHtml = TABS.map((t, i) =>
-      `<button data-tab="${i}" style="border:none;border-radius:8px;padding:4px 10px;margin-right:6px;cursor:pointer;font:13px Georgia;
+      `<button data-tab="${i}" style="border:none;border-radius:8px;padding:4px 9px;margin:0 5px 4px 0;cursor:pointer;font:13px Georgia;
         background:${i === tab ? 'rgba(212,168,90,0.35)' : 'rgba(255,255,255,0.07)'};
         color:${i === tab ? '#FFD75A' : '#C8BDA0'}">${i + 1}. ${t}</button>`).join('');
-    const body = [storyTab, collectionsTab, dailyTab, recordsTab][tab]();
+    const body = [storyTab, collectionsTab, dailyTab, recordsTab, beginningsTab][tab]();
     panel.innerHTML =
       `<div style="margin-bottom:6px">${tabsHtml}</div>` + body +
-      `<div style="font-size:11px;opacity:0.5;margin-top:10px">1–4 to switch tabs · J to close</div>`;
+      `<div style="font-size:11px;opacity:0.5;margin-top:10px">1–5 to switch tabs · J to close</div>`;
     panel.querySelectorAll('button[data-tab]').forEach(b =>
       b.addEventListener('click', () => { tab = parseInt(b.dataset.tab); render(); }));
   }
@@ -138,7 +165,7 @@ export function createJournal({ tasks, treasure }) {
   // shop). J itself is NOT handled here — the window listener above owns it,
   // and handling it in both places would double-toggle on one press.
   function onKey(e) {
-    const m = e.code.match(/^Digit([1-4])$/);
+    const m = e.code.match(/^Digit([1-5])$/);
     if (m) { tab = parseInt(m[1]) - 1; render(); return true; }
     return false;
   }
