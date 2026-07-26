@@ -59,6 +59,7 @@ import { createCastle }   from './castle.js';
 import { createDeepHalls } from './deephalls.js';
 import { createLeylines } from './leylines.js';
 import { createWardensGame } from './wardensgame.js';
+import { createDiving }    from './diving.js';
 import { createHomestead } from './homestead.js';
 import { createPlinko }   from './plinko.js';
 import { createMap }      from './map.js';
@@ -389,6 +390,9 @@ const leylines    = createLeylines(scene, { interact, audio, playerPosition, tel
 const wardensGame = createWardensGame(scene, {
   interact, audio, playerPosition, mp: () => multiplayer,
 });
+const diving      = createDiving(scene, {
+  audio, playerPosition, teleport, getState, isMobile, shells,
+});
 const homestead   = createHomestead(scene, {
   interact, audio, shells, playerPosition, getState, isMobile, teleport,
   getName: () => myName,
@@ -464,6 +468,7 @@ const chat = createChat({
     ['J',       '📖 Warden journal (story · collections · daily · records)'],
     ['M',       '🗺 Island map'],
     ['R',       '🔥 Hearthstone — return to your homestead'],
+    ['Z',       '🤿 Dive / surface (from a boat in deep water)'],
     ['K',       '📋 Daily tasks'],
     ['P',       '📷 Save a photo'],
     ['B',       'Cycle trail style'],
@@ -830,6 +835,7 @@ function animate() {
   deepHalls.update();
   leylines.update(dt, now / 1000);
   wardensGame.update(dt);
+  diving.update(dt);
   homestead.update();
   rampartRace.update(dt, now / 1000);
   skyRace.update(dt, now / 1000);

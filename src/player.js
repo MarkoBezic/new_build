@@ -34,8 +34,18 @@ const BOARD_COOLDOWN = 1.2;
 export function setBoats(arr) { _boats = arr; }
 export function isOnBoat()    { return _onBoat; }
 
-// Walkable if on the land side of the shore, or anywhere on Ember Isle
-function canWalk(x, z) { return (z - x) <= SHORE || inIsland(x, z); }
+// ── Swimming (see diving.js) ─────────────────────────────────────────────────
+// Diving replaces gravity with buoyancy and lets the look direction drive
+// movement in three dimensions, so the sea becomes a space rather than a lid.
+let _swimming = false;
+export function isSwimming()      { return _swimming; }
+export function setSwimming(v)    { _swimming = !!v; }
+const SWIM_SPEED = 7.5, SWIM_FAST = 11.5, SWIM_RISE = 4.5, SWIM_SINK = -0.75;
+export const SEABED = -24;        // hard floor of the open sea
+
+// Walkable if on the land side of the shore, or anywhere on Ember Isle —
+// and anywhere at all while swimming
+function canWalk(x, z) { return _swimming || (z - x) <= SHORE || inIsland(x, z); }
 
 // Open sea = past the shore band and clear of the island — boats run fast here
 function boatSpeed(b) {
@@ -206,10 +216,14 @@ function createDesktopPlayer(scene, camera, canvas) {
     const speed = _onBoat ? boatSpeed(_activeBoat)
                 : (keys.has('ShiftLeft') || keys.has('ShiftRight') ? SPRINT_SPEED : WALK_SPEED);
     let mx = 0, mz = 0;
-    if (keys.has('KeyW') || keys.has('ArrowUp'))    mz -= 1;
-    if (keys.has('KeyS') || keys.has('ArrowDown'))  mz += 1;
-    if (keys.has('KeyA') || keys.has('ArrowLeft'))  mx -= 1;
-    if (keys.has('KeyD') || keys.has('ArrowRight')) mx += 1;
+    // Swimming drives its own 3-D movement below; running this too would
+    // move the diver twice per frame
+    if (!_swimming) {
+      if (keys.has('KeyW') || keys.has('ArrowUp'))    mz -= 1;
+      if (keys.has('KeyS') || keys.has('ArrowDown'))  mz += 1;
+      if (keys.has('KeyA') || keys.has('ArrowLeft'))  mx -= 1;
+      if (keys.has('KeyD') || keys.has('ArrowRight')) mx += 1;
+    }
 
     const len = Math.hypot(mx, mz);
     if (len > 0) {
@@ -277,8 +291,39 @@ function createDesktopPlayer(scene, camera, canvas) {
       playerY = floorY(tx, tz); vy = 0;
     }
 
-    // Gravity / floor / glide
-    if (_onBoat) {
+    // Gravity / floor / glide / swim
+    if (_swimming) {
+      // Swim where you look: W drives along the full 3-D view vector, Space
+      // kicks for the surface, Shift is a faster stroke. Buoyancy makes an
+      // idle diver drift gently upward-ish rather than plummet.
+      const sp = keys.has('ShiftLeft') || keys.has('ShiftRight') ? SWIM_FAST : SWIM_SPEED;
+      const cp = Math.cos(pitch);
+      const fwd = { x: -Math.sin(yaw) * cp, y: Math.sin(pitch), z: -Math.cos(yaw) * cp };
+      const rgt = { x: Math.cos(yaw), z: -Math.sin(yaw) };
+      let sx = 0, sy = 0, sz = 0;
+      if (keys.has('KeyW') || keys.has('ArrowUp'))    { sx += fwd.x; sy += fwd.y; sz += fwd.z; }
+      if (keys.has('KeyS') || keys.has('ArrowDown'))  { sx -= fwd.x; sy -= fwd.y; sz -= fwd.z; }
+      if (keys.has('KeyA') || keys.has('ArrowLeft'))  { sx -= rgt.x; sz -= rgt.z; }
+      if (keys.has('KeyD') || keys.has('ArrowRight')) { sx += rgt.x; sz += rgt.z; }
+      const sl = Math.hypot(sx, sy, sz);
+      const cx0 = thirdPerson ? avatar.position.x : camera.position.x;
+      const cz0 = thirdPerson ? avatar.position.z : camera.position.z;
+      if (sl > 0) {
+        const rm = resolveMove(cx0, cz0, cx0 + (sx / sl) * sp * dt, cz0 + (sz / sl) * sp * dt, playerY);
+        if (thirdPerson) { avatar.position.x = rm.x; avatar.position.z = rm.z; }
+        else             { camera.position.x = rm.x; camera.position.z = rm.z; }
+        playerY += (sy / sl) * sp * dt;
+      }
+      if (keys.has('Space')) playerY += SWIM_RISE * dt;
+      else if (sl === 0)     playerY += SWIM_SINK * dt;
+      const px2 = thirdPerson ? avatar.position.x : camera.position.x;
+      const pz2 = thirdPerson ? avatar.position.z : camera.position.z;
+      const bed = Math.max(SEABED, structureFloorY(px2, pz2, playerY));
+      if (playerY < bed) playerY = bed;
+      if (playerY > 0) playerY = 0;                 // the surface is a ceiling
+      vy = 0; grounded = false; airTime = 0; _gliding = false;
+      wing.visible = false;
+    } else if (_onBoat) {
       playerY = BOAT_DECK_Y; vy = 0; grounded = true; airTime = 0; _gliding = false;
     } else {
       vy += GRAVITY * dt;
@@ -337,7 +382,7 @@ function createDesktopPlayer(scene, camera, canvas) {
       camera.position.x = lx + Math.sin(yaw) * Math.cos(pitch) * CAM_DIST;
       camera.position.y = ly + Math.sin(pitch) * CAM_DIST;
       camera.position.z = lz + Math.cos(yaw) * Math.cos(pitch) * CAM_DIST;
-      if (camera.position.y < 0.1) camera.position.y = 0.1;
+      if (!_swimming && camera.position.y < 0.1) camera.position.y = 0.1;   // the diving camera must go under
       camera.lookAt(lx, ly, lz);
 
       playerPosition.set(lx, ly, lz);
@@ -350,8 +395,9 @@ function createDesktopPlayer(scene, camera, canvas) {
       playerPosition.copy(camera.position);
     }
 
-    // Auto-board: walk into any boat to board the nearest one
-    if (!_onBoat && _boardCooldown <= 0 && _boats.length) {
+    // Auto-board: walk into any boat to board the nearest one (never while
+    // swimming, or a diver would be yanked aboard the instant they slipped in)
+    if (!_onBoat && !_swimming && _boardCooldown <= 0 && _boats.length) {
       const curX = thirdPerson ? avatar.position.x : camera.position.x;
       const curZ = thirdPerson ? avatar.position.z : camera.position.z;
       let nearest = null, bestDist = BOARD_RADIUS;
@@ -514,6 +560,41 @@ function createMobilePlayer(scene, camera, canvas) {
   function update(dt) {
     _boardCooldown = Math.max(0, _boardCooldown - dt);
 
+    // Swimming: the joystick drives the full 3-D view vector, so looking
+    // down and pushing forward takes you down
+    if (_swimming) {
+      const moving = joyId !== null && Math.hypot(joyDX, joyDY) > DEAD;
+      const cp = Math.cos(pitch);
+      if (moving) {
+        const fwd = { x: -Math.sin(yaw) * cp, y: Math.sin(pitch), z: -Math.cos(yaw) * cp };
+        const rgt = { x: Math.cos(yaw), z: -Math.sin(yaw) };
+        const sx = -joyDY * fwd.x + joyDX * rgt.x;
+        const sy = -joyDY * fwd.y;
+        const sz = -joyDY * fwd.z + joyDX * rgt.z;
+        const sl = Math.hypot(sx, sy, sz) || 1;
+        const rm = resolveMove(playerX, playerZ,
+          playerX + (sx / sl) * SWIM_SPEED * dt, playerZ + (sz / sl) * SWIM_SPEED * dt, playerY);
+        playerX = rm.x; playerZ = rm.z;
+        playerY += (sy / sl) * SWIM_SPEED * dt;
+      } else {
+        playerY += SWIM_SINK * dt;
+      }
+      const bed = Math.max(SEABED, structureFloorY(playerX, playerZ, playerY));
+      if (playerY < bed) playerY = bed;
+      if (playerY > 0) playerY = 0;
+      vy = 0; airTime = 0; _gliding = false;
+      avatar.position.set(playerX, playerY, playerZ);
+      avatar.rotation.y = yaw;
+      const lx0 = playerX, ly0 = playerY + 1.2, lz0 = playerZ;
+      camera.position.x = lx0 + Math.sin(yaw) * Math.cos(pitch) * CAM_DIST;
+      camera.position.y = ly0 + Math.sin(pitch) * CAM_DIST;
+      camera.position.z = lz0 + Math.cos(yaw) * Math.cos(pitch) * CAM_DIST;
+      camera.lookAt(lx0, ly0, lz0);
+      playerPosition.set(lx0, ly0, lz0);
+      animateAvatar(avatar, dt, moving);
+      return;
+    }
+
     // Movement in yaw direction
     if (joyId !== null && Math.hypot(joyDX, joyDY) > DEAD) {
       const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
@@ -617,13 +698,13 @@ function createMobilePlayer(scene, camera, canvas) {
     camera.position.x = lx + Math.sin(yaw) * Math.cos(pitch) * CAM_DIST;
     camera.position.y = ly + Math.sin(pitch) * CAM_DIST;
     camera.position.z = lz + Math.cos(yaw) * Math.cos(pitch) * CAM_DIST;
-    if (camera.position.y < 0.1) camera.position.y = 0.1;
+    if (!_swimming && camera.position.y < 0.1) camera.position.y = 0.1;   // the diving camera must go under
     camera.lookAt(lx, ly, lz);
 
     playerPosition.set(lx, ly, lz);
 
     // Auto-board: walk into any boat to board the nearest one
-    if (!_onBoat && _boardCooldown <= 0 && _boats.length) {
+    if (!_onBoat && !_swimming && _boardCooldown <= 0 && _boats.length) {
       let nearest = null, bestDist = BOARD_RADIUS;
       for (const b of _boats) {
         const d = Math.hypot(playerX - b.x, playerZ - b.z);
