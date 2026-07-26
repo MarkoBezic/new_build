@@ -74,6 +74,10 @@ export function createCastle(scene, { interact, audio, shells, progress, telepor
     m.position.set(CX + (x0 + x1) / 2, (y0 + y1) / 2, CZ + (z0 + z1) / 2);
     if (shadow) m.castShadow = true;
     m.receiveShadow = true;
+    // Static — bake the matrix once (the castle alone is ~600 boxes). The one
+    // animated part, the drawbridge, is a separate raw group, not built here.
+    m.matrixAutoUpdate = false;
+    m.updateMatrix();
     group.add(m);
     return m;
   }

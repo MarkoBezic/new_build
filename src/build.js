@@ -26,6 +26,11 @@ export function makeBuilder(scene, origin) {
     m.position.set(OX + (x0 + x1) / 2, (y0 + y1) / 2, OZ + (z0 + z1) / 2);
     if (shadow) m.castShadow = true;
     m.receiveShadow = true;
+    // Structure geometry never moves — bake its matrix once so it isn't
+    // recomposed every frame. With hundreds of boxes per building this is the
+    // difference between smooth and hitching.
+    m.matrixAutoUpdate = false;
+    m.updateMatrix();
     group.add(m);
     return m;
   }

@@ -80,6 +80,11 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled   = true;
 renderer.shadowMap.type      = THREE.PCFSoftShadowMap;
+// The sun and its shadow frustum move slowly; re-rendering every shadow-caster
+// 60×/s is the scene's biggest GPU cost now that the world is full of
+// structures. Drive it manually a few times a second — imperceptible for soft
+// shadows, a large cut to frame cost.
+renderer.shadowMap.autoUpdate = false;
 renderer.toneMapping         = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 document.body.appendChild(renderer.domElement);
@@ -826,12 +831,16 @@ let prevTime = performance.now();
 const _audioState = {};
 const _fishCond = { night: 0, rain: 0 };
 
+let _shadowTick = 0;
 function animate() {
   requestAnimationFrame(animate);
 
   const now = performance.now();
   const dt  = Math.min((now - prevTime) / 1000, 0.05); // cap at 50 ms
   prevTime  = now;
+
+  // Refresh shadows a few times a second rather than every frame
+  if (++_shadowTick % 4 === 0) renderer.shadowMap.needsUpdate = true;
 
   updateDayNight(dt, now / 1000);
   updatePlayer(dt);
