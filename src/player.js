@@ -103,13 +103,15 @@ function clampedCamDist(lx, ly, lz, yaw, pitch) {
   const t = cameraBlock(lx, ly, lz, ix, iy, iz);
   return t >= 1 ? CAM_DIST : Math.max(0.6, CAM_DIST * t - 0.3);
 }
-// On open ground the camera must not sink into a hillside behind the player
-// (underground the heightmap is suppressed, so dungeon cameras are exempt)
-function guardCameraAboveTerrain(camera) {
+// On open ground the camera must not sink into a hillside behind the player.
+// Whether we're underground is decided from the PLAYER (lx,ly,lz), not the
+// camera: the camera orbits up-and-behind, so near a dungeon's edge it sits
+// outside the basement volume and a camera-based test would wrongly fire and
+// fling the camera up to the surface through the ceiling.
+function guardCameraAboveTerrain(camera, lx, ly, lz) {
   if (_swimming) return;
-  const cx = camera.position.x, cz = camera.position.z;
-  if (terrainSuppressed(cx, cz, camera.position.y)) return;
-  const g = zoneGroundY(cx, cz) + 0.35;
+  if (terrainSuppressed(lx, lz, ly)) return;   // player is underground → leave it
+  const g = zoneGroundY(camera.position.x, camera.position.z) + 0.35;
   if (camera.position.y < g) camera.position.y = g;
 }
 
@@ -407,7 +409,7 @@ function createDesktopPlayer(scene, camera, canvas) {
       camera.position.y = ly + Math.sin(pitch) * camDist;
       camera.position.z = lz + Math.cos(yaw) * Math.cos(pitch) * camDist;
       if (!_swimming && camera.position.y < 0.1) camera.position.y = 0.1;   // the diving camera must go under
-      guardCameraAboveTerrain(camera);
+      guardCameraAboveTerrain(camera, lx, ly, lz);
       camera.lookAt(lx, ly, lz);
 
       playerPosition.set(lx, ly, lz);
@@ -728,7 +730,7 @@ function createMobilePlayer(scene, camera, canvas) {
     camera.position.y = ly + Math.sin(pitch) * camDist;
     camera.position.z = lz + Math.cos(yaw) * Math.cos(pitch) * camDist;
     if (!_swimming && camera.position.y < 0.1) camera.position.y = 0.1;   // the diving camera must go under
-    guardCameraAboveTerrain(camera);
+    guardCameraAboveTerrain(camera, lx, ly, lz);
     camera.lookAt(lx, ly, lz);
 
     playerPosition.set(lx, ly, lz);
