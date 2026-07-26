@@ -19,6 +19,7 @@ import { COURSES } from './route.js';
 // a ring, off-screen as an arrow pinned to the screen edge.
 
 const RING_R  = 6;
+const RING_AIR = 9;      // flying precision is lower than running precision
 const SAMPLE  = 0.1;     // ghost recording interval (s)
 const TIMEOUT = 300;
 const WP_M    = 64;      // screen margin for the edge arrow
@@ -27,6 +28,12 @@ const fmt = s => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`
 
 export function createRace(scene, { interact, audio, playerPosition, camera, config = COURSES.meadow }) {
   const { key, label, start: START, course: COURSE } = config;
+  // Aerial courses hang their checkpoints in the air: rings carry their own y,
+  // proximity is measured in 3D, and the ghost records altitude so it flies
+  // your old line instead of skimming the ground beneath it.
+  const aerial = !!config.aerial;
+  const STRIDE = aerial ? 3 : 2;
+  const cpY = cp => cp.y ?? heightAt(cp.x, cp.z);
   // Ring/flag/ghost heights: terrain by default, or a caller-supplied surface
   // (the battlements sit at a fixed y the heightmap knows nothing about).
   const heightAt = config.heightAt || ((x, z) => terrainHeight(x, z));
@@ -63,11 +70,17 @@ export function createRace(scene, { interact, audio, playerPosition, camera, con
     blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
   });
   const dimMat = ringMat.clone(); dimMat.opacity = 0.16;
-  const rings = COURSE.map(cp => {
+  const rings = COURSE.map((cp, i) => {
     const g = new THREE.Group();
-    const torus = new THREE.Mesh(new THREE.TorusGeometry(3, 0.26, 8, 32), dimMat);
-    torus.position.y = 3;
+    const R = aerial ? 5.5 : 3;
+    const torus = new THREE.Mesh(new THREE.TorusGeometry(R, aerial ? 0.4 : 0.26, 8, 32), dimMat);
+    torus.position.y = aerial ? 0 : 3;
     g.add(torus);
+    if (aerial) {
+      // Face the hoop square to the incoming flight path so you fly through it
+      const prev = i === 0 ? START : COURSE[i - 1];
+      g.rotation.y = Math.atan2(cp.x - prev.x, cp.z - prev.z);
+    }
     const beam = makeBeam(0xFFD75A, { rTop: 1.0, rBottom: 1.4, h: 58, opacity: 0.20, fog: false });
     beam.visible = false;
     g.add(beam);
@@ -77,7 +90,7 @@ export function createRace(scene, { interact, audio, playerPosition, camera, con
     core.renderOrder = 10;
     core.visible = false;
     g.add(core);
-    g.position.set(cp.x, heightAt(cp.x, cp.z), cp.z);
+    g.position.set(cp.x, cpY(cp), cp.z);
     g.visible = false;
     scene.add(g);
     return { group: g, torus, beam, core };
@@ -116,7 +129,7 @@ export function createRace(scene, { interact, audio, playerPosition, camera, con
   function updateWaypoint(cp) {
     if (!camera) return;
     const W = window.innerWidth, H = window.innerHeight;
-    _v.set(cp.x, heightAt(cp.x, cp.z) + 3, cp.z);
+    _v.set(cp.x, cpY(cp) + (aerial ? 0 : 3), cp.z);
     _v.applyMatrix4(camera.matrixWorldInverse);
     const inFront = _v.z < 0;                 // camera looks down −z
     _v.applyMatrix4(camera.projectionMatrix); // perspective divide → NDC
@@ -143,7 +156,9 @@ export function createRace(scene, { interact, audio, playerPosition, camera, con
     }
     wp.style.left = `${sx}px`;
     wp.style.top  = `${sy}px`;
-    const dist = Math.round(Math.hypot(playerPosition.x - cp.x, playerPosition.z - cp.z));
+    const dist = Math.round(aerial
+      ? Math.hypot(playerPosition.x - cp.x, playerPosition.y - cpY(cp), playerPosition.z - cp.z)
+      : Math.hypot(playerPosition.x - cp.x, playerPosition.z - cp.z));
     wpLabel.innerHTML = `${cp.name ?? 'Checkpoint'}<br>${dist} m`;
     wp.style.display = 'block';
   }
@@ -230,8 +245,8 @@ export function createRace(scene, { interact, audio, playerPosition, camera, con
   });
 
   function update(dt, nowSec) {
-    // Idle ring spin looks alive even when only the flag shows
-    for (const r of rings) if (r.group.visible) r.torus.rotation.y = nowSec * 0.8;
+    // Idle spin looks alive; aerial hoops keep their fixed facing instead
+    if (!aerial) for (const r of rings) if (r.group.visible) r.torus.rotation.y = nowSec * 0.8;
 
     if (state === 'idle') return;
 
@@ -261,19 +276,20 @@ export function createRace(scene, { interact, audio, playerPosition, camera, con
     if (recT >= SAMPLE) {
       recT -= SAMPLE;
       rec.push(+playerPosition.x.toFixed(1), +playerPosition.z.toFixed(1));
+      if (aerial) rec.push(+playerPosition.y.toFixed(1));
     }
 
     // Ghost playback along the best run
-    if (ghost && best?.replay?.length >= 4) {
+    if (ghost && best?.replay?.length >= STRIDE * 2) {
       const rp   = best.replay;
-      const last = rp.length / 2 - 1;
+      const last = Math.floor(rp.length / STRIDE) - 1;
       const gi   = Math.min(last, t / SAMPLE);
       const i0   = Math.floor(gi), i1 = Math.min(last, i0 + 1), f = gi - i0;
-      const gx = rp[i0 * 2]     + (rp[i1 * 2]     - rp[i0 * 2])     * f;
-      const gz = rp[i0 * 2 + 1] + (rp[i1 * 2 + 1] - rp[i0 * 2 + 1]) * f;
+      const lerp = o => rp[i0 * STRIDE + o] + (rp[i1 * STRIDE + o] - rp[i0 * STRIDE + o]) * f;
+      const gx = lerp(0), gz = lerp(1);
       const dx = gx - ghost.position.x, dz = gz - ghost.position.z;
       if (Math.hypot(dx, dz) > 0.02) ghost.rotation.y = Math.atan2(dx, dz);
-      ghost.position.set(gx, gy(gx, gz), gz);
+      ghost.position.set(gx, aerial ? lerp(2) : gy(gx, gz), gz);
     }
 
     const cp = COURSE[cpIdx];
@@ -281,7 +297,10 @@ export function createRace(scene, { interact, audio, playerPosition, camera, con
       `⏱ ${fmt(t)} · ${cpIdx + 1}/${COURSE.length} → ${cp.name ?? 'Checkpoint'}`;
     updateWaypoint(cp);
 
-    if (Math.hypot(playerPosition.x - cp.x, playerPosition.z - cp.z) < RING_R) {
+    const reached = aerial
+      ? Math.hypot(playerPosition.x - cp.x, playerPosition.y - cpY(cp), playerPosition.z - cp.z) < RING_AIR
+      : Math.hypot(playerPosition.x - cp.x, playerPosition.z - cp.z) < RING_R;
+    if (reached) {
       cpIdx++;
       audio.sfx.chime(cpIdx * 2);
       if (cpIdx >= COURSE.length) finish();

@@ -21,6 +21,27 @@ export const COURSES = {
       { x:    8, z: -136, name: 'The Finish Flag' },
     ],
   },
+  sky: {
+    // Launch from the highest sky island (where the Cloud Wisp sits) and ride
+    // the glider down a descending line of hoops out of the peaks. Verified
+    // against the glider's ~4.4:1 glide ratio: 260 m of travel for 72 m of
+    // descent uses 82 % of the budget, with ≥14 m of terrain clearance.
+    key:      'race:sky',
+    label:    'Sky Circuit',
+    aerial:   true,
+    heightAt: () => 96,                // the top sky island's deck
+    start: { x: 256, z: -478 },
+    // Altitudes track the glider's real sink (leg × 0.227) set a couple of
+    // metres low, so a clean line threads the upper half of each hoop and a
+    // sloppy one can still drop into it — being high is recoverable, low is not
+    course: [
+      { x: 228, z: -442, y: 84, name: 'First Hoop' },
+      { x: 196, z: -404, y: 72, name: 'Second Hoop' },
+      { x: 162, z: -364, y: 60, name: 'Third Hoop' },
+      { x: 126, z: -322, y: 47, name: 'Fourth Hoop' },
+      { x:  88, z: -280, y: 34, name: 'The Last Gate' },
+    ],
+  },
   rampart: {
     // The battlements are already a physical loop, so no trail is needed.
     key:      'race:rampart',

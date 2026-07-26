@@ -88,6 +88,7 @@ export function createJournal({ tasks, treasure }) {
     const big = log.reduce((a, c) => (c.kg > (a?.kg ?? 0) ? c : a), null);
     const race = load('race:best', null);
     const rampart = load('race:rampart', null);
+    const sky = load('race:sky', null);
     const plinko = load('plinko:stats', { jackpots: 0 });
     const fmt = s => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`;
     const rows = [
@@ -96,6 +97,7 @@ export function createJournal({ tasks, treasure }) {
       ['🪨 Best stone skip', `${load('stoneBest', 0)} skips`],
       ['🏁 Meadow Circuit best', race ? fmt(race.time) : '—'],
       ['🏰 Rampart Run best', rampart ? fmt(rampart.time) : '—'],
+      ['🪂 Sky Circuit best', sky ? fmt(sky.time) : '—'],
       ['🎣 Biggest catch', big ? `${big.name}, ${big.kg} kg` : '—'],
       ['🎣 Fish caught', log.length >= 50 ? '50+' : log.length],
       ['🪙 Shellfall jackpots', plinko.jackpots],

@@ -372,6 +372,7 @@ const ritual      = createRitual(scene, { audio });
 // forest corridor are cut from the same definition
 const race        = createRace(scene, { interact, audio, playerPosition, camera, config: COURSES.meadow });
 const rampartRace = createRace(scene, { interact, audio, playerPosition, camera, config: COURSES.rampart });
+const skyRace     = createRace(scene, { interact, audio, playerPosition, camera, config: COURSES.sky });
 createTrail(scene, COURSES.meadow);   // staked marker posts along the circuit
 const gosling     = createGosling(scene, { interact, audio, playerPosition });
 const shells      = createShells(scene, { audio, playerPosition });
@@ -821,6 +822,7 @@ function animate() {
   deepHalls.update();
   homestead.update();
   rampartRace.update(dt, now / 1000);
+  skyRace.update(dt, now / 1000);
   plinko.update(dt, now / 1000);
   islandMap.update(dt);
   if (outlinePass) {
