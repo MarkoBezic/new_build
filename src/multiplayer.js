@@ -14,11 +14,11 @@ function makeAvatar(color, name, hat) {
   return g;
 }
 
-export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote, onBallState, onChat, onSnow, onFire, onPlinko, onHome, hat } = {}) {
+export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEmote, onBallState, onChat, onSnow, onFire, onPlinko, onHome, onGame, hat } = {}) {
   const key = import.meta.env.VITE_ABLY_KEY;
   if (!key || key === 'your_ably_api_key_here') {
     console.warn('Multiplayer disabled — VITE_ABLY_KEY not set');
-    return { update() {}, getRemotes() { return []; }, broadcastEmote() {}, publishBall() {}, sendChat() {}, publishSnow() {}, publishFire() {}, updateHat() {}, publishPlinko() {}, publishHome() {} };
+    return { update() {}, getRemotes() { return []; }, broadcastEmote() {}, publishBall() {}, sendChat() {}, publishSnow() {}, publishFire() {}, updateHat() {}, publishPlinko() {}, publishHome() {}, publishGame() {}, getId: () => '' };
   }
   let myHat = hat ?? null;
 
@@ -155,6 +155,14 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
   });
   function publishHome(data) { channel.publish('home', data); }
 
+  // The Warden's Game — the seeker's client is the authority and broadcasts
+  // the whole game state; everyone else just renders what it says
+  channel.subscribe('game', msg => {
+    if (msg.clientId === myId) return;
+    if (onGame) onGame(msg.data, msg.clientId);
+  });
+  function publishGame(data) { channel.publish('game', data); }
+
   // Hat change — presence.update re-announces us with the new hat id
   function updateHat(id) {
     myHat = id;
@@ -167,7 +175,7 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     mesh.position.set(x, 0, z);
     mesh.rotation.y = ry;
     scene.add(mesh);
-    remotes.set(id, { mesh, color, name, tx: x, tz: z, try: ry, emote: null });
+    remotes.set(id, { id, mesh, color, name, tx: x, tz: z, try: ry, emote: null });
   }
 
   function removeRemote(id) {
@@ -184,8 +192,10 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     if (_out.length !== remotes.size) _out.length = 0;
     let i = 0;
     for (const r of remotes.values()) {
-      const o = _out[i] ?? (_out[i] = { x: 0, z: 0, color: 0, name: '' });
+      const o = _out[i] ?? (_out[i] = { id: '', x: 0, y: 0, z: 0, color: 0, name: '' });
+      o.id = r.id;
       o.x = r.mesh.position.x;
+      o.y = r.mesh.position.y;
       o.z = r.mesh.position.z;
       o.color = r.color;
       o.name = r.name;
@@ -228,5 +238,5 @@ export function createMultiplayer(scene, getState, myColor, myName, { onRemoteEm
     }
   }
 
-  return { update, getRemotes, broadcastEmote, publishBall, sendChat, publishSnow, publishFire, updateHat, publishPlinko, publishHome };
+  return { update, getRemotes, broadcastEmote, publishBall, sendChat, publishSnow, publishFire, updateHat, publishPlinko, publishHome, publishGame, getId: () => myId };
 }

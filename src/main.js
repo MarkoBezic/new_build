@@ -58,6 +58,7 @@ import { createSeasons }  from './seasons.js';
 import { createCastle }   from './castle.js';
 import { createDeepHalls } from './deephalls.js';
 import { createLeylines } from './leylines.js';
+import { createWardensGame } from './wardensgame.js';
 import { createHomestead } from './homestead.js';
 import { createPlinko }   from './plinko.js';
 import { createMap }      from './map.js';
@@ -385,6 +386,9 @@ const seasons     = createSeasons(scene, { playerPosition });
 const castle      = createCastle(scene, { interact, audio, shells, progress, teleport });
 const deepHalls   = createDeepHalls(scene, { interact, audio, shells, playerPosition });
 const leylines    = createLeylines(scene, { interact, audio, playerPosition, teleport });
+const wardensGame = createWardensGame(scene, {
+  interact, audio, playerPosition, mp: () => multiplayer,
+});
 const homestead   = createHomestead(scene, {
   interact, audio, shells, playerPosition, getState, isMobile, teleport,
   getName: () => myName,
@@ -636,6 +640,7 @@ showAvatarPicker(overlay, (color, name) => {
       onFire:        id => ritual.onFeed(id, performance.now() / 1000),
       onPlinko:      (data, name) => plinko.spawnRemote(data, name),
       onHome:        data => homestead.receive(data),
+      onGame:        (data, from) => wardensGame.receive(data, from),
       onChat: (senderName, text, mesh) => {
         chat.addMessage(senderName, text);
         if (mesh) chat.showBubble(mesh, text);
@@ -824,6 +829,7 @@ function animate() {
   castle.update(dt, now / 1000, playerPosition);
   deepHalls.update();
   leylines.update(dt, now / 1000);
+  wardensGame.update(dt);
   homestead.update();
   rampartRace.update(dt, now / 1000);
   skyRace.update(dt, now / 1000);
