@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CLEARING_R, WORLD_R, LANDMARKS, OCEAN } from './world.config.js';
 import { terrainHeight, fbm, icyMask, ruinsMask, smoothstep } from './terrain.js';
+import { COURSES, routeDistance } from './route.js';
 
 export { CLEARING_R };
 
@@ -160,6 +161,9 @@ function scatterTrees(scene, { count, rMin, rMax, minGap, bias }) {
       if (dx * dx + dz * dz < lm.exclR * lm.exclR) { inLandmark = true; break; }
     }
     if (inLandmark || tooClose(x, z)) continue;
+    // Keep the race corridor clear so the marked circuit reads as a worn
+    // path through the forest instead of posts standing inside tree trunks
+    if (routeDistance(x, z, COURSES.meadow) < 5.5) continue;
 
     const t = {
       x, z,

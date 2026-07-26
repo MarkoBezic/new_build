@@ -44,6 +44,8 @@ import { createTasks }    from './tasks.js';
 import { createPhoto }    from './photo.js';
 import { createRitual }   from './ritual.js';
 import { createRace }     from './race.js';
+import { createTrail }    from './trail.js';
+import { COURSES }        from './route.js';
 import { createGosling }  from './gosling.js';
 import { createShells }   from './shells.js';
 import { createShop }     from './shop.js';
@@ -365,20 +367,11 @@ const treasure    = createTreasure(scene, {
 });
 const photo       = createPhoto(renderer, { audio, isMobile });
 const ritual      = createRitual(scene, { audio });
-const race        = createRace(scene, { interact, audio, playerPosition });
-// Rampart Run — a second circuit along the castle wall-walk (y ≈ 13.2)
-const RAMP_Y = 6 + 13.2 - 6;   // wall-walk height above yard, absolute y = 13.2
-const rampartRace = createRace(scene, { interact, audio, playerPosition, config: {
-  key: 'race:rampart', label: 'Rampart Run',
-  heightAt: () => 13.2,
-  start:  { x: -120, z: -484 },   // south wall-walk by the gatehouse
-  course: [
-    { x: -156, z: -520 },   // west corner tower
-    { x: -120, z: -556 },   // north wall-walk
-    { x:  -84, z: -520 },   // east corner tower
-    { x: -120, z: -484 },   // back to the gate
-  ],
-} });
+// Race circuits — courses live in route.js so the trail markers and the
+// forest corridor are cut from the same definition
+const race        = createRace(scene, { interact, audio, playerPosition, camera, config: COURSES.meadow });
+const rampartRace = createRace(scene, { interact, audio, playerPosition, camera, config: COURSES.rampart });
+createTrail(scene, COURSES.meadow);   // staked marker posts along the circuit
 const gosling     = createGosling(scene, { interact, audio, playerPosition });
 const shells      = createShells(scene, { audio, playerPosition });
 const shop        = createShop(scene, { interact, audio, shells });

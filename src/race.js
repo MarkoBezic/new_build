@@ -6,30 +6,26 @@ import { buildHumanoid } from './humanoid.js';
 import { groundY } from './zones.js';
 import { terrainHeight } from './terrain.js';
 import { makeBeam } from './fx.js';
+import { COURSES } from './route.js';
 
 // Checkpoint races — record your run at 10 Hz, replay it as a translucent
 // ghost to race against. No backend, feels multiplayer. Parameterised so any
-// number of courses share this one system: the Meadow Circuit (default) runs
-// on terrain, the Rampart Run threads the castle battlements via heightAt.
+// number of courses share this one system (see route.js): the Meadow Circuit
+// runs on terrain, the Rampart Run threads the castle battlements.
+//
+// Wayfinding is the difference between a race and a guessing game, so every
+// checkpoint carries a name, a fog-immune beacon visible across the island,
+// and a screen waypoint that shows direction and live distance — on-screen as
+// a ring, off-screen as an arrow pinned to the screen edge.
 
-const DEFAULT = {
-  key:   'race:best',
-  label: 'Meadow Circuit',
-  start: { x: 8, z: -136 },
-  course: [
-    { x: -150, z: 12 },    // the pond
-    { x: 30,   z: 130 },   // the south meadow
-    { x: 152,  z: -18 },   // the cave mouth
-    { x: 8,    z: -136 },  // back to the flag
-  ],
-};
 const RING_R  = 6;
 const SAMPLE  = 0.1;     // ghost recording interval (s)
 const TIMEOUT = 300;
+const WP_M    = 64;      // screen margin for the edge arrow
 
 const fmt = s => `${Math.floor(s / 60)}:${(s % 60).toFixed(1).padStart(4, '0')}`;
 
-export function createRace(scene, { interact, audio, playerPosition, config = DEFAULT }) {
+export function createRace(scene, { interact, audio, playerPosition, camera, config = COURSES.meadow }) {
   const { key, label, start: START, course: COURSE } = config;
   // Ring/flag/ghost heights: terrain by default, or a caller-supplied surface
   // (the battlements sit at a fixed y the heightmap knows nothing about).
@@ -58,26 +54,99 @@ export function createRace(scene, { interact, audio, playerPosition, config = DE
     scene.add(flag);
   }
 
-  // ── Checkpoint rings + guide beams ──────────────────────────────────────────
+  // ── Checkpoint rings + beacons ─────────────────────────────────────────────
+  // The active checkpoint gets a wide column that ignores fog plus a slim
+  // core that ignores depth, so it stays a landmark from anywhere on the
+  // island and shows through the forest between you and it.
   const ringMat  = new THREE.MeshBasicMaterial({
-    color: 0xFFD75A, transparent: true, opacity: 0.85,
-    blending: THREE.AdditiveBlending, depthWrite: false,
+    color: 0xFFD75A, transparent: true, opacity: 0.9,
+    blending: THREE.AdditiveBlending, depthWrite: false, fog: false,
   });
-  const dimMat = ringMat.clone(); dimMat.opacity = 0.18;
+  const dimMat = ringMat.clone(); dimMat.opacity = 0.16;
   const rings = COURSE.map(cp => {
     const g = new THREE.Group();
-    const torus = new THREE.Mesh(new THREE.TorusGeometry(3, 0.22, 8, 32), dimMat);
+    const torus = new THREE.Mesh(new THREE.TorusGeometry(3, 0.26, 8, 32), dimMat);
     torus.position.y = 3;
     g.add(torus);
-    const beam = makeBeam(0xFFD75A, { rTop: 0.25, h: 42, opacity: 0.14 });
-    beam.position.y = 22;
+    const beam = makeBeam(0xFFD75A, { rTop: 1.0, rBottom: 1.4, h: 58, opacity: 0.20, fog: false });
     beam.visible = false;
     g.add(beam);
+    const core = makeBeam(0xFFF6D0, {
+      rTop: 0.22, h: 58, opacity: 0.34, fog: false, depthTest: false,
+    });
+    core.renderOrder = 10;
+    core.visible = false;
+    g.add(core);
     g.position.set(cp.x, heightAt(cp.x, cp.z), cp.z);
     g.visible = false;
     scene.add(g);
-    return { group: g, torus, beam };
+    return { group: g, torus, beam, core };
   });
+
+  // ── Waypoint marker — projects the next checkpoint onto the screen ─────────
+  const wp = document.createElement('div');
+  Object.assign(wp.style, {
+    position: 'fixed', left: '0', top: '0', zIndex: '21',
+    transform: 'translate(-50%,-50%)', pointerEvents: 'none', display: 'none',
+    textAlign: 'center', font: 'bold 13px/1.35 system-ui, sans-serif',
+    color: '#FFE9B8', textShadow: '0 1px 4px rgba(0,0,0,0.95)', whiteSpace: 'nowrap',
+  });
+  const wpArrow = document.createElement('div');
+  Object.assign(wpArrow.style, {
+    width: '0', height: '0', margin: '0 auto',
+    borderLeft: '15px solid #FFD75A',
+    borderTop: '10px solid transparent', borderBottom: '10px solid transparent',
+    filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.9))',
+  });
+  const wpPin = document.createElement('div');
+  Object.assign(wpPin.style, {
+    width: '20px', height: '20px', margin: '0 auto', borderRadius: '50%',
+    border: '2.5px solid #FFD75A',
+    boxShadow: '0 0 10px rgba(255,215,90,0.85), inset 0 0 7px rgba(255,215,90,0.5)',
+  });
+  const wpLabel = document.createElement('div');
+  wpLabel.style.marginTop = '4px';
+  wp.append(wpArrow, wpPin, wpLabel);
+  document.body.appendChild(wp);
+
+  const _v = new THREE.Vector3();
+
+  // Place the waypoint for checkpoint `cp`: a ring when it is on screen, an
+  // arrow clamped to the screen edge (pointing at it) when it is not.
+  function updateWaypoint(cp) {
+    if (!camera) return;
+    const W = window.innerWidth, H = window.innerHeight;
+    _v.set(cp.x, heightAt(cp.x, cp.z) + 3, cp.z);
+    _v.applyMatrix4(camera.matrixWorldInverse);
+    const inFront = _v.z < 0;                 // camera looks down −z
+    _v.applyMatrix4(camera.projectionMatrix); // perspective divide → NDC
+    let sx = (_v.x * 0.5 + 0.5) * W;
+    let sy = (-_v.y * 0.5 + 0.5) * H;
+    if (!inFront) { sx = W - sx; sy = H - sy; }   // NDC mirrors behind the camera
+
+    let dx = sx - W / 2, dy = sy - H / 2;
+    const off = !inFront || sx < WP_M || sx > W - WP_M || sy < WP_M || sy > H - WP_M;
+    if (off) {
+      // Push the direction out to the margin box and clamp there
+      const sc = Math.min(
+        (W / 2 - WP_M) / Math.max(1e-3, Math.abs(dx)),
+        (H / 2 - WP_M) / Math.max(1e-3, Math.abs(dy)),
+      );
+      dx *= sc; dy *= sc;
+      sx = W / 2 + dx; sy = H / 2 + dy;
+      wpArrow.style.display = 'block';
+      wpArrow.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+      wpPin.style.display = 'none';
+    } else {
+      wpArrow.style.display = 'none';
+      wpPin.style.display = 'block';
+    }
+    wp.style.left = `${sx}px`;
+    wp.style.top  = `${sy}px`;
+    const dist = Math.round(Math.hypot(playerPosition.x - cp.x, playerPosition.z - cp.z));
+    wpLabel.innerHTML = `${cp.name ?? 'Checkpoint'}<br>${dist} m`;
+    wp.style.display = 'block';
+  }
 
   // ── Ghost avatar ────────────────────────────────────────────────────────────
   const ghostMat = new THREE.MeshLambertMaterial({
@@ -113,9 +182,11 @@ export function createRace(scene, { interact, audio, playerPosition, config = DE
 
   function setActiveRing(i) {
     rings.forEach((r, j) => {
+      const on = j === i;
       r.group.visible = true;
-      r.torus.material = j === i ? ringMat : dimMat;
-      r.beam.visible = j === i;
+      r.torus.material = on ? ringMat : dimMat;
+      r.beam.visible = on;
+      r.core.visible = on;
     });
   }
 
@@ -131,6 +202,7 @@ export function createRace(scene, { interact, audio, playerPosition, config = DE
   function reset() {
     state = 'idle';
     hud.style.display = 'none';
+    wp.style.display = 'none';
     rings.forEach(r => { r.group.visible = false; });
     removeGhost();
   }
@@ -163,11 +235,22 @@ export function createRace(scene, { interact, audio, playerPosition, config = DE
 
     if (state === 'idle') return;
 
+    // Pulse the active beacon so it reads as "go here" at any distance
+    const pulse = 0.75 + Math.sin(nowSec * 2.4) * 0.25;
+    const act = rings[Math.min(cpIdx, rings.length - 1)];
+    if (act?.beam.visible) {
+      act.beam.material.opacity = 0.20 * pulse;
+      act.core.material.opacity = 0.34 * pulse;
+      const s = 1 + Math.sin(nowSec * 2.4) * 0.06;
+      act.torus.scale.set(s, s, s);
+    }
+
     if (state === 'count') {
       const prev = Math.ceil(countT);
       countT -= dt;
       hud.textContent = countT > 0 ? `Ready… ${Math.ceil(countT)}` : 'GO!';
       if (countT > 0 && Math.ceil(countT) !== prev) audio.sfx.plink();
+      updateWaypoint(COURSE[0]);        // show the first leg during the countdown
       if (countT <= 0) { state = 'run'; audio.sfx.chime(7); }
       return;
     }
@@ -193,9 +276,11 @@ export function createRace(scene, { interact, audio, playerPosition, config = DE
       ghost.position.set(gx, gy(gx, gz), gz);
     }
 
-    hud.textContent = `⏱ ${fmt(t)} · ring ${cpIdx + 1}/${COURSE.length}`;
-
     const cp = COURSE[cpIdx];
+    hud.textContent =
+      `⏱ ${fmt(t)} · ${cpIdx + 1}/${COURSE.length} → ${cp.name ?? 'Checkpoint'}`;
+    updateWaypoint(cp);
+
     if (Math.hypot(playerPosition.x - cp.x, playerPosition.z - cp.z) < RING_R) {
       cpIdx++;
       audio.sfx.chime(cpIdx * 2);
