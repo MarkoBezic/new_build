@@ -21,6 +21,9 @@ const DEFS = [
   // drawbridge and facade still play out (the outer lever is right there)
   { x: -488, z:  583, rotY: Math.PI * 0.85,  c: 0x7A8CE8, e: 0x2038A0, label: 'Northkeep Castle', dest: { x: -126, z: -464 } },
   { x: -126, z: -468, rotY: 0,               c: 0x7A8CE8, e: 0x2038A0, label: 'Sunset Shore',     dest: { x: -485, z: 579 } },
+  // Valley ⇄ the Hamlet — homesteads only become social if visiting is cheap
+  { x:    0, z: -122, rotY: 0,               c: 0x8FD158, e: 0x2E7A24, label: 'The Hamlet',       dest: { x: -400, z: -154 } },
+  { x: -400, z: -150, rotY: Math.PI * 0.5,   c: 0x8FD158, e: 0x2E7A24, label: 'Starting Valley',  dest: { x: 0,    z: -117 } },
 ];
 
 function makeLabelSprite(text, colorHex) {

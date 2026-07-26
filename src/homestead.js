@@ -47,7 +47,7 @@ const KIT = [
   { k: 'bed',     label: 'Bed',         price: 6, size: [1.2, 0.6, 2.2] },
 ];
 
-export function createHomestead(scene, { interact, audio, shells, playerPosition, getState, getName, isMobile, onBroadcast }) {
+export function createHomestead(scene, { interact, audio, shells, playerPosition, getState, getName, teleport, isMobile, onBroadcast }) {
   // Stable local identity; replaced by the Firebase anonymous uid when cloud is on
   let uid = load('home:uid', null);
   if (!uid) { uid = Math.random().toString(36).slice(2, 12); save('home:uid', uid); }
@@ -66,6 +66,8 @@ export function createHomestead(scene, { interact, audio, shells, playerPosition
     flame:  new THREE.MeshLambertMaterial({ color: 0xFFD060, emissive: 0xFF9020, emissiveIntensity: 1.2 }),
     green:  new THREE.MeshLambertMaterial({ color: 0x5A8A3A }),
     red:    new THREE.MeshLambertMaterial({ color: 0x9A1F2E }),
+    stone:  new THREE.MeshLambertMaterial({ color: 0x8A8578, flatShading: true }),
+    flame:  new THREE.MeshLambertMaterial({ color: 0xFFC050, emissive: 0xFF7A20, emissiveIntensity: 1.3 }),
   };
 
   function buildPieceMesh(k) {
@@ -180,6 +182,51 @@ export function createHomestead(scene, { interact, audio, shells, playerPosition
 
   const myName = () => (getName && getName()) || 'An islander';
 
+  // ── The Hearthstone ────────────────────────────────────────────────────────
+  // A hearth kindles beside your plot the moment you claim it, and R (or the
+  // 🔥 button) carries you home to it from anywhere on the island. Fast travel
+  // home is the most-used verb in any building game — without it, homesteads
+  // are somewhere you visit once.
+  const hearth = new THREE.Group();
+  {
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.9, 0.45, 9), MAT.stone);
+    ring.position.y = 0.22;
+    const fire = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.85, 7), MAT.flame);
+    fire.position.y = 0.75;
+    hearth.add(ring, fire);
+    hearth.visible = false;
+    scene.add(hearth);
+  }
+  const hearthSpot = () => {
+    const p = PLOTS.find(q => q.id === mine?.plot);
+    return p ? { x: p.x + 2.5, z: p.z + p.post * (PLOT_HALF + 1) } : null;
+  };
+  function placeHearth() {
+    const s = hearthSpot();
+    if (!s) { hearth.visible = false; return; }
+    hearth.position.set(s.x, terrainHeight(s.x, s.z), s.z);
+    hearth.visible = true;
+  }
+
+  function goHome() {
+    const s = hearthSpot();
+    if (!s) {
+      toast('You keep no hearth yet — claim a plot in the Hamlet, west of the valley.', 4000);
+      return;
+    }
+    if (!teleport) return;
+    audio.sfx.whoosh();
+    teleport(s.x, s.z + (mine.plot && PLOTS.find(q => q.id === mine.plot).post) * 1.8);
+    toast('🔥 Home to your hearth.', 2000);
+  }
+
+  window.addEventListener('keydown', e => {
+    if (e.code !== 'KeyR' || building) return;      // R rotates while building
+    const tag = document.activeElement?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    goHome();
+  });
+
   // ── Rendering + collision for any plot's pieces ─────────────────────────────
   function applyPlot(id, data) {
     const meta = PLOTS.find(q => q.id === id);
@@ -238,9 +285,11 @@ export function createHomestead(scene, { interact, audio, shells, playerPosition
   // restore cached plots (mine last so it wins)
   for (const [id, data] of Object.entries(cache)) if (id !== mine?.plot) applyPlot(id, data);
   if (mine?.plot) applyPlot(mine.plot, { owner: uid, name: myName(), pieces: mine.pieces });
+  placeHearth();
 
   function persistMine() {
     save('home:mine', mine);
+    placeHearth();
     if (!mine) return;
     const doc = { owner: uid, name: myName(), updated: Date.now(), pieces: mine.pieces };
     if (cloud.enabled) cloud.savePlot(mine.plot, doc);
@@ -272,6 +321,7 @@ export function createHomestead(scene, { interact, audio, shells, playerPosition
         toast('⚠️ That plot was already claimed in the shared world — your pieces are kept; claim another plot to rebuild.', 7000);
         mine = null;
         save('home:mine', mine);
+    placeHearth();
       }
       cache[id] = data;
       save('home:cache', cache);
@@ -382,6 +432,11 @@ export function createHomestead(scene, { interact, audio, shells, playerPosition
     place();
   });
 
+  // Mobile players get the Hearthstone as a button (shown once they own a plot)
+  const homeBtn = isMobile
+    ? makeMobileButton('🔥', { bottom: '86px', left: '20px' }, goHome, 'rgba(255,140,40,0.35)')
+    : null;
+
   let mobileBtns = null;
   if (isMobile) {
     mobileBtns = [
@@ -402,6 +457,7 @@ export function createHomestead(scene, { interact, audio, shells, playerPosition
     // hide distant plots entirely (12 plots × up to 250 pieces is real geometry)
     const nearHamlet = Math.hypot(playerPosition.x - HAMLET.x, playerPosition.z - HAMLET.z) < 260;
     for (const P of plots.values()) P.group.visible = nearHamlet;
+    if (homeBtn) homeBtn.style.display = mine?.plot && !building ? 'block' : 'none';
 
     if (!building || !curPlot) return;
     // leave build mode when wandering off the plot

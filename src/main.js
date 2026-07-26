@@ -383,7 +383,7 @@ const seasons     = createSeasons(scene, { playerPosition });
 const castle      = createCastle(scene, { interact, audio, shells, progress });
 const deepHalls   = createDeepHalls(scene, { interact, audio, shells, playerPosition });
 const homestead   = createHomestead(scene, {
-  interact, audio, shells, playerPosition, getState, isMobile,
+  interact, audio, shells, playerPosition, getState, isMobile, teleport,
   getName: () => myName,
   onBroadcast: data => { if (multiplayer.publishHome) multiplayer.publishHome(data); },
 });
@@ -456,6 +456,7 @@ const chat = createChat({
     ['🏘',      'Claim a homestead plot in the Hamlet (west forest) and build'],
     ['J',       '📖 Warden journal (story · collections · daily · records)'],
     ['M',       '🗺 Island map'],
+    ['R',       '🔥 Hearthstone — return to your homestead'],
     ['K',       '📋 Daily tasks'],
     ['P',       '📷 Save a photo'],
     ['B',       'Cycle trail style'],
