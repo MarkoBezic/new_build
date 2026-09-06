@@ -66,12 +66,15 @@ export function buildHumanoid(color) {
     return pivot;
   }
 
-  // Legs — pivot at hip
+  // Legs — pivot at the hip (0.72), reaching down to the group origin so the
+  // feet rest on the ground when the avatar is placed at ground level. The
+  // leg is 0.72 tall: its top meets the torso bottom, its foot sits at y=0.
+  // (Was 0.50 tall, leaving the feet floating 0.22 above the ground.)
   function makeLeg(side) {
     const pivot = new THREE.Group();
     pivot.position.set(side * 0.10, 0.72, 0);
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.50, 0.13), legMat);
-    mesh.position.y = -0.25;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.72, 0.13), legMat);
+    mesh.position.y = -0.36;
     mesh.castShadow = true;
     pivot.add(mesh);
     g.add(pivot);
