@@ -13,3 +13,6 @@ dist/
 .DS_Store
 *.suo
 .vscode/
+
+# local Claude Code settings (personal, per-machine)
+.claude/settings.local.json
