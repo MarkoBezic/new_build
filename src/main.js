@@ -77,7 +77,7 @@ import { OutputPass }     from 'three/addons/postprocessing/OutputPass.js';
 // ─────────────────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: !isMobile });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1 : 1.5));
 renderer.shadowMap.enabled   = true;
 renderer.shadowMap.type      = THREE.PCFSoftShadowMap;
 // The sun and its shadow frustum move slowly; re-rendering every shadow-caster
@@ -344,6 +344,21 @@ if (!isMobile) {
   composer.addPass(outlinePass);
 }
 composer.addPass(new OutputPass());
+
+// Keep render targets and the canvas at the same resolution on every preset.
+let graphicsQuality = 'balanced';
+function applyGraphics() {
+  const requested = settings.get('graphics');
+  graphicsQuality = ['performance', 'balanced', 'high'].includes(requested) ? requested : 'balanced';
+  const cap = graphicsQuality === 'high' ? 2 : graphicsQuality === 'performance' || isMobile ? 1 : 1.5;
+  const ratio = Math.min(window.devicePixelRatio || 1, cap);
+  renderer.setPixelRatio(ratio);
+  composer.setPixelRatio(ratio);
+  renderer.shadowMap.enabled = graphicsQuality !== 'performance';
+  renderer.shadowMap.needsUpdate = true;
+}
+applyGraphics();
+settings.onChange(key => { if (key === 'graphics') applyGraphics(); });
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  FPS player
@@ -614,7 +629,7 @@ let _ucVisible  = false;
 
 // C key — toggle user counter; F key — fishing (while pointer locked)
 window.addEventListener('keydown', e => {
-  if (!avatarReady || !document.pointerLockElement) return;
+  if (!avatarReady || !controls.isLocked) return;
   const tag = document.activeElement?.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;   // typing in chat
   if (e.code === 'Enter' || e.code === 'KeyT') {
@@ -656,6 +671,7 @@ if (isMobile) {
   controls.addEventListener('lock', () => {
     overlay.style.display   = 'none';
     crosshair.style.display = 'block';
+    if (controls.dragLook) toast('Hold the right mouse button to look · WASD to move · Esc to pause', 6500);
   });
   controls.addEventListener('unlock', () => {
     overlay.style.display   = 'flex';
@@ -663,7 +679,7 @@ if (isMobile) {
   });
   overlay.addEventListener('click', () => {
     if (!avatarReady) return;
-    renderer.domElement.requestPointerLock();
+    controls.lock();
   });
 }
 
@@ -688,7 +704,8 @@ showAvatarPicker(overlay, (color, name) => {
     });
   } catch (e) { console.warn('Multiplayer unavailable:', e); }
   chat.showMobileButton(isMobile);
-  if (!isMobile) renderer.domElement.requestPointerLock();
+  if (!isMobile) controls.lock();
+  else { overlay.style.display = 'none'; startMobile(); }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -831,16 +848,21 @@ let prevTime = performance.now();
 const _audioState = {};
 const _fishCond = { night: 0, rain: 0 };
 
-let _shadowTick = 0;
+let _shadowElapsed = 1;
 function animate() {
   requestAnimationFrame(animate);
 
   const now = performance.now();
+  if (document.hidden) { prevTime = now; return; }
   const dt  = Math.min((now - prevTime) / 1000, 0.05); // cap at 50 ms
   prevTime  = now;
 
   // Refresh shadows a few times a second rather than every frame
-  if (++_shadowTick % 4 === 0) renderer.shadowMap.needsUpdate = true;
+  _shadowElapsed += dt;
+  if (renderer.shadowMap.enabled && _shadowElapsed >= 1 / 15) {
+    renderer.shadowMap.needsUpdate = true;
+    _shadowElapsed = 0;
+  }
 
   updateDayNight(dt, now / 1000);
   updatePlayer(dt);
@@ -885,7 +907,7 @@ function animate() {
   plinko.update(dt, now / 1000);
   islandMap.update(dt);
   if (outlinePass) {
-    outlinePass.enabled =
+    outlinePass.enabled = graphicsQuality !== 'performance' &&
       Math.hypot(playerPosition.x - npcRoot.position.x,
                  playerPosition.z - npcRoot.position.z) < 60;
   }
@@ -919,7 +941,8 @@ function animate() {
   }
 
   minimap.update();
-  composer.render();
+  if (outlinePass?.enabled) composer.render();
+  else renderer.render(scene, camera);
   photo.afterRender();   // must run while the frame buffer is fresh
 }
 
@@ -934,4 +957,5 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   composer.setSize(w, h);
+  applyGraphics();
 });

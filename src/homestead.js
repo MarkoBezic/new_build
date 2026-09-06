@@ -1,3 +1,4 @@
+import { isDesktopPlaying } from './play-controls.js';
 import * as THREE from 'three';
 import { addStructure } from './collision.js';
 import { terrainHeight } from './terrain.js';
@@ -428,7 +429,7 @@ export function createHomestead(scene, { interact, audio, shells, playerPosition
   }
 
   window.addEventListener('mousedown', e => {
-    if (!building || !document.pointerLockElement || e.button !== 0) return;
+    if (!building || !isDesktopPlaying() || e.button !== 0) return;
     place();
   });
 

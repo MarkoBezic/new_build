@@ -22,11 +22,14 @@ const structures = [];
 // beneath the ground into true underground rooms (which must be fully
 // walled: outside a basement volume the terrain floor snaps players back
 // to the surface).
-export function addStructure({ x, z, r, walls = [], floors = [], ramps = [], basements = [] }) {
-  const s = { x, z, r, walls, floors, ramps, basements };
+export function addStructure({ x, z, r, walls = [], floors = [], ramps = [], basements = [], cameraSolids = [] }) {
+  const s = { x, z, r, walls, floors, ramps, basements, cameraSolids };
   structures.push(s);
   return s;
 }
+
+// cameraSolids are boxes used only by the camera (e.g. basement ceilings).
+// They do not change player movement or introduce extra walkable floors.
 
 // ── Camera raycast ───────────────────────────────────────────────────────────
 // Fraction [0..1] along the segment (from → to) at which the first solid box
@@ -50,17 +53,20 @@ function raySlab(ax, ay, az, dx, dy, dz, x0, x1, y0, y1, z0, z1) {
   return t0 > 0 ? t0 : 1;   // starting inside a box → treat as clear
 }
 
-export function cameraBlock(ax, ay, az, bx, by, bz) {
+export function cameraBlock(ax, ay, az, bx, by, bz, padding = 0) {
   nearStructures(ax, az, _near);
   if (_near.length === 0) return 1;
   const dx = bx - ax, dy = by - ay, dz = bz - az;
   let t = 1;
   for (const s of _near) {
     for (const w of s.walls) {
-      t = Math.min(t, raySlab(ax, ay, az, dx, dy, dz, w.x0, w.x1, w.y0, w.y1, w.z0, w.z1));
+      t = Math.min(t, raySlab(ax, ay, az, dx, dy, dz, w.x0 - padding, w.x1 + padding, w.y0 - padding, w.y1 + padding, w.z0 - padding, w.z1 + padding));
+    }
+    for (const w of s.cameraSolids) {
+      t = Math.min(t, raySlab(ax, ay, az, dx, dy, dz, w.x0 - padding, w.x1 + padding, w.y0 - padding, w.y1 + padding, w.z0 - padding, w.z1 + padding));
     }
     for (const f of s.floors) {
-      t = Math.min(t, raySlab(ax, ay, az, dx, dy, dz, f.x0, f.x1, f.top - 0.45, f.top, f.z0, f.z1));
+      t = Math.min(t, raySlab(ax, ay, az, dx, dy, dz, f.x0 - padding, f.x1 + padding, f.top - 0.45 - padding, f.top + padding, f.z0 - padding, f.z1 + padding));
     }
   }
   return t;

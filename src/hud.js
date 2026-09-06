@@ -7,7 +7,6 @@ import * as THREE from 'three';
 //   ceremony() — the rare lane: the handful of once-ever moments, big and central
 //   floatUp()  — the ambient lane: a tiny "+n" that rises off a HUD chip, no toast
 let _toastBox = null;
-let _toastLive = 0;
 const TOAST_CAP = 3;   // never stack more than this — older ones expire first
 
 export function toast(msg, ms = 3200) {
@@ -22,9 +21,8 @@ export function toast(msg, ms = 3200) {
     document.body.appendChild(_toastBox);
   }
   // Cap the stack — drop the oldest so a busy moment can't bury the screen
-  while (_toastLive >= TOAST_CAP && _toastBox.firstChild) {
+  while (_toastBox.childElementCount >= TOAST_CAP && _toastBox.firstChild) {
     _toastBox.firstChild.remove();
-    _toastLive--;
   }
   const el = document.createElement('div');
   el.textContent = msg;
@@ -37,9 +35,8 @@ export function toast(msg, ms = 3200) {
     whiteSpace: 'pre-line', textAlign: 'center', maxWidth: '80vw',
   });
   _toastBox.appendChild(el);
-  _toastLive++;
   setTimeout(() => { el.style.opacity = '0'; }, ms - 500);
-  setTimeout(() => { el.remove(); _toastLive--; }, ms);
+  setTimeout(() => el.remove(), ms);
 }
 
 // A once-in-a-while moment: larger, centred, gently announced. Reserve it for

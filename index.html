@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>New Build</title>
+    <link rel="stylesheet" href="/src/interface.css">
     <style>
       *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
       body { overflow: hidden; background: #000; }
@@ -121,8 +122,10 @@
   </head>
   <body>
     <div id="overlay">
-      <h1>Explore</h1>
-      <p class="subtitle">Take a look around</p>
+      <div class="menu-card pause-card">
+      <p class="eyebrow">NEW BUILD · EXPLORE AT YOUR PACE</p>
+      <h1>The world awaits.</h1>
+      <p class="subtitle">Follow a trail. Find a secret. Make it your own.</p>
       <div class="keys desktop-hints">
         <span>W A S D</span><span>Move</span>
         <span>Shift</span><span>Sprint</span>
@@ -140,10 +143,11 @@
         <span>Right side</span><span>Look</span>
         <span>💬</span><span>Chat with other players</span>
       </div>
-      <p class="click-hint">
-        <span class="click-hint-text">Click anywhere to begin</span>
-        <span class="tap-hint">Tap anywhere to begin</span>
-      </p>
+      <button type="button" class="click-hint">
+        <span class="click-hint-text">Click to return to the world</span>
+        <span class="tap-hint">Tap to enter the world</span>
+      </button>
+      </div>
     </div>
 
     <div id="crosshair"></div>

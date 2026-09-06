@@ -91,7 +91,7 @@ export function showAvatarPicker(overlay, onConfirm) {
 
   // Build the picker
   const cardsHTML = AVATARS.map(a => `
-    <div class="av-card" data-color="${a.color}">
+    <button type="button" class="av-card" data-color="${a.color}" aria-label="${a.name} avatar" aria-pressed="false">
       <div class="av-fig">
         <div class="av-head"></div>
         <div class="av-body"  style="background:${a.hex}"></div>
@@ -101,16 +101,20 @@ export function showAvatarPicker(overlay, onConfirm) {
         </div>
       </div>
       <span class="av-name">${a.name}</span>
-    </div>`).join('');
+    </button>`).join('');
 
   overlay.innerHTML = `
-    <p id="av-title">Choose Your Look</p>
-    <p id="av-sub">Pick a colour, then enter the world</p>
+    <div class="menu-card">
+    <p class="eyebrow">NEW BUILD · A WORLD TO WANDER</p>
+    <h1 id="av-title">Your adventure<br>starts here.</h1>
+    <p id="av-sub">Choose your colour. Find your own way.</p>
     <div id="av-grid">${cardsHTML}</div>
     <input id="av-name-input" type="text" maxlength="16"
-           placeholder="Your name (optional)"
+           aria-label="Your name (optional)" placeholder="Your name (optional)"
            autocomplete="off" spellcheck="false">
-    <button id="av-enter">Enter World</button>
+    <button id="av-enter" disabled>Enter World <span aria-hidden="true">↗</span></button>
+    <p class="menu-note">Explore the forest · Sail the shore · Uncover secrets</p>
+    </div>
   `;
 
   let selectedColor = null;
@@ -127,8 +131,10 @@ export function showAvatarPicker(overlay, onConfirm) {
   overlay.querySelectorAll('.av-card').forEach(card => {
     card.addEventListener('click', e => {
       e.stopPropagation();
-      overlay.querySelectorAll('.av-card').forEach(c => c.classList.remove('av-sel'));
+      overlay.querySelectorAll('.av-card').forEach(c => { c.classList.remove('av-sel'); c.setAttribute('aria-pressed', 'false'); });
       card.classList.add('av-sel');
+      card.setAttribute('aria-pressed', 'true');
+      enterBtn.disabled = false;
       selectedColor = parseInt(card.dataset.color);
       enterBtn.classList.add('av-ready');
     });

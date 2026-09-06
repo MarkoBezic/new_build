@@ -8,6 +8,7 @@ import { save, load } from './persistence.js';
 
 const KEY = 'settings';
 const DEFAULTS = {
+  graphics: 'balanced', // performance / balanced / high
   sensitivity: 1,      // 0.4 … 2.0 multiplier on look speed
   invertY:     false,
   volMaster:   0.5,    // 0 … 1
@@ -82,6 +83,23 @@ export function createSettingsPanel() {
     h.style.cssText = 'color:#B89A5A;font-size:11px;font-weight:bold;letter-spacing:0.08em;text-transform:uppercase;margin:14px 0 2px';
     panel.appendChild(h);
   };
+
+  heading('Graphics');
+  const quality = document.createElement('select');
+  quality.setAttribute('aria-label', 'Graphics quality');
+  quality.style.cssText = 'background:#243b35;color:#f0e4c8;border:1px solid #597267;border-radius:8px;padding:7px;font:inherit';
+  for (const [value, label] of [['performance', 'Performance'], ['balanced', 'Balanced'], ['high', 'High quality']]) {
+    const option = document.createElement('option');
+    option.value = value; option.textContent = label;
+    quality.appendChild(option);
+  }
+  quality.value = state.graphics;
+  quality.addEventListener('change', () => settings.set('graphics', quality.value));
+  row('Graphics quality', quality);
+  const note = document.createElement('p');
+  note.textContent = 'Changes apply immediately. Choose Performance for a smoother experience on slower devices.';
+  note.style.cssText = 'font-size:12px;line-height:1.5;color:#b4c4b9';
+  panel.appendChild(note);
 
   heading('Camera & look');
   row('Look sensitivity', slider('sensitivity', 0.4, 2, 0.05, v => `${v.toFixed(2)}×`));

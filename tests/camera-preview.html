@@ -1,0 +1,26 @@
+<!doctype html><html><meta charset="utf-8"><title>Basement camera check</title>
+<style>body{margin:0;background:#17221e;color:#fff;font:14px system-ui}header{padding:16px;display:flex;gap:24px;align-items:center}canvas{display:block}label{display:flex;gap:8px}output{font-variant-numeric:tabular-nums}</style>
+<header>Castle basement camera check <label>View <select id="angle"><option value="0">Level</option><option value="-0.6">Look up</option><option value="0.6">Look down</option></select></label><label>Direction <input id="yaw" type="range" min="-3.14" max="3.14" step="0.01" value="0"></label><output id="status"></output></header>
+<script type="module">
+import * as THREE from 'three';
+import { createCastle, CASTLE } from '../src/castle.js';
+import { buildHumanoid } from '../src/humanoid.js';
+import { cameraBlock, terrainSuppressed } from '../src/collision.js';
+import { createThirdPersonCamera } from '../src/third-person-camera.js';
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x17221e);
+scene.add(new THREE.HemisphereLight(0xd8e4f2,0x574b38,2));
+createCastle(scene,{interact:{register(){}},audio:{},shells:{},progress:{has:()=>false}});
+const avatar=buildHumanoid(0x2a9d8f); avatar.position.set(CASTLE.x-14,-6,CASTLE.z-14); scene.add(avatar);
+const camera=new THREE.PerspectiveCamera(78,innerWidth/(innerHeight-56),0.1,200);
+const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setSize(innerWidth,innerHeight-56); renderer.toneMapping=THREE.ACESFilmicToneMapping; document.body.append(renderer.domElement);
+const orbit=createThirdPersonCamera({cameraBlock,terrainSuppressed,groundAt:()=>6});
+const angle=document.querySelector('#angle'),yaw=document.querySelector('#yaw'),status=document.querySelector('#status');
+let before=performance.now();
+function frame(now){requestAnimationFrame(frame);const dt=Math.min(.05,(now-before)/1000);before=now;
+const p=orbit.update(avatar.position.x,-6,avatar.position.z,+yaw.value,+angle.value,dt);
+camera.position.set(p.x,p.y,p.z);camera.lookAt(avatar.position.x,-4.8,avatar.position.z);
+avatar.rotation.y=+yaw.value;avatar.visible=p.distance>.85;
+status.value=`Camera height ${p.y.toFixed(2)} · Distance ${p.distance.toFixed(2)}`;
+renderer.render(scene,camera);}
+requestAnimationFrame(frame);
+</script></html>

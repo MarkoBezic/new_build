@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+import { createJumpInput } from './jump-input.js';
+import { createThirdPersonCamera } from './third-person-camera.js';
+import { createPlayControls } from './play-controls.js';
 import { groundY as zoneGroundY, BEACH_STOP, SHORE, ISLAND, inIsland, skyFloorY, updraftAt } from './zones.js';
 import { resolveMove, structureFloorY, terrainSuppressed, cameraBlock } from './collision.js';
 import { settings } from './settings.js';
@@ -94,25 +96,9 @@ function floorY(x, z) {
   return zoneGroundY(x, z);
 }
 
-// ── Camera helpers (shared by desktop & mobile third-person) ─────────────────
-// Boom length after pulling in short of the first wall/slab on the way out
-function clampedCamDist(lx, ly, lz, yaw, pitch) {
-  const ix = lx + Math.sin(yaw) * Math.cos(pitch) * CAM_DIST;
-  const iy = ly + Math.sin(pitch) * CAM_DIST;
-  const iz = lz + Math.cos(yaw) * Math.cos(pitch) * CAM_DIST;
-  const t = cameraBlock(lx, ly, lz, ix, iy, iz);
-  return t >= 1 ? CAM_DIST : Math.max(0.6, CAM_DIST * t - 0.3);
-}
-// On open ground the camera must not sink into a hillside behind the player.
-// Whether we're underground is decided from the PLAYER (lx,ly,lz), not the
-// camera: the camera orbits up-and-behind, so near a dungeon's edge it sits
-// outside the basement volume and a camera-based test would wrongly fire and
-// fling the camera up to the surface through the ceiling.
-function guardCameraAboveTerrain(camera, lx, ly, lz) {
-  if (_swimming) return;
-  if (terrainSuppressed(lx, lz, ly)) return;   // player is underground → leave it
-  const g = zoneGroundY(camera.position.x, camera.position.z) + 0.35;
-  if (camera.position.y < g) camera.position.y = g;
+// Shared camera behavior for desktop and touch controls.
+function makeChaseCamera() {
+  return createThirdPersonCamera({ cameraBlock, terrainSuppressed, groundAt: zoneGroundY, distance: CAM_DIST });
 }
 
 export function createPlayer(scene, camera, canvas) {
@@ -125,9 +111,8 @@ export function createPlayer(scene, camera, canvas) {
 //  DESKTOP  — 1st / 3rd person toggle via V key
 // ─────────────────────────────────────────────────────────────────────────────
 function createDesktopPlayer(scene, camera, canvas) {
-  // PointerLockControls handles pointer-lock API only; we drive the camera.
-  const controls = new PointerLockControls(camera, canvas);
-  controls.enabled = false;
+  const chaseCamera = makeChaseCamera();
+  const controls = createPlayControls(canvas);
 
   // Read initial facing from the camera's existing orientation (set via lookAt in main.js)
   const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
@@ -138,6 +123,7 @@ function createDesktopPlayer(scene, camera, canvas) {
   let playerY  = camera.position.y - EYE_HEIGHT;  // feet height (0 = ground)
   let vy       = 0;
   let grounded = true;
+  const jumpInput = createJumpInput();
   let airTime  = 0;
   let thirdPerson = true;
   const keys = new Set();
@@ -166,7 +152,7 @@ function createDesktopPlayer(scene, camera, canvas) {
 
   // ── Mouse look ──────────────────────────────────────────────────────────────
   document.addEventListener('mousemove', e => {
-    if (!document.pointerLockElement) return;
+    if (!controls.canLook) return;
     const sens = settings.get('sensitivity');
     const inv  = settings.get('invertY') ? -1 : 1;
     yaw   -= e.movementX * MOUSE_S * sens;
@@ -177,18 +163,22 @@ function createDesktopPlayer(scene, camera, canvas) {
   // ── Keys ────────────────────────────────────────────────────────────────────
   window.addEventListener('keydown', e => {
     const inText = document.activeElement?.tagName === 'TEXTAREA' ||
-                   document.activeElement?.tagName === 'INPUT';
-    if (inText) return;
+                   document.activeElement?.tagName === 'INPUT' ||
+                   document.activeElement?.tagName === 'SELECT' ||
+                   document.activeElement?.isContentEditable;
+    if (inText || !controls.isLocked) return;
 
     keys.add(e.code);
 
-    if (e.code === 'Space' && grounded && !_onBoat) { vy = JUMP_VEL; grounded = false; }
+    if (e.code === 'Space' && !e.repeat && !_onBoat && !_swimming) jumpInput.press();
 
-    if (e.code === 'KeyV' && document.pointerLockElement) {
+    if (e.code === 'KeyV' && !e.repeat && controls.isLocked) {
       thirdPerson = !thirdPerson;
+      chaseCamera.reset();
       avatar.visible = thirdPerson;
       if (thirdPerson) {
-        playerY = Math.max(floorY(avatar.position.x, avatar.position.z), camera.position.y - EYE_HEIGHT);
+        // playerY already holds the logical feet height, including basement floors.
+        // Re-querying the surface heightmap here would teleport us upstairs.
         avatar.position.set(camera.position.x, playerY, camera.position.z);
       } else {
         // Return to 1st-person: move camera to avatar's eye level
@@ -230,11 +220,14 @@ function createDesktopPlayer(scene, camera, canvas) {
       e.preventDefault();
   });
   window.addEventListener('keyup', e => keys.delete(e.code));
-  controls.addEventListener('unlock', () => { keys.clear(); boatHint.style.display = 'none'; });
+  const clearInput = () => { keys.clear(); jumpInput.reset(); };
+  window.addEventListener('blur', clearInput);
+  controls.addEventListener('unlock', () => { clearInput(); boatHint.style.display = 'none'; });
 
   // ── Per-frame update ────────────────────────────────────────────────────────
   function update(dt) {
-    if (!document.pointerLockElement) return;
+    if (!controls.isLocked) return;
+    jumpInput.update(dt, grounded && !_onBoat && !_swimming);
     _boardCooldown = Math.max(0, _boardCooldown - dt);
 
     const speed = _onBoat ? boatSpeed(_activeBoat)
@@ -350,6 +343,7 @@ function createDesktopPlayer(scene, camera, canvas) {
     } else if (_onBoat) {
       playerY = BOAT_DECK_Y; vy = 0; grounded = true; airTime = 0; _gliding = false;
     } else {
+      if (jumpInput.consume()) { vy = JUMP_VEL; grounded = false; }
       vy += GRAVITY * dt;
       // Hold Space while falling to deploy the Warden's Glider.
       // Updraft columns beneath the sky islands lift a deployed glider.
@@ -373,7 +367,7 @@ function createDesktopPlayer(scene, camera, canvas) {
       const terrainG = terrainSuppressed(px, pz, playerY) ? -Infinity : floorY(px, pz);
       const ground = Math.max(terrainG, skyFloorY(px, pz, playerY), structureFloorY(px, pz, playerY));
       if (playerY <= ground) { playerY = ground; vy = 0; grounded = true; airTime = 0; _gliding = false; }
-      else airTime += dt;
+      else { grounded = false; airTime += dt; }
     }
     wing.visible = _gliding;
 
@@ -402,14 +396,10 @@ function createDesktopPlayer(scene, camera, canvas) {
       const ly = playerY + 1.2;   // look-at height on avatar
       const lz = avatar.position.z;
 
-      // Orbit camera behind and above avatar — pulled in short of any wall or
-      // slab between it and the avatar, so interiors never swallow the view
-      const camDist = clampedCamDist(lx, ly, lz, yaw, pitch);
-      camera.position.x = lx + Math.sin(yaw) * Math.cos(pitch) * camDist;
-      camera.position.y = ly + Math.sin(pitch) * camDist;
-      camera.position.z = lz + Math.cos(yaw) * Math.cos(pitch) * camDist;
-      if (!_swimming && camera.position.y < 0.1) camera.position.y = 0.1;   // the diving camera must go under
-      guardCameraAboveTerrain(camera, lx, ly, lz);
+      const view = chaseCamera.update(lx, playerY, lz, yaw, pitch, dt, _swimming);
+      camera.position.set(view.x, view.y, view.z);
+      // In a very tight corner the avatar would otherwise fill the entire view.
+      avatar.visible = view.distance > (avatar.visible ? 0.7 : 0.95);
       camera.lookAt(lx, ly, lz);
 
       playerPosition.set(lx, ly, lz);
@@ -464,6 +454,7 @@ function createDesktopPlayer(scene, camera, canvas) {
   // `y` is optional — underground destinations (ley stones, well ropes) must
   // set it explicitly, since floorY only knows the surface heightmap
   function teleport(x, z, y) {
+    chaseCamera.reset();
     playerY = y ?? floorY(x, z);
     if (thirdPerson) {
       avatar.position.set(x, playerY, z);
@@ -471,6 +462,9 @@ function createDesktopPlayer(scene, camera, canvas) {
       camera.position.set(x, playerY + EYE_HEIGHT, z);
     }
     vy = 0;
+    grounded = false;
+    airTime = 0;
+    jumpInput.reset();
   }
 
   return { controls, update, startMobile: () => {}, setColor, playerPosition, getState, teleport, getAvatar: () => avatar };
@@ -480,6 +474,7 @@ function createDesktopPlayer(scene, camera, canvas) {
 //  MOBILE  (virtual joystick + touch-look, 3rd-person)
 // ─────────────────────────────────────────────────────────────────────────────
 function createMobilePlayer(scene, camera, canvas) {
+  const chaseCamera = makeChaseCamera();
   const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
   _euler.setFromQuaternion(camera.quaternion, 'YXZ');
   let yaw   = _euler.y;
@@ -615,10 +610,9 @@ function createMobilePlayer(scene, camera, canvas) {
       avatar.position.set(playerX, playerY, playerZ);
       avatar.rotation.y = yaw;
       const lx0 = playerX, ly0 = playerY + 1.2, lz0 = playerZ;
-      const swimCamD = clampedCamDist(lx0, ly0, lz0, yaw, pitch);
-      camera.position.x = lx0 + Math.sin(yaw) * Math.cos(pitch) * swimCamD;
-      camera.position.y = ly0 + Math.sin(pitch) * swimCamD;
-      camera.position.z = lz0 + Math.cos(yaw) * Math.cos(pitch) * swimCamD;
+      const view = chaseCamera.update(lx0, playerY, lz0, yaw, pitch, dt, true);
+      camera.position.set(view.x, view.y, view.z);
+      avatar.visible = view.distance > (avatar.visible ? 0.7 : 0.95);
       camera.lookAt(lx0, ly0, lz0);
       playerPosition.set(lx0, ly0, lz0);
       animateAvatar(avatar, dt, moving);
@@ -725,12 +719,9 @@ function createMobilePlayer(scene, camera, canvas) {
     const lx = playerX;
     const ly = playerY + 1.2;
     const lz = playerZ;
-    const camDist = clampedCamDist(lx, ly, lz, yaw, pitch);
-    camera.position.x = lx + Math.sin(yaw) * Math.cos(pitch) * camDist;
-    camera.position.y = ly + Math.sin(pitch) * camDist;
-    camera.position.z = lz + Math.cos(yaw) * Math.cos(pitch) * camDist;
-    if (!_swimming && camera.position.y < 0.1) camera.position.y = 0.1;   // the diving camera must go under
-    guardCameraAboveTerrain(camera, lx, ly, lz);
+    const view = chaseCamera.update(lx, playerY, lz, yaw, pitch, dt, _swimming);
+    camera.position.set(view.x, view.y, view.z);
+    avatar.visible = view.distance > (avatar.visible ? 0.7 : 0.95);
     camera.lookAt(lx, ly, lz);
 
     playerPosition.set(lx, ly, lz);
@@ -765,6 +756,7 @@ function createMobilePlayer(scene, camera, canvas) {
   }
 
   function teleport(x, z, y) {
+    chaseCamera.reset();
     playerX = x;
     playerZ = z;
     playerY = y ?? floorY(x, z);

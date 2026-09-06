@@ -1,0 +1,41 @@
+/* Shared visual language for the entry and pause screens. */
+body #overlay {
+  background: linear-gradient(110deg, rgba(7,24,22,.94), rgba(10,29,24,.72) 56%, rgba(11,24,21,.32));
+  align-items: flex-start;
+  padding: 36px clamp(24px, 8vw, 128px);
+  overflow-y: auto;
+  cursor: default;
+  color: #f4efdc;
+}
+#overlay .menu-card { width: min(100%, 540px); margin: auto 0; flex-shrink: 0; }
+#overlay .eyebrow { font: 600 10px/1.6 system-ui,sans-serif; letter-spacing: .22em; color: #d4be83; margin-bottom: 24px; }
+#overlay h1, #overlay #av-title {
+  font: 400 clamp(34px, 4.8vw, 64px)/1.06 Georgia,serif;
+  letter-spacing: -.04em; text-transform: none; margin-bottom: 18px;
+}
+#overlay .subtitle, #overlay #av-sub { font: 14px/1.6 system-ui,sans-serif; color: #b9cbc1; opacity: 1; margin-bottom: 28px; }
+#overlay #av-grid { grid-template-columns: repeat(4, 76px); gap: 10px; margin-bottom: 24px; }
+#overlay .av-card { width: 76px; padding: 13px 0; background: #203b32; border: 1px solid #4c6252; border-radius: 10px; color: #f4efdc; }
+#overlay .av-card:hover { background: #345444; }
+#overlay .av-card.av-sel { background: #48583a; border-color: #e5cb8b; box-shadow: 0 0 0 2px rgba(229,203,139,.17); }
+#overlay .av-name { color: #d4dfd2; }
+#overlay #av-name-input { display: block; width: 334px; max-width: 100%; text-align: left; background: rgba(13,32,26,.8); border-color: #597060; padding: 13px 16px; margin-bottom: 12px; }
+#overlay #av-name-input::placeholder { opacity: 1; color: #aabcb0; }
+#overlay #av-enter { width: 334px; max-width: 100%; display: flex; justify-content: space-between; padding: 14px 18px; border-radius: 8px; letter-spacing: .04em; }
+#overlay #av-enter.av-ready { background: #e2ca8b; color: #14271f; border-color: #e2ca8b; font-weight: 700; }
+#overlay #av-enter.av-ready:hover { background: #f0daa2; }
+#overlay .menu-note { margin-top: 22px; font: 11px/1.7 system-ui,sans-serif; color: #acbdb0; }
+#overlay .keys { opacity: 1; width: min(100%,400px); grid-template-columns: 94px 1fr; gap: 8px 20px; font: 12px/1.5 system-ui,sans-serif; text-transform: none; letter-spacing: 0; color: #c3d0c5; }
+#overlay .keys span:nth-child(odd) { color: #ead6a7; font-weight: 600; }
+#overlay .click-hint { opacity: 1; animation: none; color: #e2ca8b; border-top: 1px solid #52604b; padding-top: 22px; cursor: pointer; }
+#overlay button:focus-visible, #overlay input:focus-visible { outline: 3px solid #f4dfab; outline-offset: 4px; }
+@media (max-width: 600px) {
+  body #overlay { padding: 28px 24px; background: rgba(8,27,22,.93); }
+  #overlay .menu-card { margin: auto; }
+  #overlay #av-grid { grid-template-columns: repeat(4, minmax(0,1fr)); width: 334px; max-width: 100%; }
+  #overlay .av-card { width: 100%; }
+  #overlay .eyebrow { font-size: 9px; }
+}
+@media (prefers-reduced-motion: reduce) { #overlay *, #overlay *::before { animation: none !important; transition: none !important; } }
+
+#overlay button.click-hint { display: block; background: transparent; border: 0; border-top: 1px solid #52604b; width: min(100%, 400px); text-align: left; font-family: inherit; padding-bottom: 12px; }

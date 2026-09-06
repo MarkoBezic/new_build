@@ -67,7 +67,7 @@ export function createCastle(scene, { interact, audio, shells, progress, telepor
   };
 
   // ── Authoring helpers: one call = mesh + collision ─────────────────────────
-  const walls = [], floors = [], ramps = [];
+  const walls = [], floors = [], ramps = [], cameraSolids = [];
 
   function mesh(x0, x1, z0, z1, y0, y1, mat, shadow = false) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mat);
@@ -83,6 +83,10 @@ export function createCastle(scene, { interact, audio, shells, progress, telepor
   }
   function solid(x0, x1, z0, z1, y0, y1, mat = M.stone, shadow = false) {
     walls.push({ x0: CX + x0, x1: CX + x1, z0: CZ + z0, z1: CZ + z1, y0, y1 });
+    return mesh(x0, x1, z0, z1, y0, y1, mat, shadow);
+  }
+  function cameraCeiling(x0, x1, z0, z1, y0, y1, mat, shadow = true) {
+    cameraSolids.push({ x0: CX + x0, x1: CX + x1, z0: CZ + z0, z1: CZ + z1, y0, y1 });
     return mesh(x0, x1, z0, z1, y0, y1, mat, shadow);
   }
   function deck(x0, x1, z0, z1, top, mat = M.floor, thick = 0.35) {
@@ -639,10 +643,10 @@ export function createCastle(scene, { interact, audio, shells, progress, telepor
   // stair shaft so descending heads clear), all casting shadow so the sun
   // never reaches the deep
   deck(-34, 34, -30, 32, UD.f, M.dark);
-  mesh(-34, -27, -30, 32, UD.c, UD.c + 0.5, M.dark, true);
-  mesh(-23, 34, -30, 32, UD.c, UD.c + 0.5, M.dark, true);
-  mesh(-27, -23, -30, -2, UD.c, UD.c + 0.5, M.dark, true);
-  mesh(-27, -23, 14, 32, UD.c, UD.c + 0.5, M.dark, true);
+  cameraCeiling(-34, -27, -30, 32, UD.c, UD.c + 0.5, M.dark, true);
+  cameraCeiling(-23, 34, -30, 32, UD.c, UD.c + 0.5, M.dark, true);
+  cameraCeiling(-27, -23, -30, -2, UD.c, UD.c + 0.5, M.dark, true);
+  cameraCeiling(-27, -23, 14, 32, UD.c, UD.c + 0.5, M.dark, true);
 
   // ── entry: an open trench carved into the west yard (see terrain.js — the
   //    ground mesh itself dips, so the mouth is visible from across the
@@ -650,7 +654,7 @@ export function createCastle(scene, { interact, audio, shells, progress, telepor
   stair(-27, -23, -2, 10, 'z', UD.f, 3.0);
   solid(-27.6, -27, -2, 10, UD.f, 6, M.dark);              // covered-run side walls
   solid(-23, -22.4, -2, 10, UD.f, 6, M.dark);
-  mesh(-27.6, -22.4, -2, 10, 5.2, 5.7, M.dark, true);      // covered-run ceiling
+  cameraCeiling(-27.6, -22.4, -2, 10, 5.2, 5.7, M.dark, true);      // covered-run ceiling
   // stepped stone fill under the ramp — the cavity beneath the stairs was
   // walkable from the vault and ended in a surface-pop through solid ground
   solid(-27, -23, 2, 6, UD.f, -3.3, M.dark);
@@ -829,7 +833,7 @@ export function createCastle(scene, { interact, audio, shells, progress, telepor
   // ═══ Register with the shared collision engine. The basement volumes let
   //     players exist below the terrain: the stair mouth releases the surface
   //     right at yard level, the complex only once you are properly beneath it.
-  addStructure({ x: CX, z: CZ, r: 100, walls, floors, ramps, basements: [
+  addStructure({ x: CX, z: CZ, r: 100, walls, floors, ramps, cameraSolids, basements: [
     // (the open trench itself is real carved terrain — no suppression there)
     { x0: CX - 27, x1: CX - 23, z0: CZ - 2,  z1: CZ + 10, top: 5.7 },   // covered stair run
     // the Undercroft, minus the trench column above the cells — its floor
