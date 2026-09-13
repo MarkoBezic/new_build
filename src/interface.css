@@ -39,3 +39,49 @@ body #overlay {
 @media (prefers-reduced-motion: reduce) { #overlay *, #overlay *::before { animation: none !important; transition: none !important; } }
 
 #overlay button.click-hint { display: block; background: transparent; border: 0; border-top: 1px solid #52604b; width: min(100%, 400px); text-align: left; font-family: inherit; padding-bottom: 12px; }
+
+/* Screen ownership: only the active screen participates in focus and layout. */
+body:not([data-stage="playing"]) > :not(#overlay):not(#loading-screen):not(.world-canvas):not(.game-panel) { display: none !important; }
+body[data-stage="panel"]::after { content: ''; position: fixed; inset: 0; background: rgba(7,19,16,.78); z-index: 39; pointer-events: auto; }
+#loading-screen { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; background: #0d211c; color: #f4efdc; font: 16px/1.6 system-ui; }
+#loading-screen h1 { font: 42px Georgia,serif; }
+#game-nav { position: fixed; bottom: max(18px, env(safe-area-inset-bottom)); right: 18px; z-index: 40; display: flex; gap: 6px; padding: 5px; background: rgba(10,27,22,.9); border-radius: 12px; border: 1px solid #526456; }
+#game-nav button, .pause-links button, .panel-close, .social-toggle, #loading-screen button { min-height: 44px; padding: 10px 14px; border: 1px solid #61715b; border-radius: 8px; background: #243c31; color: #f1ead5; font: 14px/1.4 system-ui; cursor: pointer; }
+button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid #f1d99b !important; outline-offset: 3px; }
+.pause-links { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0; }
+.pause-controls { color: #c3d0c5; font: 14px/1.5 system-ui; }
+.pause-controls summary { cursor: pointer; padding: 10px 0; }
+.pause-controls .keys { margin: 12px 0; }
+#overlay .click-hint { color: #f6e1ac; font-size: 17px; }
+.game-panel { outline: none; font-family: system-ui,sans-serif !important; font-size: 14px !important; line-height: 1.6 !important; border-radius: 14px !important; box-shadow: none !important; background: #152b23 !important; border-color: #59705a !important; max-width: calc(100vw - 32px) !important; max-height: calc(100dvh - 40px) !important; }
+.game-panel h2 { font: 28px/1.3 Georgia,serif; margin: 12px 0; color: #f0dfaf; }
+.game-panel button { min-height: 40px; }
+.game-panel .panel-close { display: block; margin: 0 0 16px auto; }
+.game-panel[aria-label="Controls"] { top: 50% !important; left: 50% !important; bottom: auto !important; right: auto !important; transform: translate(-50%,-50%); width: min(480px, 90vw); }
+.game-panel select { max-width: 100%; }
+.game-panel input[type="range"] { max-width: 29vw; }
+.island-map { flex-direction: column; gap: 12px; width: 100%; max-width: none !important; max-height: none !important; border: 0 !important; border-radius: 0 !important; padding: 16px; }
+.island-map canvas { width: min(85vw, 62dvh) !important; height: min(85vw, 62dvh) !important; cursor: pointer; }
+.island-map select { padding: 10px; width: min(85vw, 420px); font: 14px system-ui; color: #f4ead2; background: #243c31; border: 1px solid #61715b; border-radius: 8px; }
+.island-map .panel-close { margin: 0; }
+.map-detail { max-width: min(85vw, 500px); min-height: 44px; text-align: center; color: #e8d7ae; font: 14px/1.5 system-ui; }
+.resource-chip { visibility: hidden; opacity: 0; transition: opacity .25s; }
+.resource-chip.recent { visibility: visible; opacity: 1; }
+.social-toggle { position: fixed; bottom: 80px; left: 20px; display: none; z-index: 30; }
+:root.big-text .game-panel { font-size: 17px !important; }
+:root.big-text .game-panel [style*="font-size:13px"], :root.big-text .game-panel [style*="font-size:12px"] { font-size: 16px !important; }
+@media (max-width: 600px) {
+  #game-nav { right: 12px; bottom: max(14px, env(safe-area-inset-bottom)); gap: 3px; }
+  #game-nav button { padding: 10px; font-size: 13px; }
+  .game-panel { padding: 16px !important; }
+  .game-panel[aria-label="Settings"] { width: calc(100vw - 32px) !important; }
+}
+@media (prefers-reduced-motion: reduce) { .resource-chip { transition: none; } }
+#loading-screen ~ #overlay { visibility: hidden; }
+.pinned-activity { position: fixed; top: 82px; left: 18px; z-index: 15; max-width: min(260px, 70vw); padding: 8px 12px; background: rgba(12,31,24,.85); color: #f0dfaf; border-radius: 8px; font: 13px/1.5 system-ui; pointer-events: none; }
+@media (max-width: 600px) {
+  body[data-stage="playing"] > div[style*="bottom: 34px"] { bottom: 142px !important; white-space: normal !important; text-align: center; max-width: 85vw; width: max-content; }
+}
+.game-panel[aria-label="Journal"] { width: min(560px, 90vw) !important; }
+.pin-picker { display: grid; gap: 8px; margin-top: 18px; color: #d4bd83; font: 13px/1.5 system-ui; }
+.pin-picker select { width: 100%; min-height: 44px; padding: 8px; border: 1px solid #698265; border-radius: 6px; background: #233e30; color: #f3e4bf; font: inherit; }

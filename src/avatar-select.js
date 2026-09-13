@@ -1,3 +1,4 @@
+import { load, save } from './persistence.js';
 export const AVATARS = [
   { color: 0xE63946, hex: '#E63946', name: 'Red'    },
   { color: 0x457B9D, hex: '#457B9D', name: 'Blue'   },
@@ -117,9 +118,16 @@ export function showAvatarPicker(overlay, onConfirm) {
     </div>
   `;
 
-  let selectedColor = null;
+  const previous = load('avatar', {});
+  let selectedColor = AVATARS.some(a => a.color === previous.color) ? previous.color : AVATARS[3].color;
   const enterBtn   = overlay.querySelector('#av-enter');
   const nameInput  = overlay.querySelector('#av-name-input');
+
+  nameInput.value = typeof previous.name === 'string' ? previous.name.slice(0, 16) : '';
+  enterBtn.disabled = false;
+  enterBtn.classList.add('av-ready');
+  const initial = overlay.querySelector(`[data-color="${selectedColor}"]`);
+  initial.classList.add('av-sel'); initial.setAttribute('aria-pressed', 'true');
 
   // Prevent in-game keys from firing while typing
   nameInput.addEventListener('keydown', e => {
@@ -141,6 +149,7 @@ export function showAvatarPicker(overlay, onConfirm) {
   });
 
   function confirm() {
+    save('avatar', { color: selectedColor, name: nameInput.value.trim() });
     overlay.innerHTML = exploreHTML;
     onConfirm(selectedColor, nameInput.value.trim());
   }

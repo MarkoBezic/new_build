@@ -1,3 +1,4 @@
+import { revealChip } from './hud.js';
 import * as THREE from 'three';
 import { groundY } from './zones.js';
 import { toast, makeChip } from './hud.js';
@@ -99,7 +100,7 @@ export function createShards(scene, { progress, audio, cosmetics }) {
 
   // ── HUD counter chip ────────────────────────────────────────────────────────
   const chip = makeChip(12);
-  const refreshChip = () => { chip.textContent = `✦ ${progress.count('shards')} / ${SHARDS.length}`; };
+  const refreshChip = () => { revealChip(chip); chip.textContent = `✦ ${progress.count('shards')} / ${SHARDS.length}`; };
   refreshChip();
 
   function update(dt, playerPos, nowSec) {

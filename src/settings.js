@@ -1,3 +1,4 @@
+import { menus, registerPanel } from './menus.js';
 import { save, load } from './persistence.js';
 
 // ── Settings & accessibility ─────────────────────────────────────────────────
@@ -8,6 +9,7 @@ import { save, load } from './persistence.js';
 
 const KEY = 'settings';
 const DEFAULTS = {
+  minimap: false,
   graphics: 'balanced', // performance / balanced / high
   sensitivity: 1,      // 0.4 … 2.0 multiplier on look speed
   invertY:     false,
@@ -48,6 +50,8 @@ export function createSettingsPanel() {
     const l = document.createElement('label');
     l.textContent = label;
     l.style.color = '#D8CDB4';
+    const input = control.matches('input, button, select') ? control : control.querySelector('input');
+    if (input) input.setAttribute('aria-label', label);
     r.append(l, control);
     panel.appendChild(r);
     return r;
@@ -69,6 +73,7 @@ export function createSettingsPanel() {
     const b = document.createElement('button');
     const paint = () => {
       b.textContent = state[key] ? 'On' : 'Off';
+      b.setAttribute('aria-pressed', String(state[key]));
       b.style.cssText = `border:none;border-radius:8px;padding:5px 16px;cursor:pointer;font:13px system-ui;` +
         `background:${state[key] ? 'rgba(143,209,88,0.35)' : 'rgba(255,255,255,0.1)'};color:${state[key] ? '#B8E890' : '#C8BDA0'}`;
     };
@@ -84,6 +89,8 @@ export function createSettingsPanel() {
     panel.appendChild(h);
   };
 
+  heading('Navigation');
+  row('Show minimap', toggle('minimap'));
   heading('Graphics');
   const quality = document.createElement('select');
   quality.setAttribute('aria-label', 'Graphics quality');
@@ -115,21 +122,13 @@ export function createSettingsPanel() {
   row('Reduced motion', toggle('reducedMotion'));
   row('Larger text', toggle('bigText'));
 
-  const foot = document.createElement('div');
-  foot.style.cssText = 'margin-top:14px;color:#8A806A;font-size:12px;text-align:center';
-  foot.textContent = 'Esc to close';
-  panel.appendChild(foot);
-
   let open = false;
-  const setOpen = v => { open = v; panel.style.display = v ? 'block' : 'none'; };
-  window.addEventListener('keydown', e => {
-    if (e.code === 'Escape' && open) setOpen(false);
-  });
+  registerPanel('settings', panel, v => { open = v; panel.style.display = v ? 'block' : 'none'; });
 
   // Big-text toggles a document class; the reading panels opt in via CSS
   settings.onChange((k, v) => {
     if (k === 'bigText') document.documentElement.classList.toggle('big-text', v);
   });
 
-  return { toggle: () => setOpen(!open), isOpen: () => open };
+  return { toggle: () => menus.toggle('settings'), isOpen: () => open };
 }

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>New Build</title>
-    <link rel="stylesheet" href="/src/interface.css">
+
     <style>
       *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
       body { overflow: hidden; background: #000; }
@@ -119,14 +119,16 @@
       :root.big-text { --read-scale: 1.18; }
       :root.big-text [style*="Georgia"] { font-size: 1.06em; }
     </style>
+    <link rel="stylesheet" href="/src/interface.css">
   </head>
-  <body>
+  <body data-stage="entry">
+    <div id="loading-screen" role="status"><h1>New Build</h1><p>Preparing your island…</p></div>
     <div id="overlay">
       <div class="menu-card pause-card">
       <p class="eyebrow">NEW BUILD · EXPLORE AT YOUR PACE</p>
       <h1>The world awaits.</h1>
       <p class="subtitle">Follow a trail. Find a secret. Make it your own.</p>
-      <div class="keys desktop-hints">
+      <details class="pause-controls"><summary>Movement basics</summary><div class="keys desktop-hints">
         <span>W A S D</span><span>Move</span>
         <span>Shift</span><span>Sprint</span>
         <span>Space</span><span>Jump</span>
@@ -143,9 +145,11 @@
         <span>Right side</span><span>Look</span>
         <span>💬</span><span>Chat with other players</span>
       </div>
+      </details>
+      <div class="pause-links"><button data-menu="map">Map</button><button data-menu="journal">Journal</button><button data-menu="settings">Settings</button><button data-menu="help">All controls</button><button data-photo>Save photo</button></div>
       <button type="button" class="click-hint">
-        <span class="click-hint-text">Click to return to the world</span>
-        <span class="tap-hint">Tap to enter the world</span>
+        <span class="click-hint-text">Resume exploring</span>
+        <span class="tap-hint">Resume exploring</span>
       </button>
       </div>
     </div>
@@ -155,6 +159,6 @@
     <div id="hud"></div>
     <div id="user-count"><span class="uc-dot">●</span>&nbsp;<span id="uc-num">1</span>&nbsp;online</div>
 
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/boot.js"></script>
   </body>
 </html>

@@ -28,7 +28,7 @@ export function createEvents(scene) {
     pointerEvents: 'none', zIndex: '14', textShadow: '0 1px 3px rgba(0,0,0,0.8)',
   });
   document.body.appendChild(clock);
-  let clockTimer = 0, clockText = '';
+  let clockTimer = 0, clockText = '', eventSummary = '';
 
   // ── Meteor pool ─────────────────────────────────────────────────────────────
   const METEORS = 6;
@@ -86,7 +86,8 @@ export function createEvents(scene) {
         ].map(ev => ({ ...ev, d: (ev.h - hourEST + 24) % 24 }))
           .sort((a, b) => a.d - b.d)[0];
         const hh = Math.floor(upcoming.d), mm = Math.floor((upcoming.d - hh) * 60);
-        next = `${upcoming.label} in ${hh > 0 ? `${hh}h ` : ''}${mm}m`;
+        eventSummary = `${upcoming.label} in ${hh > 0 ? `${hh}h ` : ''}${mm}m (Toronto time)`;
+        if (upcoming.d <= 0.5) next = eventSummary;
       }
       if (next !== clockText) {
         clockText = next;
@@ -111,5 +112,5 @@ export function createEvents(scene) {
   // Campfire flame/light multiplier during the bonfire window
   function getCampfireBoost() { return bonfire ? 1.9 : 1; }
 
-  return { update, getCampfireBoost };
+  return { update, getCampfireBoost, getSummary: () => bannerText || eventSummary || 'Bonfire around sunset · Meteor shower at 22:00 (Toronto time)' };
 }

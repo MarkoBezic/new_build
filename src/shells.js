@@ -1,3 +1,4 @@
+import { revealChip } from './hud.js';
 import * as THREE from 'three';
 import { save, load } from './persistence.js';
 import { toast, makeChip, floatUp } from './hud.js';
@@ -17,7 +18,7 @@ export function createShells(scene, { audio, playerPosition }) {
 
   // ── HUD chip under the tasks chip ───────────────────────────────────────────
   const chip = makeChip(72, '#FFE0D0');
-  const refresh = () => { chip.textContent = `🐚 ${count}`; };
+  const refresh = () => { revealChip(chip); chip.textContent = `🐚 ${count}`; };
   refresh();
 
   // Big awards (quests, the vault) still earn a full toast; the steady drip of

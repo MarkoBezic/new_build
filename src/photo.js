@@ -1,4 +1,4 @@
-import { toast, makeMobileButton } from './hud.js';
+import { toast } from './hud.js';
 
 // Photo mode — P (or the mobile 📷 button) saves a clean PNG of the world.
 // The WebGL canvas never contains the DOM HUD, so the shot is UI-free by
@@ -16,10 +16,6 @@ export function createPhoto(renderer, { audio, isMobile }) {
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     snap();
   });
-
-  if (isMobile) {
-    makeMobileButton('📷', { bottom: '150px', left: '20px' }, snap).style.display = 'block';
-  }
 
   function afterRender() {
     if (!pending) return;
@@ -40,5 +36,5 @@ export function createPhoto(renderer, { audio, isMobile }) {
     });
   }
 
-  return { afterRender };
+  return { afterRender, snap };
 }

@@ -19,7 +19,7 @@ the existing virtual joystick and touch-look controls.
 
 WASD / arrows move; Shift sprints; Space jumps (hold while falling to use an
 unlocked glider); V switches camera; E interacts; J opens the journal;
-M opens the map; Escape releases mouse capture. The gear opens settings.
+M opens the map; Escape releases mouse capture. Menu → Settings opens settings. M opens one island map; K goes directly to Journal → Daily. Opening a main panel releases the cursor and stops local movement. Back or Escape returns to the pause menu; Resume exploring returns to play.
 
 ## Graphics
 
@@ -32,7 +32,29 @@ Settings apply immediately and are saved on this browser:
 
 The game bypasses postprocessing when outlines are not needed, refreshes
 shadows by elapsed time, and skips the game/render update while the tab is hidden.
-Actual frame rate depends on the device and scene; no FPS benchmark is claimed.
+Entry, pause and main panels freeze local simulation and render the background
+at most four times per second. Multiplayer updates continue while a visible
+menu is open. Ambience fades out in menus. Actual frame rate depends on the
+device and scene; no FPS benchmark is claimed.
+
+## Interface
+
+- Avatar colour is preselected; colour and optional name are remembered locally.
+- Entry hides gameplay controls. During play, Map / Journal / Menu share one bar.
+- Settings, controls and photo capture live in the pause menu; P still saves photos.
+- The optional minimap (including player dots) is in Settings → Navigation.
+- Currency appears briefly on changes; totals remain in Journal → Records.
+- Journal defaults to Beginnings on first use, remembers its tab, and lets you
+  pin one suggested activity. Unread story fragments are summarized.
+- Map markers cluster nearby places; the discovered-place picker exposes every
+  location individually for keyboard and touch use.
+- Mobile emotes expand from one button. Reading panels have explicit Back buttons.
+- Scheduled events remain in Journal → Daily; the HUD announces active events
+  and countdowns only within 30 minutes.
+
+The lightweight loading shell paints before the world module evaluates. The
+multiplayer module loads after entering. World construction is still synchronous;
+region streaming and spatial forest batches need separate traversal/GPU profiling.
 
 ## Movement polish
 
@@ -43,10 +65,18 @@ clear queued jump input. Walking off a ledge correctly clears grounded state.
 
 ## Validation
 
-The production build and 20 regression tests pass. Entry, avatar selection,
-settings changes, and a 390 px wide layout were checked in the embedded browser.
-Full mouse-look traversal still needs a playtest in a pointer-lock-capable browser.
-The build currently reports a large JavaScript chunk warning.
+The production build and 25 regression tests pass, including navigation state,
+map marker grouping, movement input, camera collision and notification checks.
+Desktop entry, M → J switching, K → Daily, Escape → pause and a 390 × 844
+mobile-emulated entry/settings flow were checked in Chrome.
+
+In a local development check with DevTools open, paused CPU samples dropped
+from an earlier 61.8% to 5.5–6.3%, and style recalculations from 60/sec to 0/sec.
+These are directional observations, not controlled benchmarks or an FPS claim.
+The main game chunk is approximately 830 kB minified (242 kB gzip), plus a
+separate multiplayer chunk loaded after entry. The build still warns about large
+chunks. Physical-phone comfort, extended gameplay and production loading remain
+to be measured.
 
 ## Basement camera
 

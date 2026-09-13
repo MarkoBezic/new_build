@@ -1,3 +1,4 @@
+import { menus, configureMenus, registerPanel, resumeGame } from './menus.js';
 import * as THREE from 'three';
 import { buildWorld }      from './world.js';
 import { buildBuilding }   from './building.js';
@@ -17,7 +18,6 @@ import { createGeese } from './geese.js';
 import { createNPC }     from './npc.js';
 import { createPortals } from './portal.js';
 import { buildBeachVolleyballCourt } from './beach_volleyball.js';
-import { createMultiplayer } from './multiplayer.js';
 import { createChat } from './chat.js';
 import { showAvatarPicker } from './avatar-select.js';
 import { createSky }      from './sky.js';
@@ -87,6 +87,7 @@ renderer.shadowMap.type      = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = false;
 renderer.toneMapping         = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
+renderer.domElement.className = 'world-canvas';
 document.body.appendChild(renderer.domElement);
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -431,7 +432,7 @@ const plinko      = createPlinko(scene, {
   onBroadcast: data => { if (multiplayer.publishPlinko) multiplayer.publishPlinko(data); },
 });
 const islandMap   = createMap({ playerPosition, getState, isMobile });
-const journal     = createJournal({ tasks, treasure });
+const journal     = createJournal({ tasks, treasure, getEventSummary: worldEvents.getSummary });
 const snowballs   = createSnowballs(scene, {
   camera, playerPosition, biomeAt, audio,
   getTargets:  () => [...multiplayer.getRemotes(), ...ghosts.getRemotes()],
@@ -575,37 +576,8 @@ const chat = createChat({
   }
   document.body.appendChild(panel);
 
-  // Toggle button
-  const btn = document.createElement('button');
-  btn.textContent = '?';
-  Object.assign(btn.style, {
-    position: 'fixed', bottom: '20px', right: '20px',
-    width: '44px', height: '44px', borderRadius: '50%',
-    fontSize: '20px', fontWeight: 'bold', border: 'none',
-    background: 'rgba(0,0,0,0.50)', color: '#D4A85A',
-    cursor: 'pointer', zIndex: '40',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-  });
-  let open = false;
-  btn.addEventListener('click', () => {
-    open = !open;
-    panel.style.display = open ? 'block' : 'none';
-    btn.style.background = open ? 'rgba(180,140,60,0.55)' : 'rgba(0,0,0,0.50)';
-  });
-  document.body.appendChild(btn);
-
-  // ⚙ Settings — its own button beside the ? button
-  const settingsPanel = createSettingsPanel();
-  const sbtn = document.createElement('button');
-  sbtn.textContent = '⚙';
-  Object.assign(sbtn.style, {
-    position: 'fixed', bottom: '20px', right: '124px',   // ?:20 · 📖:72 · ⚙:124
-    width: '44px', height: '44px', borderRadius: '50%',
-    fontSize: '19px', border: 'none', background: 'rgba(0,0,0,0.50)',
-    color: '#D4A85A', cursor: 'pointer', zIndex: '40', boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-  });
-  sbtn.addEventListener('click', () => settingsPanel.toggle());
-  document.body.appendChild(sbtn);
+  registerPanel('help', panel, open => { panel.style.display = open ? 'block' : 'none'; });
+  createSettingsPanel();
 })();
 
 // Emote broadcast wired after multiplayer initialises in avatar picker callback
@@ -662,32 +634,52 @@ controls.addEventListener('unlock', () => {
 let avatarReady = false;
 
 if (isMobile) {
-  overlay.addEventListener('click', () => {
-    if (!avatarReady) return;
-    overlay.style.display = 'none';
-    startMobile();
+  overlay.addEventListener('click', e => {
+    if (!avatarReady || !e.target.closest('.click-hint')) return;
+    resumeGame();
   });
 } else {
   controls.addEventListener('lock', () => {
-    overlay.style.display   = 'none';
+    menus.play();
     crosshair.style.display = 'block';
     if (controls.dragLook) toast('Hold the right mouse button to look · WASD to move · Esc to pause', 6500);
   });
   controls.addEventListener('unlock', () => {
-    overlay.style.display   = 'flex';
+    if (menus.stage === 'playing') menus.pause();
     crosshair.style.display = 'none';
   });
-  overlay.addEventListener('click', () => {
-    if (!avatarReady) return;
-    controls.lock();
+  overlay.addEventListener('click', e => {
+    if (!avatarReady || !e.target.closest('.click-hint')) return;
+    resumeGame();
   });
 }
+
+configureMenus({
+  onChange: stage => audio.setPaused(stage !== 'playing'),
+  pause: () => { if (!isMobile) controls.unlock(); },
+  resume: () => { if (isMobile) { menus.play(); startMobile(); } else controls.lock(); },
+});
+const nav = document.createElement('nav');
+nav.id = 'game-nav'; nav.setAttribute('aria-label', 'Game navigation');
+nav.innerHTML = '<button data-menu="map">Map</button><button data-menu="journal">Journal</button><button data-pause>Menu</button>';
+nav.addEventListener('click', e => {
+  const button = e.target.closest('button');
+  if (!button) return;
+  if (button.dataset.menu) menus.open(button.dataset.menu);
+  else menus.pause();
+});
+document.body.appendChild(nav);
+overlay.addEventListener('click', e => {
+  const id = e.target.closest('[data-menu]')?.dataset.menu;
+  if (avatarReady && id) { e.stopPropagation(); menus.open(id); }
+  if (avatarReady && e.target.closest('[data-photo]')) { photo.snap(); }
+});
 
 showAvatarPicker(overlay, (color, name) => {
   setColor(color, name);
   myName = name;
   avatarReady = true;                // set before anything that could throw
-  try {
+  import('./multiplayer.js').then(({ createMultiplayer }) => {
     multiplayer = createMultiplayer(scene, getState, color, name, {
       hat: wornHat(),
       onRemoteEmote: (mesh, id, elapsed) => emotes.applyRemoteEmote(mesh, id, elapsed),
@@ -702,19 +694,25 @@ showAvatarPicker(overlay, (color, name) => {
         if (mesh) chat.showBubble(mesh, text);
       },
     });
-  } catch (e) { console.warn('Multiplayer unavailable:', e); }
+  }).catch(e => { console.warn('Multiplayer unavailable:', e); toast('Playing locally — multiplayer is unavailable.', 3200); });
   chat.showMobileButton(isMobile);
   if (!isMobile) controls.lock();
-  else { overlay.style.display = 'none'; startMobile(); }
+  else { menus.play(); startMobile(); }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Day / Night cycle — synced to real US Eastern time with seasonal solar model
 // ─────────────────────────────────────────────────────────────────────────────
+let solarElapsed = 1, solarHour = 12;
 function updateDayNight(dt, nowSec) {
-  const now = new Date();
-  _refreshSolar(now);
-  const hourEST = _estHourNow(now);
+  solarElapsed += dt;
+  if (solarElapsed >= 1) {
+    solarElapsed = 0;
+    const now = new Date();
+    _refreshSolar(now);
+    solarHour = _estHourNow(now);
+  }
+  const hourEST = solarHour;
 
   // Sun elevation: 0 at sunrise/sunset, 1 at solar noon, negative at night.
   // Day half: half-sine arc from sunrise to sunset.
@@ -849,6 +847,7 @@ const _audioState = {};
 const _fishCond = { night: 0, rain: 0 };
 
 let _shadowElapsed = 1;
+let lastMenuRender = -Infinity;
 function animate() {
   requestAnimationFrame(animate);
 
@@ -856,6 +855,19 @@ function animate() {
   if (document.hidden) { prevTime = now; return; }
   const dt  = Math.min((now - prevTime) / 1000, 0.05); // cap at 50 ms
   prevTime  = now;
+
+  if (menus.stage !== 'playing') {
+    // Keep network interpolation/publication alive, but freeze local simulation.
+    multiplayer.update(dt);
+    _prevPX = playerPosition.x; _prevPY = playerPosition.y; _prevPZ = playerPosition.z;
+    _prevVY = 0; _stepAcc = 0;
+    if (now - lastMenuRender >= 250) {
+      lastMenuRender = now;
+      renderer.render(scene, camera);
+      photo.afterRender();
+    }
+    return;
+  }
 
   // Refresh shadows a few times a second rather than every frame
   _shadowElapsed += dt;
@@ -886,6 +898,7 @@ function animate() {
   snowballs.update(dt);
   treasure.update(dt, now / 1000);
   tasks.update(dt);
+  journal.update(dt);
   ritual.update(dt, now / 1000);
   race.update(dt, now / 1000);
   gosling.update(dt);
@@ -946,6 +959,8 @@ function animate() {
   photo.afterRender();   // must run while the frame buffer is fresh
 }
 
+updateDayNight(0, performance.now() / 1000);
+document.getElementById('loading-screen')?.remove();
 animate();
 
 // ─────────────────────────────────────────────────────────────────────────────

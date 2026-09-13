@@ -1,5 +1,6 @@
 import { save, load } from './persistence.js';
-import { makeMobileButton } from './hud.js';
+import { registerPanel } from './menus.js';
+import { clusterMarkers } from './map-clusters.js';
 import { OCEAN } from './world.config.js';
 
 // The island map (M) — a hand-drawn-style canvas chart. Geography is always
@@ -48,7 +49,33 @@ export function createMap({ playerPosition, getState, isMobile }) {
     width: 'min(90vw, 78vh)', height: 'min(90vw, 78vh)',
     borderRadius: '12px', border: '2px solid rgba(212,168,90,0.5)',
   });
-  wrap.appendChild(canvas);
+  wrap.classList.add('island-map');
+  const selection = document.createElement('select');
+  selection.setAttribute('aria-label', 'Discovered place');
+  const detail = document.createElement('p');
+  detail.className = 'map-detail'; detail.setAttribute('aria-live', 'polite');
+  detail.textContent = 'Select a marker or choose a discovered place.';
+  wrap.append(canvas, selection, detail);
+  let selected = null, groups = [];
+  function refreshPlaces() {
+    selection.replaceChildren(new Option('Choose a discovered place', ''));
+    for (const p of POIS) if (found.has(p.id)) selection.add(new Option(p.label, p.id));
+    selection.value = selected || '';
+  }
+  selection.addEventListener('change', () => {
+    selected = selection.value;
+    detail.textContent = POIS.find(p => p.id === selected)?.label || 'Select a marker or choose a discovered place.';
+    draw();
+  });
+  canvas.addEventListener('click', e => {
+    const r = canvas.getBoundingClientRect();
+    const x = (e.clientX - r.left) * SIZE / r.width, y = (e.clientY - r.top) * SIZE / r.height;
+    const group = groups.find(g => Math.hypot(g.x - x, g.y - y) < 24);
+    if (!group) return;
+    selected = group.points[0].id; selection.value = selected;
+    detail.textContent = group.points.map(p => p.label).join(' · ');
+    draw();
+  });
   document.body.appendChild(wrap);
   const ctx = canvas.getContext('2d');
   let open = false;
@@ -98,15 +125,14 @@ export function createMap({ playerPosition, getState, isMobile }) {
     ctx.fillStyle = '#9A9488';
     ctx.fillRect(mx(-134) - 1, mz(-532) - 1, (28 / (EXTENT * 2)) * SIZE, (20 / (EXTENT * 2)) * SIZE);
 
-    // Discovered POI markers
+    // Cluster nearby places; the accessible picker exposes every location.
+    groups = clusterMarkers(POIS.filter(p => found.has(p.id)).map(p => ({ ...p, x: mx(p.x), y: mz(p.z) })));
     ctx.textAlign = 'center';
-    for (const p of POIS) {
-      if (!found.has(p.id)) continue;
-      ctx.font = '17px serif';
-      ctx.fillText(p.icon, mx(p.x), mz(p.z) + 6);
-      ctx.font = '10px Georgia';
-      ctx.fillStyle = '#3A2C18';
-      ctx.fillText(p.label, mx(p.x), mz(p.z) + 19);
+    for (const group of groups) {
+      ctx.fillStyle = group.points.some(p => p.id === selected) ? '#7A4420' : '#234739';
+      ctx.beginPath(); ctx.arc(group.x, group.y, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#FFF5DC'; ctx.font = 'bold 14px system-ui';
+      ctx.fillText(group.points.length > 1 ? String(group.points.length) : '•', group.x, group.y + 5);
     }
 
     // Player arrow
@@ -129,26 +155,16 @@ export function createMap({ playerPosition, getState, isMobile }) {
     ctx.font = 'bold 16px Georgia';
     ctx.fillText('N ↑', SIZE - 36, 32);
     ctx.font = '11px Georgia';
-    ctx.fillText(`${found.size} / ${POIS.length} places charted · M to close`, SIZE / 2, SIZE - 14);
+    ctx.fillText(`${found.size} / ${POIS.length} places charted`, SIZE / 2, SIZE - 14);
   }
 
   function toggle(force) {
     open = force ?? !open;
     wrap.style.display = open ? 'flex' : 'none';
-    if (open) draw();
+    if (open) { refreshPlaces(); draw(); }
   }
 
-  window.addEventListener('keydown', e => {
-    const tag = document.activeElement?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-    if (e.code === 'KeyM') toggle();
-    if (e.code === 'Escape') toggle(false);
-  });
-  wrap.addEventListener('click', () => toggle(false));
-
-  if (isMobile) {
-    makeMobileButton('🗺', { bottom: '214px', left: '20px' }, () => toggle()).style.display = 'block';
-  }
+  registerPanel('map', wrap, toggle);
 
   // ── Discovery + live redraw ─────────────────────────────────────────────────
   let pollT = 0, redrawT = 0;

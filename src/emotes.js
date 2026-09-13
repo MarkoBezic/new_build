@@ -151,15 +151,28 @@ export function createEmotes(getAvatar) {
     }
   }
 
+  const social = document.createElement('button');
+  social.className = 'social-toggle'; social.textContent = 'Emotes';
+  social.setAttribute('aria-expanded', 'false');
+  let socialOpen = false;
+  social.addEventListener('click', () => {
+    socialOpen = !socialOpen;
+    social.setAttribute('aria-expanded', String(socialOpen));
+    bar.style.display = socialOpen ? 'flex' : 'none';
+  });
+  document.body.appendChild(social);
   function showMobileBar(show) {
-    bar.style.display = show ? 'flex' : 'none';
+    const display = show ? 'block' : 'none';
+    if (social.style.display !== display) social.style.display = display;
   }
+
 
   // Wire mobile buttons
   btns.forEach((btn, i) => {
     btn.addEventListener('touchend', e => {
       e.preventDefault();
       trigger(EMOTES[i].id);
+      socialOpen = false; bar.style.display = 'none'; social.setAttribute('aria-expanded', 'false');
     });
   });
 

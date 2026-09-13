@@ -1,3 +1,4 @@
+import { settings } from './settings.js';
 import * as THREE from 'three';
 import { CLEARING_R, WORLD_R, LANDMARKS, OCEAN, SPAWN, BIOMES } from './world.config.js';
 import { progress } from './progress.js';
@@ -262,19 +263,12 @@ export function createMinimap(camera, getRemotes = () => []) {
   let staticMap = bakeMap(found);
   let scanTimer = 0, drawTimer = 0;
 
-  // ── M-key toggle — display is only touched here, never inside animate() ───
-  let visible = false;
-  window.addEventListener('keydown', e => {
-    if (e.code === 'KeyM') {
-      visible = !visible;
-      canvas.style.display = visible ? 'block' : 'none';
-    }
-  });
-  document.addEventListener('pointerlockchange', () => {
-    if (!document.pointerLockElement && visible) {
-      visible = false;
-      canvas.style.display = 'none';
-    }
+  let visible = settings.get('minimap');
+  canvas.style.display = visible ? 'block' : 'none';
+  settings.onChange(key => {
+    if (key !== 'minimap') return;
+    visible = settings.get('minimap');
+    canvas.style.display = visible ? 'block' : 'none';
   });
 
   const _dir = new THREE.Vector3();

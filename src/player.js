@@ -528,7 +528,11 @@ function createMobilePlayer(scene, camera, canvas) {
   joyBase.appendChild(joyKnob);
   document.body.appendChild(joyBase);
 
-  function startMobile() {}
+  function startMobile() {
+    joyId = lookId = null; joyDX = joyDY = 0;
+    joyBase.style.display = 'none';
+  }
+
 
   canvas.addEventListener('touchstart', e => {
     e.preventDefault();

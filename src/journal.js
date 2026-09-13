@@ -1,4 +1,5 @@
-import { load } from './persistence.js';
+import { menus, registerPanel } from './menus.js';
+import { save, load } from './persistence.js';
 import { progress } from './progress.js';
 import { TABLETS } from './tablets.js';
 import { LETTERS } from './castle.js';
@@ -29,7 +30,7 @@ const BEGINNINGS = [
   { label: 'Wake the ley network at the standing stones', done: () => load('ley:awake', false) },
 ];
 
-export function createJournal({ tasks, treasure }) {
+export function createJournal({ tasks, treasure, getEventSummary = () => '' }) {
   const panel = document.createElement('div');
   Object.assign(panel.style, {
     position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
@@ -40,8 +41,22 @@ export function createJournal({ tasks, treasure }) {
     boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
   });
   document.body.appendChild(panel);
-  let open = false, tab = 0;
+  let open = false, tab = load('journal:tab', 4);
+  if (!Number.isInteger(tab) || tab < 0 || tab > 4) tab = 4;
 
+  let pinned = load('journal:pin', null), pinElapsed = 0;
+  const pinHUD = document.createElement('p'); pinHUD.className = 'pinned-activity';
+  document.body.appendChild(pinHUD);
+  function update(dt) {
+    pinElapsed -= dt;
+    if (pinElapsed > 0) return;
+    pinElapsed = 0.5;
+    const activity = BEGINNINGS[pinned];
+    const text = activity && !activity.done() ? activity.label : '';
+    if (pinHUD.textContent !== text) pinHUD.textContent = text;
+    pinHUD.style.display = text ? 'block' : 'none';
+  }
+  update(0);
   const dim = s => `<span style="opacity:0.45">${s}</span>`;
   const head = s => `<div style="color:#D4A85A;font-size:16px;margin:10px 0 6px">${s}</div>`;
 
@@ -50,15 +65,17 @@ export function createJournal({ tasks, treasure }) {
     for (const t of TABLETS) {
       h += progress.has('tablets', t.id)
         ? `<div style="margin-bottom:11px"><span style="color:#86E8C8">◈ ${t.title}</span><br><span style="font-size:13px;line-height:1.6">${t.text}</span></div>`
-        : `<div style="margin-bottom:11px">${dim('◈ ??? — an unread stone waits somewhere…')}</div>`;
+        : '';
     }
+    h += `<p>${TABLETS.length - progress.count('tablets')} fragments remain to discover.</p>`;
     if (progress.get('crown')) h += `<div style="color:#FFD75A">👑 You wear the Warden's Crown.</div>`;
     h += head(`Royal Letters of Northkeep — ${progress.count('letters')} / ${LETTERS.length}`);
     for (const l of LETTERS) {
       h += progress.has('letters', l.id)
         ? `<div style="margin-bottom:11px"><span style="color:#E8C23A">✒ ${l.title}</span><br><span style="font-size:13px;line-height:1.6">${l.text}</span></div>`
-        : `<div style="margin-bottom:11px">${dim('✒ ??? — an unread letter waits in the castle…')}</div>`;
+        : '';
     }
+    h += `<p>${LETTERS.length - progress.count('letters')} letters remain in Northkeep.</p>`;
     return h;
   }
 
@@ -93,6 +110,8 @@ export function createJournal({ tasks, treasure }) {
       `${p.done ? '✅' : '⬜'} ${p.label}${p.prog && !p.done ? ` (${p.prog})` : ''}`,
     ).join('<br>') + `</div>`;
     h += `<div style="font-size:12px;opacity:0.7;margin-top:4px">Task streak: ${tasks.getStreak()} days</div>`;
+    h += head('Island events');
+    h += `<p>${getEventSummary()}</p>`;
     h += head('Daily treasure');
     h += `<div style="font-size:13px">${t.opened ? 'Found today ✓' : `“${t.hint}”`}</div>`;
     h += `<div style="font-size:12px;opacity:0.7;margin-top:4px">Treasure streak: ${t.streak} days · ${t.total} chests lifetime</div>`;
@@ -131,20 +150,27 @@ export function createJournal({ tasks, treasure }) {
       const d = b.done();
       return `<div style="color:${d ? '#8FD158' : '#D8CDB4'}">${d ? '✅' : '⬜'} ${b.label}</div>`;
     }).join('') + `</div>`;
+    h += `<label class="pin-picker">Keep one activity on screen<select aria-label="Pinned activity" data-pin><option value="">None</option>` + BEGINNINGS.map((b, i) => b.done() ? '' : `<option value="${i}" ${pinned === i ? 'selected' : ''}>${b.label}</option>`).join('') + `</select></label>`;
     return h;
   }
 
   function render() {
+    save('journal:tab', tab);
     const tabsHtml = TABS.map((t, i) =>
       `<button data-tab="${i}" style="border:none;border-radius:8px;padding:4px 9px;margin:0 5px 4px 0;cursor:pointer;font:13px Georgia;
         background:${i === tab ? 'rgba(212,168,90,0.35)' : 'rgba(255,255,255,0.07)'};
         color:${i === tab ? '#FFD75A' : '#C8BDA0'}">${i + 1}. ${t}</button>`).join('');
     const body = [storyTab, collectionsTab, dailyTab, recordsTab, beginningsTab][tab]();
     panel.innerHTML =
-      `<div style="margin-bottom:6px">${tabsHtml}</div>` + body +
+      `<button type="button" class="panel-close" data-close-panel>Back to menu</button><h2>Journal</h2><div style="margin-bottom:6px">${tabsHtml}</div>` + body +
       `<div style="font-size:11px;opacity:0.5;margin-top:10px">1–5 to switch tabs · J to close</div>`;
+    panel.querySelector('[data-close-panel]').addEventListener('click', () => menus.pause());
+    panel.querySelector('[data-pin]')?.addEventListener('change', e => {
+      pinned = e.target.value === '' ? null : Number(e.target.value);
+      save('journal:pin', pinned); pinElapsed = 0; update(0);
+    });
     panel.querySelectorAll('button[data-tab]').forEach(b =>
-      b.addEventListener('click', () => { tab = parseInt(b.dataset.tab); render(); }));
+      b.addEventListener('click', () => { tab = parseInt(b.dataset.tab); render(); panel.querySelector(`[data-tab="${tab}"]`)?.focus(); }));
   }
 
   function toggle(force, toTab) {
@@ -154,32 +180,13 @@ export function createJournal({ tasks, treasure }) {
     panel.style.display = open ? 'block' : 'none';
   }
 
-  window.addEventListener('keydown', e => {
-    const tag = document.activeElement?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-    if (e.code === 'KeyJ') toggle();
-    if (e.code === 'Escape' && open) toggle(false);
-  });
-
-  // Digits switch tabs while open (main routes keys here first, like the
-  // shop). J itself is NOT handled here — the window listener above owns it,
-  // and handling it in both places would double-toggle on one press.
+  // The menu controller routes digits only to the active journal.
   function onKey(e) {
     const m = e.code.match(/^Digit([1-5])$/);
-    if (m) { tab = parseInt(m[1]) - 1; render(); return true; }
+    if (m) { tab = parseInt(m[1]) - 1; render(); panel.querySelector(`[data-tab="${tab}"]`)?.focus(); return true; }
     return false;
   }
 
-  const btn = document.createElement('button');
-  btn.textContent = '📖';
-  Object.assign(btn.style, {
-    position: 'fixed', bottom: '20px', right: '72px',
-    width: '44px', height: '44px', borderRadius: '50%',
-    fontSize: '19px', border: 'none', background: 'rgba(0,0,0,0.50)',
-    cursor: 'pointer', zIndex: '40', boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-  });
-  btn.addEventListener('click', () => toggle());
-  document.body.appendChild(btn);
-
-  return { onKey, isOpen: () => open };
+  registerPanel('journal', panel, toggle, onKey);
+  return { onKey, update, isOpen: () => open };
 }

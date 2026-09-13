@@ -164,6 +164,7 @@ export function createChat({ onSend }) {
   // Mobile chat button
   const btn = document.createElement('button');
   btn.textContent = '💬';
+  btn.setAttribute('aria-label', 'Chat');
   Object.assign(btn.style, {
     position: 'fixed', bottom: '20px', left: '20px',
     width: '44px', height: '44px', borderRadius: '50%',

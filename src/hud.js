@@ -86,6 +86,7 @@ export function floatUp(anchorEl, text, color = '#FFE0D0') {
 // ── HUD counter chip (top-right stack) — shared by shards/tasks/shells ──────
 export function makeChip(top, color = '#DFF6FF') {
   const chip = document.createElement('div');
+  chip.className = 'resource-chip';
   Object.assign(chip.style, {
     position: 'fixed', top: `${top}px`, right: '14px', zIndex: '15',
     color, font: '13px/1.6 system-ui, sans-serif',
@@ -100,6 +101,7 @@ export function makeChip(top, color = '#DFF6FF') {
 export function makeMobileButton(emoji, pos, onTap, background = 'rgba(0,0,0,0.45)') {
   const btn = document.createElement('button');
   btn.textContent = emoji;
+  btn.setAttribute('aria-label', ({ '🎣': 'Fish', '❄️': 'Throw snowball', '🤿': 'Dive or surface', '✦': 'Interact', '🏐': 'Hit volleyball' })[emoji] || emoji);
   Object.assign(btn.style, {
     position: 'fixed', width: '54px', height: '54px', borderRadius: '50%',
     fontSize: '24px', border: 'none', display: 'none',
@@ -210,7 +212,7 @@ export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, g
     ctx.fill();
   }
 
-  let _lastBearing = -999;
+  let _lastBearing = -999, hudElapsed = 0;
 
   function update(dt) {
     // Compass — redrawn only when the heading actually moves (canvas redraws
@@ -221,6 +223,10 @@ export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, g
       _lastBearing = bearing;
       drawCompass(bearing);
     }
+
+    hudElapsed += dt;
+    if (hudElapsed < 0.1) return;
+    dt = hudElapsed; hudElapsed = 0;
 
     // Zone label + banner (throttled)
     zoneTimer -= dt;
@@ -244,10 +250,12 @@ export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, g
     const prompt = getInteractPrompt ? getInteractPrompt() : null;
     const near = getNearestPortal(playerPosition.x, playerPosition.z);
     if (prompt) {
-      hintEl.textContent = isMobile ? `✦ ${prompt}` : `[E] ${prompt}`;
+      const text = isMobile ? `✦ ${prompt}` : `[E] ${prompt}`;
+      if (hintEl.textContent !== text) hintEl.textContent = text;
       hintEl.style.opacity = '1';
     } else if (near && near.dist < 10) {
-      hintEl.textContent = `Run into the portal to warp → ${near.label}`;
+      const text = `Run into the portal to warp → ${near.label}`;
+      if (hintEl.textContent !== text) hintEl.textContent = text;
       hintEl.style.opacity = '1';
     } else if (tipLife > 0) {
       tipLife -= dt; tipTimer -= dt;
@@ -273,4 +281,10 @@ export function createHUD({ camera, playerPosition, biomeAt, getNearestPortal, g
   }
 
   return { update };
+}
+
+export function revealChip(chip) {
+  chip.classList.add('recent');
+  clearTimeout(chip._hideTimer);
+  chip._hideTimer = setTimeout(() => chip.classList.remove('recent'), 5000);
 }

@@ -10,7 +10,7 @@ const FIRE  = { x: -465, z: 578 };     // beach campfire
 export function createAudio() {
   const AC  = window.AudioContext || window.webkitAudioContext;
   const ctx = new AC();
-  let muted = false;
+  let muted = false, paused = true;
 
   const master = ctx.createGain();
   master.gain.value = settings.get('volMaster');
@@ -19,14 +19,14 @@ export function createAudio() {
   // Two sub-buses so ambience and effects can be balanced independently
   const ambienceBus = ctx.createGain();
   const effectsBus  = ctx.createGain();
-  ambienceBus.gain.value = settings.get('volAmbience');
+  ambienceBus.gain.value = 0;
   effectsBus.gain.value  = settings.get('volEffects');
   ambienceBus.connect(master);
   effectsBus.connect(master);
 
   settings.onChange((k, v) => {
     if (k === 'volMaster')   master.gain.value = v;
-    if (k === 'volAmbience') ambienceBus.gain.value = v;
+    if (k === 'volAmbience' && !paused) ambienceBus.gain.value = v;
     if (k === 'volEffects')  effectsBus.gain.value = v;
   });
 
@@ -218,5 +218,9 @@ export function createAudio() {
     return muted;
   }
 
-  return { update, sfx, toggleMute };
+  function setPaused(value) {
+    paused = value;
+    ambienceBus.gain.setTargetAtTime(paused ? 0 : settings.get('volAmbience'), ctx.currentTime, 0.12);
+  }
+  return { update, sfx, toggleMute, setPaused };
 }

@@ -1,6 +1,6 @@
 import { dailyRng, dayKey, yesterdayKey } from './daily.js';
 import { save, load } from './persistence.js';
-import { toast, makeChip } from './hud.js';
+import { toast } from './hud.js';
 import { bus } from './bus.js';
 import { biomeAt } from './biomes.js';
 
@@ -58,7 +58,6 @@ export function createTasks({ playerPosition }) {
       toast(`📋 Task complete: ${task.label} (${n}/${picks.length})`, 3200);
     }
     persist();
-    refreshUI();
   }
 
   function record(task, data) {
@@ -67,7 +66,7 @@ export function createTasks({ playerPosition }) {
     if (task.need) {
       state.prog[task.id] = (state.prog[task.id] ?? 0) + 1;
       persist();
-      if (state.prog[task.id] < task.need) { refreshUI(); return; }
+      if (state.prog[task.id] < task.need) return;
     }
     complete(task);
   }
@@ -75,44 +74,6 @@ export function createTasks({ playerPosition }) {
   for (const t of picks) {
     if (t.ev) bus.on(t.ev, data => record(t, data));
   }
-
-  // ── Chip under the shard counter ────────────────────────────────────────────
-  const chip = makeChip(42, '#FFE9B8');
-
-  // ── K panel ─────────────────────────────────────────────────────────────────
-  const panel = document.createElement('div');
-  Object.assign(panel.style, {
-    position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
-    background: 'rgba(14,11,6,0.94)', color: '#F0E4C8',
-    borderRadius: '14px', padding: '18px 26px', zIndex: '45',
-    font: '14px/1.9 system-ui, sans-serif', display: 'none',
-    border: '1px solid rgba(255,215,90,0.35)', minWidth: '300px',
-    boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
-  });
-  document.body.appendChild(panel);
-  let open = false;
-
-  function refreshUI() {
-    chip.textContent = `📋 ${completedCount()} / ${picks.length}`;
-    const rows = picks.map(t => {
-      const done = state.done.includes(t.id);
-      const prog = t.need && !done ? ` (${state.prog[t.id] ?? 0}/${t.need})` : '';
-      return `<div style="color:${done ? '#8FD158' : '#D8CDB4'}">${done ? '✅' : '⬜'} ${t.label}${prog}</div>`;
-    }).join('');
-    panel.innerHTML =
-      `<div style="font-weight:bold;color:#FFD75A;margin-bottom:8px">📋 Daily Tasks — ${today}</div>` +
-      rows +
-      `<div style="margin-top:10px;color:#B8A888;font-size:12px">Streak: ${streakRec.streak} · resets at midnight (Toronto) · K to close</div>`;
-  }
-  refreshUI();
-
-  window.addEventListener('keydown', e => {
-    if (e.code !== 'KeyK') return;
-    const tag = document.activeElement?.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-    open = !open;
-    panel.style.display = open ? 'block' : 'none';
-  });
 
   // One-line summary for the notice board
   function summaryLine() {
