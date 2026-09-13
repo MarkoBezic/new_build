@@ -1,3 +1,4 @@
+import { createWaterTravel } from './water-travel.js';
 import * as THREE from 'three';
 import { createJumpInput } from './jump-input.js';
 import { createThirdPersonCamera } from './third-person-camera.js';
@@ -29,26 +30,23 @@ export const isMobile = window.matchMedia('(pointer: coarse)').matches;
 
 // ── Boat state (shared across whichever player is active) ────────────────────
 let _boats         = [];
-let _activeBoat    = null;
-let _onBoat        = false;
-let _hasCastOff    = false;   // true once the active boat has entered open water
-let _boardCooldown = 0;       // grace period after disembarking before re-board
+const travel = createWaterTravel();
 const BOARD_COOLDOWN = 1.2;
 export function setBoats(arr) { _boats = arr; }
-export function isOnBoat()    { return _onBoat; }
+export function isOnBoat()    { return travel.onBoat; }
 
 // ── Swimming (see diving.js) ─────────────────────────────────────────────────
 // Diving replaces gravity with buoyancy and lets the look direction drive
 // movement in three dimensions, so the sea becomes a space rather than a lid.
-let _swimming = false;
-export function isSwimming()      { return _swimming; }
-export function setSwimming(v)    { _swimming = !!v; }
+export function isSwimming()      { return travel.swimming; }
+export function setSwimming(v)    { travel.setSwimming(v); }
+export function getSurfacePosition(fallback) { return travel.surfacePosition(fallback); }
 const SWIM_SPEED = 7.5, SWIM_FAST = 11.5, SWIM_RISE = 4.5, SWIM_SINK = -0.75;
 export const SEABED = -24;        // hard floor of the open sea
 
 // Walkable if on the land side of the shore, or anywhere on Ember Isle —
 // and anywhere at all while swimming
-function canWalk(x, z) { return _swimming || (z - x) <= SHORE || inIsland(x, z); }
+function canWalk(x, z) { return travel.swimming || (z - x) <= SHORE || inIsland(x, z); }
 
 // Open sea = past the shore band and clear of the island — boats run fast here
 function boatSpeed(b) {
@@ -92,7 +90,7 @@ function shoreExit(boat) {
 }
 
 function floorY(x, z) {
-  if (_onBoat) return BOAT_DECK_Y;
+  if (travel.onBoat) return BOAT_DECK_Y;
   return zoneGroundY(x, z);
 }
 
@@ -170,7 +168,7 @@ function createDesktopPlayer(scene, camera, canvas) {
 
     keys.add(e.code);
 
-    if (e.code === 'Space' && !e.repeat && !_onBoat && !_swimming) jumpInput.press();
+    if (e.code === 'Space' && !e.repeat && !travel.onBoat && !travel.swimming) jumpInput.press();
 
     if (e.code === 'KeyV' && !e.repeat && controls.isLocked) {
       thirdPerson = !thirdPerson;
@@ -188,32 +186,32 @@ function createDesktopPlayer(scene, camera, canvas) {
     }
 
     // Disembark boat
-    if (e.code === 'KeyE' && _onBoat && _activeBoat) {
-      _onBoat = false; _hasCastOff = false;
-      _boardCooldown = BOARD_COOLDOWN;
+    if (e.code === 'KeyE' && travel.onBoat && travel.boat) {
+      travel.onBoat = false; travel.hasCastOff = false;
+      travel.boardCooldown = BOARD_COOLDOWN;
       boatHint.style.display = 'none';
       let tx, tz;
-      const di = Math.hypot(_activeBoat.x - ISLAND.x, _activeBoat.z - ISLAND.z);
+      const di = Math.hypot(travel.boat.x - ISLAND.x, travel.boat.z - ISLAND.z);
       if (di < ISLAND.r + 12) {
         // Step ashore onto Ember Isle — and pull the boat to the rim so it
         // stays boardable from the wading shelf, never stranded offshore
-        const ux = (_activeBoat.x - ISLAND.x) / di, uz = (_activeBoat.z - ISLAND.z) / di;
-        _activeBoat.x = ISLAND.x + ux * (ISLAND.r + 1.5);
-        _activeBoat.z = ISLAND.z + uz * (ISLAND.r + 1.5);
-        _activeBoat.mesh.position.set(_activeBoat.x, BOAT_FLOAT_Y, _activeBoat.z);
+        const ux = (travel.boat.x - ISLAND.x) / di, uz = (travel.boat.z - ISLAND.z) / di;
+        travel.boat.x = ISLAND.x + ux * (ISLAND.r + 1.5);
+        travel.boat.z = ISLAND.z + uz * (ISLAND.r + 1.5);
+        travel.boat.mesh.position.set(travel.boat.x, BOAT_FLOAT_Y, travel.boat.z);
         tx = ISLAND.x + ux * (ISLAND.r - 2.5);
         tz = ISLAND.z + uz * (ISLAND.r - 2.5);
       } else {
         // Place player on beach side of shore from current boat position
-        const K = _activeBoat.z - _activeBoat.x;
+        const K = travel.boat.z - travel.boat.x;
         const shift = Math.max(0, K - 1092) / 2;  // move toward beach until z−x≈1092
-        tx = _activeBoat.x + shift; tz = _activeBoat.z - shift;
+        tx = travel.boat.x + shift; tz = travel.boat.z - shift;
       }
       if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
       else             { camera.position.x = tx; camera.position.z = tz; }
       playerY = floorY(tx, tz);
       vy = 0;
-      _activeBoat = null;
+      travel.boat = null;
     }
 
     if (['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Tab'].includes(e.code))
@@ -227,15 +225,15 @@ function createDesktopPlayer(scene, camera, canvas) {
   // ── Per-frame update ────────────────────────────────────────────────────────
   function update(dt) {
     if (!controls.isLocked) return;
-    jumpInput.update(dt, grounded && !_onBoat && !_swimming);
-    _boardCooldown = Math.max(0, _boardCooldown - dt);
+    jumpInput.update(dt, grounded && !travel.onBoat && !travel.swimming);
+    travel.boardCooldown = Math.max(0, travel.boardCooldown - dt);
 
-    const speed = _onBoat ? boatSpeed(_activeBoat)
+    const speed = travel.onBoat ? boatSpeed(travel.boat)
                 : (keys.has('ShiftLeft') || keys.has('ShiftRight') ? SPRINT_SPEED : WALK_SPEED);
     let mx = 0, mz = 0;
     // Swimming drives its own 3-D movement below; running this too would
     // move the diver twice per frame
-    if (!_swimming) {
+    if (!travel.swimming) {
       if (keys.has('KeyW') || keys.has('ArrowUp'))    mz -= 1;
       if (keys.has('KeyS') || keys.has('ArrowDown'))  mz += 1;
       if (keys.has('KeyA') || keys.has('ArrowLeft'))  mx -= 1;
@@ -249,35 +247,35 @@ function createDesktopPlayer(scene, camera, canvas) {
       const rgtX =  Math.cos(yaw), rgtZ = -Math.sin(yaw);
       const dx = (fwdX * (-mz) + rgtX * mx) * n * speed * dt;
       const dz = (fwdZ * (-mz) + rgtZ * mx) * n * speed * dt;
-      if (_onBoat) {
-        _activeBoat.x += dx; _activeBoat.z += dz;
-        if (_activeBoat.z - _activeBoat.x >= SHORE) _hasCastOff = true;
+      if (travel.onBoat) {
+        travel.boat.x += dx; travel.boat.z += dz;
+        if (travel.boat.z - travel.boat.x >= SHORE) travel.hasCastOff = true;
         // Stop boat when beached; auto-disembark so player walks off freely
-        const boatDiag = _activeBoat.z - _activeBoat.x;
+        const boatDiag = travel.boat.z - travel.boat.x;
         if (boatDiag < BEACH_STOP) {
           const excess = BEACH_STOP - boatDiag;
-          _activeBoat.x -= excess / 2; _activeBoat.z += excess / 2;
-          const { tx, tz } = shoreExit(_activeBoat);
-          _onBoat = false; _hasCastOff = false;
-          _activeBoat = null;
-          _boardCooldown = BOARD_COOLDOWN;
+          travel.boat.x -= excess / 2; travel.boat.z += excess / 2;
+          const { tx, tz } = shoreExit(travel.boat);
+          travel.onBoat = false; travel.hasCastOff = false;
+          travel.boat = null;
+          travel.boardCooldown = BOARD_COOLDOWN;
           boatHint.style.display = 'none';
           if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
           else             { camera.position.x = tx; camera.position.z = tz; }
           playerY = floorY(tx, tz); vy = 0;
         }
         // Beach on Ember Isle — nose the boat to the rim and step ashore
-        if (_activeBoat) {
-          const di = Math.hypot(_activeBoat.x - ISLAND.x, _activeBoat.z - ISLAND.z);
+        if (travel.boat) {
+          const di = Math.hypot(travel.boat.x - ISLAND.x, travel.boat.z - ISLAND.z);
           if (di < ISLAND.r + 1) {
-            const ux = (_activeBoat.x - ISLAND.x) / di, uz = (_activeBoat.z - ISLAND.z) / di;
-            _activeBoat.x = ISLAND.x + ux * (ISLAND.r + 1.5);
-            _activeBoat.z = ISLAND.z + uz * (ISLAND.r + 1.5);
-            _activeBoat.mesh.position.set(_activeBoat.x, BOAT_FLOAT_Y, _activeBoat.z);
+            const ux = (travel.boat.x - ISLAND.x) / di, uz = (travel.boat.z - ISLAND.z) / di;
+            travel.boat.x = ISLAND.x + ux * (ISLAND.r + 1.5);
+            travel.boat.z = ISLAND.z + uz * (ISLAND.r + 1.5);
+            travel.boat.mesh.position.set(travel.boat.x, BOAT_FLOAT_Y, travel.boat.z);
             const tx = ISLAND.x + ux * (ISLAND.r - 2.5);
             const tz = ISLAND.z + uz * (ISLAND.r - 2.5);
-            _onBoat = false; _hasCastOff = false; _activeBoat = null;
-            _boardCooldown = BOARD_COOLDOWN;
+            travel.onBoat = false; travel.hasCastOff = false; travel.boat = null;
+            travel.boardCooldown = BOARD_COOLDOWN;
             boatHint.style.display = 'none';
             if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
             else             { camera.position.x = tx; camera.position.z = tz; }
@@ -298,10 +296,10 @@ function createDesktopPlayer(scene, camera, canvas) {
 
     // Auto-disembark once the boat has entered open water and drifts back to
     // shore — the player simply walks off onto the sand and keeps going
-    if (_onBoat && _activeBoat && _hasCastOff && (_activeBoat.z - _activeBoat.x < SHORE)) {
-      const { tx, tz } = shoreExit(_activeBoat);
-      _onBoat = false; _hasCastOff = false; _activeBoat = null;
-      _boardCooldown = BOARD_COOLDOWN;
+    if (travel.onBoat && travel.boat && travel.hasCastOff && (travel.boat.z - travel.boat.x < SHORE)) {
+      const { tx, tz } = shoreExit(travel.boat);
+      travel.onBoat = false; travel.hasCastOff = false; travel.boat = null;
+      travel.boardCooldown = BOARD_COOLDOWN;
       boatHint.style.display = 'none';
       if (thirdPerson) { avatar.position.x = tx; avatar.position.z = tz; }
       else             { camera.position.x = tx; camera.position.z = tz; }
@@ -309,10 +307,10 @@ function createDesktopPlayer(scene, camera, canvas) {
     }
 
     // Gravity / floor / glide / swim
-    if (_swimming) {
+    if (travel.swimming) {
       // Swim where you look: W drives along the full 3-D view vector, Space
       // kicks for the surface, Shift is a faster stroke. Buoyancy makes an
-      // idle diver drift gently upward-ish rather than plummet.
+      // idle diver drift gently downward rather than plummet.
       const sp = keys.has('ShiftLeft') || keys.has('ShiftRight') ? SWIM_FAST : SWIM_SPEED;
       const cp = Math.cos(pitch);
       const fwd = { x: -Math.sin(yaw) * cp, y: Math.sin(pitch), z: -Math.cos(yaw) * cp };
@@ -332,6 +330,7 @@ function createDesktopPlayer(scene, camera, canvas) {
         playerY += (sy / sl) * sp * dt;
       }
       if (keys.has('Space')) playerY += SWIM_RISE * dt;
+      else if (keys.has('KeyQ')) playerY -= SWIM_RISE * dt;
       else if (sl === 0)     playerY += SWIM_SINK * dt;
       const px2 = thirdPerson ? avatar.position.x : camera.position.x;
       const pz2 = thirdPerson ? avatar.position.z : camera.position.z;
@@ -340,7 +339,7 @@ function createDesktopPlayer(scene, camera, canvas) {
       if (playerY > 0) playerY = 0;                 // the surface is a ceiling
       vy = 0; grounded = false; airTime = 0; _gliding = false;
       wing.visible = false;
-    } else if (_onBoat) {
+    } else if (travel.onBoat) {
       playerY = BOAT_DECK_Y; vy = 0; grounded = true; airTime = 0; _gliding = false;
     } else {
       if (jumpInput.consume()) { vy = JUMP_VEL; grounded = false; }
@@ -372,20 +371,20 @@ function createDesktopPlayer(scene, camera, canvas) {
     wing.visible = _gliding;
 
     // Sync boat mesh and avatar to boat position
-    if (_onBoat && _activeBoat) {
+    if (travel.onBoat && travel.boat) {
       // Steer boat to face the player's look direction
-      let diff = yaw - _activeBoat.yaw;
+      let diff = yaw - travel.boat.yaw;
       while (diff >  Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
-      _activeBoat.yaw += diff * Math.min(1.2 * dt, 1.0);
-      _activeBoat.mesh.rotation.y = _activeBoat.yaw;
-      _activeBoat.mesh.position.set(_activeBoat.x, BOAT_FLOAT_Y, _activeBoat.z);
-      if (thirdPerson) { avatar.position.x = _activeBoat.x; avatar.position.z = _activeBoat.z; }
-      else             { camera.position.x = _activeBoat.x; camera.position.z = _activeBoat.z; }
+      travel.boat.yaw += diff * Math.min(1.2 * dt, 1.0);
+      travel.boat.mesh.rotation.y = travel.boat.yaw;
+      travel.boat.mesh.position.set(travel.boat.x, BOAT_FLOAT_Y, travel.boat.z);
+      if (thirdPerson) { avatar.position.x = travel.boat.x; avatar.position.z = travel.boat.z; }
+      else             { camera.position.x = travel.boat.x; camera.position.z = travel.boat.z; }
     }
 
     // Walk animation
-    animateAvatar(avatar, dt, !_onBoat && len > 0);
+    animateAvatar(avatar, dt, !travel.onBoat && len > 0);
 
     if (thirdPerson) {
       // ── 3rd-person ──────────────────────────────────────────────────────────
@@ -396,7 +395,7 @@ function createDesktopPlayer(scene, camera, canvas) {
       const ly = playerY + 1.2;   // look-at height on avatar
       const lz = avatar.position.z;
 
-      const view = chaseCamera.update(lx, playerY, lz, yaw, pitch, dt, _swimming);
+      const view = chaseCamera.update(lx, playerY, lz, yaw, pitch, dt, travel.swimming);
       camera.position.set(view.x, view.y, view.z);
       // In a very tight corner the avatar would otherwise fill the entire view.
       avatar.visible = view.distance > (avatar.visible ? 0.7 : 0.95);
@@ -414,7 +413,7 @@ function createDesktopPlayer(scene, camera, canvas) {
 
     // Auto-board: walk into any boat to board the nearest one (never while
     // swimming, or a diver would be yanked aboard the instant they slipped in)
-    if (!_onBoat && !_swimming && _boardCooldown <= 0 && _boats.length) {
+    if (!travel.onBoat && !travel.swimming && travel.boardCooldown <= 0 && _boats.length) {
       const curX = thirdPerson ? avatar.position.x : camera.position.x;
       const curZ = thirdPerson ? avatar.position.z : camera.position.z;
       let nearest = null, bestDist = BOARD_RADIUS;
@@ -423,8 +422,8 @@ function createDesktopPlayer(scene, camera, canvas) {
         if (d < bestDist) { bestDist = d; nearest = b; }
       }
       if (nearest) {
-        _activeBoat = nearest;
-        _onBoat = true; _hasCastOff = false;
+        travel.boat = nearest;
+        travel.onBoat = true; travel.hasCastOff = false;
         playerY = BOAT_DECK_Y;
         vy = 0;
         boatHint.style.display = 'block';
@@ -586,11 +585,11 @@ function createMobilePlayer(scene, camera, canvas) {
   canvas.addEventListener('touchcancel', endTouch, { passive: false });
 
   function update(dt) {
-    _boardCooldown = Math.max(0, _boardCooldown - dt);
+    travel.boardCooldown = Math.max(0, travel.boardCooldown - dt);
 
     // Swimming: the joystick drives the full 3-D view vector, so looking
     // down and pushing forward takes you down
-    if (_swimming) {
+    if (travel.swimming) {
       const moving = joyId !== null && Math.hypot(joyDX, joyDY) > DEAD;
       const cp = Math.cos(pitch);
       if (moving) {
@@ -627,35 +626,35 @@ function createMobilePlayer(scene, camera, canvas) {
     if (joyId !== null && Math.hypot(joyDX, joyDY) > DEAD) {
       const fwdX = -Math.sin(yaw), fwdZ = -Math.cos(yaw);
       const rgtX =  Math.cos(yaw), rgtZ = -Math.sin(yaw);
-      const mSpeed = _onBoat ? boatSpeed(_activeBoat) : WALK_SPEED;
+      const mSpeed = travel.onBoat ? boatSpeed(travel.boat) : WALK_SPEED;
       const dx = (-joyDY * fwdX + joyDX * rgtX) * mSpeed * dt;
       const dz = (-joyDY * fwdZ + joyDX * rgtZ) * mSpeed * dt;
-      if (_onBoat) {
-        _activeBoat.x += dx; _activeBoat.z += dz;
-        if (_activeBoat.z - _activeBoat.x >= SHORE) _hasCastOff = true;
-        const boatDiag = _activeBoat.z - _activeBoat.x;
+      if (travel.onBoat) {
+        travel.boat.x += dx; travel.boat.z += dz;
+        if (travel.boat.z - travel.boat.x >= SHORE) travel.hasCastOff = true;
+        const boatDiag = travel.boat.z - travel.boat.x;
         if (boatDiag < BEACH_STOP) {
           const excess = BEACH_STOP - boatDiag;
-          _activeBoat.x -= excess / 2; _activeBoat.z += excess / 2;
-          const { tx, tz } = shoreExit(_activeBoat);
+          travel.boat.x -= excess / 2; travel.boat.z += excess / 2;
+          const { tx, tz } = shoreExit(travel.boat);
           playerX = tx; playerZ = tz;
-          _onBoat = false; _hasCastOff = false;
-          _activeBoat = null;
-          _boardCooldown = BOARD_COOLDOWN;
+          travel.onBoat = false; travel.hasCastOff = false;
+          travel.boat = null;
+          travel.boardCooldown = BOARD_COOLDOWN;
           playerY = floorY(playerX, playerZ); vy = 0;
         }
         // Beach on Ember Isle — nose the boat to the rim and step ashore
-        if (_activeBoat) {
-          const di = Math.hypot(_activeBoat.x - ISLAND.x, _activeBoat.z - ISLAND.z);
+        if (travel.boat) {
+          const di = Math.hypot(travel.boat.x - ISLAND.x, travel.boat.z - ISLAND.z);
           if (di < ISLAND.r + 1) {
-            const ux = (_activeBoat.x - ISLAND.x) / di, uz = (_activeBoat.z - ISLAND.z) / di;
-            _activeBoat.x = ISLAND.x + ux * (ISLAND.r + 1.5);
-            _activeBoat.z = ISLAND.z + uz * (ISLAND.r + 1.5);
-            _activeBoat.mesh.position.set(_activeBoat.x, BOAT_FLOAT_Y, _activeBoat.z);
+            const ux = (travel.boat.x - ISLAND.x) / di, uz = (travel.boat.z - ISLAND.z) / di;
+            travel.boat.x = ISLAND.x + ux * (ISLAND.r + 1.5);
+            travel.boat.z = ISLAND.z + uz * (ISLAND.r + 1.5);
+            travel.boat.mesh.position.set(travel.boat.x, BOAT_FLOAT_Y, travel.boat.z);
             playerX = ISLAND.x + ux * (ISLAND.r - 2.5);
             playerZ = ISLAND.z + uz * (ISLAND.r - 2.5);
-            _onBoat = false; _hasCastOff = false; _activeBoat = null;
-            _boardCooldown = BOARD_COOLDOWN;
+            travel.onBoat = false; travel.hasCastOff = false; travel.boat = null;
+            travel.boardCooldown = BOARD_COOLDOWN;
             playerY = floorY(playerX, playerZ); vy = 0;
           }
         }
@@ -669,16 +668,16 @@ function createMobilePlayer(scene, camera, canvas) {
     }
 
     // Auto-disembark once the boat has entered open water and drifts back to shore
-    if (_onBoat && _activeBoat && _hasCastOff && (_activeBoat.z - _activeBoat.x < SHORE)) {
-      const { tx, tz } = shoreExit(_activeBoat);
+    if (travel.onBoat && travel.boat && travel.hasCastOff && (travel.boat.z - travel.boat.x < SHORE)) {
+      const { tx, tz } = shoreExit(travel.boat);
       playerX = tx; playerZ = tz;
-      _onBoat = false; _hasCastOff = false; _activeBoat = null;
-      _boardCooldown = BOARD_COOLDOWN;
+      travel.onBoat = false; travel.hasCastOff = false; travel.boat = null;
+      travel.boardCooldown = BOARD_COOLDOWN;
       playerY = floorY(playerX, playerZ); vy = 0;
     }
 
     // Gravity / floor / glide (mobile auto-deploys after a beat of freefall)
-    if (_onBoat) {
+    if (travel.onBoat) {
       playerY = BOAT_DECK_Y; vy = 0; airTime = 0; _gliding = false;
     } else {
       vy += GRAVITY * dt;
@@ -702,18 +701,18 @@ function createMobilePlayer(scene, camera, canvas) {
     wing.visible = _gliding;
 
     // Sync boat mesh and player position
-    if (_onBoat && _activeBoat) {
-      let diff = yaw - _activeBoat.yaw;
+    if (travel.onBoat && travel.boat) {
+      let diff = yaw - travel.boat.yaw;
       while (diff >  Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
-      _activeBoat.yaw += diff * Math.min(1.2 * dt, 1.0);
-      _activeBoat.mesh.rotation.y = _activeBoat.yaw;
-      _activeBoat.mesh.position.set(_activeBoat.x, BOAT_FLOAT_Y, _activeBoat.z);
-      playerX = _activeBoat.x; playerZ = _activeBoat.z;
+      travel.boat.yaw += diff * Math.min(1.2 * dt, 1.0);
+      travel.boat.mesh.rotation.y = travel.boat.yaw;
+      travel.boat.mesh.position.set(travel.boat.x, BOAT_FLOAT_Y, travel.boat.z);
+      playerX = travel.boat.x; playerZ = travel.boat.z;
     }
 
     // Walk animation
-    animateAvatar(avatar, dt, !_onBoat && joyId !== null && Math.hypot(joyDX, joyDY) > DEAD);
+    animateAvatar(avatar, dt, !travel.onBoat && joyId !== null && Math.hypot(joyDX, joyDY) > DEAD);
 
     // Update avatar
     avatar.position.set(playerX, playerY, playerZ);
@@ -723,7 +722,7 @@ function createMobilePlayer(scene, camera, canvas) {
     const lx = playerX;
     const ly = playerY + 1.2;
     const lz = playerZ;
-    const view = chaseCamera.update(lx, playerY, lz, yaw, pitch, dt, _swimming);
+    const view = chaseCamera.update(lx, playerY, lz, yaw, pitch, dt, travel.swimming);
     camera.position.set(view.x, view.y, view.z);
     avatar.visible = view.distance > (avatar.visible ? 0.7 : 0.95);
     camera.lookAt(lx, ly, lz);
@@ -731,13 +730,13 @@ function createMobilePlayer(scene, camera, canvas) {
     playerPosition.set(lx, ly, lz);
 
     // Auto-board: walk into any boat to board the nearest one
-    if (!_onBoat && !_swimming && _boardCooldown <= 0 && _boats.length) {
+    if (!travel.onBoat && !travel.swimming && travel.boardCooldown <= 0 && _boats.length) {
       let nearest = null, bestDist = BOARD_RADIUS;
       for (const b of _boats) {
         const d = Math.hypot(playerX - b.x, playerZ - b.z);
         if (d < bestDist) { bestDist = d; nearest = b; }
       }
-      if (nearest) { _activeBoat = nearest; _onBoat = true; _hasCastOff = false; playerY = BOAT_DECK_Y; vy = 0; }
+      if (nearest) { travel.boat = nearest; travel.onBoat = true; travel.hasCastOff = false; playerY = BOAT_DECK_Y; vy = 0; }
     }
   }
 

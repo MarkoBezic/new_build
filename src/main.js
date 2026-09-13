@@ -468,7 +468,7 @@ window.addEventListener('keydown', e => {
 // specific state wins.
 const K = (k, d) => `<b style="color:#FFD580">${k}</b> ${d}`;
 function contextKeys() {
-  if (isSwimming()) return [K('Look', 'swim'), K('Space', 'rise'), K('Z', 'surface')].join('  ·  ');
+  if (isSwimming()) return [K('WASD', 'swim'), K('Space / Q', 'up / down'), K('Z', 'return to boat')].join('  ·  ');
   if (isGliding())  return K('Look', 'steer your glide');
   if (isOnBoat())   return [K('F', 'fish'), K('Z', 'dive'), K('E', 'go ashore')].join('  ·  ');
   const b = biomeAt(playerPosition.x, playerPosition.z);
@@ -505,7 +505,9 @@ const chat = createChat({
     ]],
     ['On the water', [
       ['E', 'Board / leave a boat'], ['F', 'Cast / reel the fishing rod'],
-      ['Z', '🤿 Dive & surface (deep water)'],
+      ['Z', '🤿 Dive / return to boat (deep water)'],
+      ['WASD / arrows', 'Swim where you look (underwater)'],
+      ['Space / Q', 'Swim up / down'], ['Shift', 'Swim faster'],
     ]],
     ['Play & make', [
       ['G', '❄️ Throw a snowball (Icy Peaks)'], ['H', 'Hit the volleyball (near court)'],
@@ -522,7 +524,7 @@ const chat = createChat({
   ];
   const GROUPS_MOBILE = [
     ['Getting around', [['Joystick', 'Move / look'], ['🔥', 'Hearthstone home (once you own a plot)']]],
-    ['On the water', [['🎣', 'Cast / reel (on a boat)'], ['🤿', 'Dive (on a boat, deep water)']]],
+    ['On the water', [['🎣', 'Cast / reel (on a boat)'], ['🤿', 'Dive / return to boat'], ['Left drag', 'Swim'], ['Right drag', 'Aim up / down underwater']]],
     ['Play & make', [['🏐', 'Volleyball (near court)'], ['❄️', 'Snowball (Icy Peaks)'], ['📷', 'Photo']]],
     ['Menus', [['🗺', 'Map'], ['📖', 'Journal']]],
     ['Social', [['💬', 'Chat'], ['👋🎉👉🪑', 'Emotes']]],

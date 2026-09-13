@@ -3,7 +3,7 @@ import { makeBuilder } from './build.js';
 import { toast, makeMobileButton, ceremony } from './hud.js';
 import { save, load } from './persistence.js';
 import { bus } from './bus.js';
-import { isOnBoat, isSwimming, setSwimming, SEABED } from './player.js';
+import { isOnBoat, isSwimming, setSwimming, getSurfacePosition } from './player.js';
 
 // ── The Sunken Ruins ─────────────────────────────────────────────────────────
 // The ocean was a lid on the world: something to sail across and fish from,
@@ -160,13 +160,15 @@ export function createDiving(scene, { audio, playerPosition, teleport, getState,
     breath = BREATH_MAX;
     audio.sfx.splash();
     teleport(x + 2.2, z + 2.2, -1.2);
-    toast('🤿 You slip over the side.\nLook where you want to swim · SPACE to rise · Z to surface', 7000);
+    toast(isMobile
+      ? '🤿 Drag the left side to swim. Drag the right side to look up or down. Tap 🤿 to return to the boat.'
+      : '🤿 WASD / arrows to swim · Look up or down to steer\nSPACE to rise · Q to descend · Shift for speed · Z returns to your boat', 7000);
   }
 
   function surface() {
     if (!isSwimming()) return;
+    const { x, z } = getSurfacePosition(getState());
     setSwimming(false);
-    const { x, z } = getState();
     audio.sfx.splash();
     teleport(x, z, 0.3);
     breath = BREATH_MAX;
@@ -174,7 +176,7 @@ export function createDiving(scene, { audio, playerPosition, teleport, getState,
   }
 
   window.addEventListener('keydown', e => {
-    if (e.code !== 'KeyZ') return;
+    if (e.code !== 'KeyZ' || e.repeat) return;
     const tag = document.activeElement?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     dive();

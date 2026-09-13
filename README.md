@@ -21,6 +21,22 @@ WASD / arrows move; Shift sprints; Space jumps (hold while falling to use an
 unlocked glider); V switches camera; E interacts; J opens the journal;
 M opens the map; Escape releases mouse capture. Menu → Settings opens settings. M opens one island map; K goes directly to Journal → Daily. Opening a main panel releases the cursor and stops local movement. Back or Escape returns to the pause menu; Resume exploring returns to play.
 
+## Underwater exploration
+
+From a boat in deep water, press Z (or tap the dive button) to dive.
+Diving detaches your character from the boat so swimming does not snap you
+back to its position.
+
+- Desktop: WASD / arrows swim, mouse look steers, Space rises, Q descends,
+  and Shift swims faster. Forward/backward follow your viewing angle.
+- Touch: drag the left side to swim and the right side to aim, including up/down.
+- Z / the dive button returns you to your original boat. Running out of air
+  uses the same safe return. Your boat stays in place while you explore.
+
+Automated checks exercise the real desktop and touch player controllers with
+DOM event targets: boarding, diving, horizontal movement, desktop ascent/descent,
+and returning to the boat. A physical-device underwater playtest is still needed.
+
 ## Graphics
 
 Settings apply immediately and are saved on this browser:
@@ -65,7 +81,7 @@ clear queued jump input. Walking off a ledge correctly clears grounded state.
 
 ## Validation
 
-The production build and 25 regression tests pass, including navigation state,
+The production build and 30 regression tests pass, including navigation state,
 map marker grouping, movement input, camera collision and notification checks.
 Desktop entry, M → J switching, K → Daily, Escape → pause and a 390 × 844
 mobile-emulated entry/settings flow were checked in Chrome.
